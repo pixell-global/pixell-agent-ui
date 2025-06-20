@@ -1,0 +1,25 @@
+{
+  "name": "pixell-agent-framework",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "dev:web": "turbo dev --filter=web",
+    "dev:orchestrator": "turbo dev --filter=orchestrator",
+    "lint": "turbo lint",
+    "test": "turbo test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "turbo": "^2.5.4"
+  },
+  "packageManager": "npm@10.8.2"
+}
