@@ -32,6 +32,7 @@ import fs from 'fs-extra'
 import path from 'path'
 import execa from 'execa'
 import { useCLIStore } from '../stores/cli-store'
+import { ensureDockerForSupabase } from './docker'
 
 // Helper to detect the correct Supabase command
 function getSupabaseCommand(): string {
@@ -399,6 +400,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=${config.anonKey}
 
 async function startLocalSupabase() {
   try {
+    // Ensure Docker is installed and running before starting Supabase
+    await ensureDockerForSupabase()
+    
     console.log(chalk.blue('\n🐳 Starting local Supabase services...'))
     console.log(chalk.gray('This will start: PostgreSQL, Auth, Storage, Realtime, and Studio'))
     const supabaseCmd = getSupabaseCommand()
@@ -407,6 +411,9 @@ async function startLocalSupabase() {
       stdio: 'inherit' 
     })
   } catch (error) {
+    if (error instanceof Error && error.message.includes('Docker')) {
+      throw error // Docker-specific error, re-throw as is
+    }
     throw new Error('Failed to start local Supabase. Make sure Docker is running and try again.')
   }
 }

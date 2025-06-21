@@ -10,6 +10,7 @@ import { installExtension, listExtensions, uninstallExtension } from './commands
 import { initConfig, showConfig } from './commands/config'
 import { initStorage, showStorageStatus } from './commands/storage'
 import { initSupabase, stopSupabase, statusSupabase, resetSupabase, migrationsSupabase, manageEnvironments, editSupabaseSettings } from './commands/supabase'
+import { installDocker, dockerStatus, dockerStart, ensureDockerForSupabase } from './commands/docker'
 import { 
   listFiles, 
   copyFiles, 
@@ -176,6 +177,22 @@ program
   .description('Edit Supabase settings for managed environments')
   .option('--env <environment>', 'Edit settings for specific environment')
   .action((options) => editSupabaseSettings(options.env))
+
+// Docker management
+program
+  .command('docker-install')
+  .description('Install Docker (required for Supabase local development)')
+  .action(installDocker)
+
+program
+  .command('docker-status')
+  .description('Check Docker installation and running status (with option to start)')
+  .action(dockerStatus)
+
+program
+  .command('docker-start')
+  .description('Start Docker if installed (quick start without status check)')
+  .action(dockerStart)
 
 // ============================================
 // FILESYSTEM COMMANDS

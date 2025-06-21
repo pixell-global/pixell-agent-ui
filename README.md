@@ -26,20 +26,18 @@ This interactive command will:
 
 ### Step 3: Database Setup  
 ```bash
-# IMPORTANT: Make sure Docker is running first!
-docker ps
-
-# Complete Supabase setup with one command
+# The CLI will automatically check for Docker and install it if needed!
 npm run pixell supabase-init
 ```
 This will:
-- 🐳 Start Docker containers for Supabase
+- 🐳 **Auto-install Docker if not present** (new!)
+- 🚀 **Auto-start Docker if not running** (new!)
 - 🗄️ Initialize local Supabase instance
 - 📝 Apply database migrations
 - ✅ Verify connectivity  
 - 🚀 Get you ready to code
 
-**⚠️ If you get a Docker error:** Make sure Docker Desktop is installed and running before continuing.
+**✨ New!** The CLI now automatically handles Docker installation - no manual setup required!
 
 ### Start Development
 ```bash
@@ -61,7 +59,7 @@ Ensure you have the right versions before starting:
 |-------------|---------|----------------|
 | **Node.js** | 18.18.0+ or 20.x LTS | ⚠️ **18.16.x will NOT work** |
 | **npm** | 10.5.0+ | Comes with Node.js |
-| **Docker** | Latest | ⚠️ **Required for Supabase local development** |
+| **Docker** | Latest | ✨ **Auto-installed by CLI if needed** |
 | **Git** | Latest | For version control |
 
 **Quick version check:**
@@ -96,7 +94,19 @@ docker --version
 docker ps
 ```
 
-**⚠️ Important:** Docker must be running BEFORE you run `npm run pixell supabase-init`
+**✨ The Pixell CLI can now auto-install Docker for you!** Just run `npm run pixell supabase-init` and it will handle everything automatically.
+
+### 🐳 Docker Command Guide
+
+Choose the right Docker command for your situation:
+
+| Command | When to Use | What It Does |
+|---------|-------------|--------------|
+| `docker-install` | **First time setup** | Installs Docker on your system |
+| `docker-start` | **Daily development** | Quickly starts Docker (no prompts) |
+| `docker-status` | **Troubleshooting** | Shows detailed status + option to start |
+
+**💡 Pro Tip:** Use `docker-start` in your daily workflow and `docker-status` when something's not working.
 
 ---
 
@@ -112,6 +122,13 @@ npm run pixell env                    # Manage environments (START HERE)
 npm run pixell supabase-init         # Setup database  
 npm run pixell config-show           # View current config
 npm run pixell help                  # See all commands
+```
+
+**🐳 Docker Management (Auto-Installation & Start)**
+```bash
+npm run pixell docker-install        # Install Docker automatically
+npm run pixell docker-status         # Check status & optionally start Docker
+npm run pixell docker-start          # Start Docker quickly (no status check)
 ```
 
 **🗄️ Database Management**
@@ -264,11 +281,22 @@ open http://127.0.0.1:54323
 # 1. Check environment status
 npm run pixell config-show
 
-# 2. Check database status  
+# 2. Start Docker if needed (quick)
+npm run pixell docker-start
+
+# 3. Check database status  
 npm run pixell supabase-status
 
-# 3. Start development servers
+# 4. Start development servers
 npm run dev
+```
+
+**Alternative startup (with detailed status):**
+```bash
+# Check everything and start what's needed
+npm run pixell docker-status         # Interactive Docker check & start
+npm run pixell supabase-status       # Database status
+npm run dev                          # Start development
 ```
 
 **During development:**
@@ -441,6 +469,18 @@ docker run hello-world
 npm run pixell supabase-init
 ```
 
+**✨ Automatic Docker Management (New!):**
+```bash
+# Let the CLI install Docker for you
+npm run pixell docker-install
+
+# Quick start Docker (daily use)
+npm run pixell docker-start
+
+# Detailed status check (troubleshooting)
+npm run pixell docker-status
+```
+
 **Common Docker fixes:**
 - **Windows**: Make sure Docker Desktop is running (check system tray)
 - **Mac**: Make sure Docker Desktop is running (check menu bar)  
@@ -495,22 +535,28 @@ cat .env.local                     # ✅ Should show environment variables
 
 Now that your environment is set up:
 
-1. **🤖 Explore the Demo**
+1. **🐳 Daily Docker Management**
+   ```bash
+   npm run pixell docker-start      # Quick start for daily use
+   npm run pixell docker-status     # When troubleshooting
+   ```
+
+2. **🤖 Explore the Demo**
    ```bash
    curl http://localhost:4001/demo/reddit
    ```
 
-2. **📝 Check the Logs**
+3. **📝 Check the Logs**
    ```bash
    npm run pixell tail -f logs/development.log
    ```
 
-3. **🔍 Explore the Code**
+4. **🔍 Explore the Code**
    ```bash
    npm run pixell tree apps/orchestrator/src/
    ```
 
-4. **🧪 Test Multi-Agent Features**
+5. **🧪 Test Multi-Agent Features**
    - Visit the frontend at http://localhost:3003
    - Try the agent orchestration demo
    - Explore the database studio
