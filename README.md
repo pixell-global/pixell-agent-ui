@@ -26,14 +26,20 @@ This interactive command will:
 
 ### Step 3: Database Setup  
 ```bash
+# IMPORTANT: Make sure Docker is running first!
+docker ps
+
 # Complete Supabase setup with one command
 npm run pixell supabase-init
 ```
 This will:
+- 🐳 Start Docker containers for Supabase
 - 🗄️ Initialize local Supabase instance
 - 📝 Apply database migrations
 - ✅ Verify connectivity  
 - 🚀 Get you ready to code
+
+**⚠️ If you get a Docker error:** Make sure Docker Desktop is installed and running before continuing.
 
 ### Start Development
 ```bash
@@ -55,13 +61,42 @@ Ensure you have the right versions before starting:
 |-------------|---------|----------------|
 | **Node.js** | 18.18.0+ or 20.x LTS | ⚠️ **18.16.x will NOT work** |
 | **npm** | 10.5.0+ | Comes with Node.js |
+| **Docker** | Latest | ⚠️ **Required for Supabase local development** |
 | **Git** | Latest | For version control |
 
 **Quick version check:**
 ```bash
 node --version    # Should be 18.18.0+ or 20.x
 npm --version     # Should be 10.5.0+
+docker --version  # Should show Docker version
+docker ps         # Should connect to Docker daemon
 ```
+
+### 🐳 Docker Setup
+
+**Supabase requires Docker to run locally.** Make sure Docker is installed and running:
+
+**Windows/Mac:**
+1. Download [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+2. Install and start Docker Desktop
+3. Verify Docker is running: `docker ps`
+
+**Linux:**
+```bash
+# Install Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+
+# Start Docker service
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# Verify installation
+docker --version
+docker ps
+```
+
+**⚠️ Important:** Docker must be running BEFORE you run `npm run pixell supabase-init`
 
 ---
 
@@ -381,6 +416,36 @@ npm run pixell supabase-init
 # Check status
 npm run pixell supabase-status
 ```
+
+### Docker Issues
+
+**Error: "Failed to start local Supabase. Make sure Docker is running"**
+
+This error occurs when Docker is not installed or not running:
+
+```bash
+# 1. Check if Docker is installed
+docker --version
+
+# 2. Check if Docker is running  
+docker ps
+
+# 3. If Docker is not running, start it:
+# Windows/Mac: Start Docker Desktop application
+# Linux: sudo systemctl start docker
+
+# 4. Verify Docker is working
+docker run hello-world
+
+# 5. Try Supabase setup again
+npm run pixell supabase-init
+```
+
+**Common Docker fixes:**
+- **Windows**: Make sure Docker Desktop is running (check system tray)
+- **Mac**: Make sure Docker Desktop is running (check menu bar)  
+- **Linux**: Make sure Docker daemon is started: `sudo systemctl start docker`
+- **All platforms**: Try restarting Docker completely
 
 ### Environment Configuration Problems
 ```bash
