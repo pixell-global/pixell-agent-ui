@@ -1,32 +1,95 @@
 # Pixell Agent Framework
 
-A modern, scalable agent framework built with Next.js 15, React 19, and Zustand for state management. This framework provides a foundation for building intelligent agent systems with real-time communication and data persistence.
+A modern, scalable agent framework built with Next.js 15, React 19, and comprehensive CLI tools for agent development. This framework provides a foundation for building intelligent agent systems with real-time communication, data persistence, and powerful developer tooling.
 
-## ⚡ Quick Start for Contributors
+## ⚡ Quick Start (Recommended)
+
+Get up and running in 3 simple steps:
 
 ```bash
-# 1. Clone the repository
+# 1. Clone and install
 git clone <repository-url>
 cd pixell-agent-framework
+npm install
 
-# 2. One-command setup (installs deps + sets up Supabase)
-npm run setup
+# 2. Setup environment and database with CLI
+npm run pixell env                    # Create development environment
+npm run pixell supabase-init         # Setup Supabase database
 
 # 3. Start development
-npm start
-# OR individually:
-# npm run dev
-
-# 4. Check Supabase status anytime
-npm run supabase:status
+npm run dev
 ```
 
 **That's it!** Visit:
-- **Frontend**: http://localhost:3000
-- **Backend**: http://localhost:3001  
+- **Frontend**: http://localhost:3003
+- **Backend**: http://localhost:4001  
 - **Database Studio**: http://127.0.0.1:54323
 
-## 🚀 Quick Start
+## 🛠️ Pixell CLI - Your Development Assistant
+
+The Pixell CLI is a comprehensive toolkit that provides everything you need for agent development, including Unix-like filesystem commands, environment management, and database setup.
+
+### 📋 Available Commands
+
+Run `npm run pixell help` to see all available commands:
+
+#### 🏗️ Project & Environment Setup
+```bash
+npm run pixell create my-agent-app           # Create new agent application
+npm run pixell env                           # Manage development environments
+npm run pixell config-init                   # Initialize CLI configuration
+npm run pixell storage-init                  # Setup file storage
+```
+
+#### 🗄️ Database & Supabase Management
+```bash
+npm run pixell supabase-init                 # Complete Supabase setup
+npm run pixell supabase-status               # Check service status
+npm run pixell supabase-migrations           # Manage database migrations
+npm run pixell supabase-stop                 # Stop local services
+npm run pixell supabase-reset                # Reset database (⚠️ destructive)
+```
+
+#### 📁 File System Operations (Unix-like)
+```bash
+# Directory operations
+npm run pixell ls -la                        # List files with details
+npm run pixell mkdir -p myapp/src            # Create directories
+npm run pixell tree myapp/                   # Display directory structure
+
+# File operations
+npm run pixell cp -r project/ backup/       # Copy files/directories
+npm run pixell mv old.txt new.txt           # Move/rename files
+npm run pixell rm *.tmp                     # Remove files
+npm run pixell touch README.md              # Create/update files
+
+# File content
+npm run pixell cat package.json             # Display file contents
+npm run pixell head -20 logs/app.log        # Show first 20 lines
+npm run pixell tail -f logs/app.log         # Follow log file
+npm run pixell grep -rn "TODO" src/         # Search in files
+
+# Search and discovery
+npm run pixell find "*.ts" src/             # Find TypeScript files
+npm run pixell du -sh projects/             # Check disk usage
+npm run pixell stat myfile.txt              # File information
+```
+
+#### 🧩 Extensions & Workers
+```bash
+npm run pixell extensions-list              # List available extensions
+npm run pixell extensions-install auth      # Install extensions
+npm run pixell generate-worker analytics    # Generate worker agents
+npm run pixell deploy --platform docker     # Deploy applications
+```
+
+#### 💡 Getting Help
+```bash
+npm run pixell help                         # Show all commands
+npm run pixell <command> --help            # Command-specific help
+```
+
+## 🚀 Detailed Setup Guide
 
 ### Prerequisites
 
@@ -34,75 +97,59 @@ npm run supabase:status
 - **npm**: 10.5.0+
 - **Git**: Latest version
 
-### Version Requirements
-
 | Technology | Version | Notes |
 |------------|---------|-------|
 | Node.js | ^18.18.0 \|\| ^19.8.0 \|\| >= 20.0.0 | **Critical**: 18.16.x will NOT work |
 | Next.js | 15.1.6 | Latest stable with React 19 support |
 | React | 19.0.0+ | Stable version |
-| Zustand | 5.0.3+ | React 19 compatible |
-| TypeScript | 5.7.3+ | Latest stable |
 
-## 📋 Installation & Setup
-
-### 1. Clone and Setup
+### Step 1: Clone and Install
 
 ```bash
 git clone <repository-url>
 cd pixell-agent-framework
+npm install
 ```
 
-### 2. Install Dependencies
+### Step 2: Environment Setup with CLI
+
+The Pixell CLI makes environment management simple:
 
 ```bash
-# Install root dependencies
-npm install
-
-# Install web app dependencies
-cd apps/web
-npm install
-
-# Install orchestrator dependencies
-cd ../orchestrator
-npm install
-
-# Return to root
-cd ../..
+# Create your first development environment
+npm run pixell env
 ```
 
-### 3. Start Supabase (Database)
+This interactive command will:
+- 📋 Guide you through environment creation
+- 🏠 Set up local development environment
+- ☁️ Configure remote environments if needed
+- 🔄 Manage environment switching
+- ✅ Update your `.env.local` automatically
+
+### Step 3: Database Setup with CLI
 
 ```bash
-# Initialize and start local Supabase
-npx supabase start
+# Complete Supabase setup
+npm run pixell supabase-init
 ```
 
-This will start:
-- **Database**: `http://127.0.0.1:54321`
-- **Studio**: `http://127.0.0.1:54323`
+This command will:
+- 🗄️ Initialize local Supabase instance
+- 🔗 Connect to your managed environment
+- 📝 Apply database migrations
+- ✅ Verify connectivity
+- 🚀 Prepare for development
 
-### 4. Start Development Servers
+### Step 4: Start Development
 
-#### Option A: Start All Services Together
 ```bash
+# Start all services
 npm run dev
-```
 
-#### Option B: Start Services Individually
-
-**Frontend (Next.js)**:
-```bash
-# Terminal 1
-npm run dev:web
-# Runs on: http://localhost:3003
-```
-
-**Backend (Orchestrator)**:
-```bash
-# Terminal 2
-npm run dev:orchestrator
-# Runs on: http://localhost:4001
+# OR start services individually:
+npm run dev:web          # Frontend only (port 3003)
+npm run dev:orchestrator # Backend only (port 4001)
 ```
 
 ## 🌐 Service Endpoints
@@ -115,256 +162,135 @@ npm run dev:orchestrator
 | **Database** | http://127.0.0.1:54321 | Supabase local instance |
 | **DB Studio** | http://127.0.0.1:54323 | Supabase admin interface |
 
+## 📁 Workspace File Management
+
+The Pixell CLI includes comprehensive filesystem commands that work within your agent workspace:
+
+### Quick File Operations
+```bash
+# Project setup workflow
+npm run pixell mkdir -p myagent/{src,docs,tests}
+npm run pixell touch myagent/README.md
+npm run pixell tree myagent/
+
+# Development workflow  
+npm run pixell find "*.ts" -type f              # Find TypeScript files
+npm run pixell grep -i "error" logs/            # Search for errors
+npm run pixell tail -f logs/development.log     # Monitor logs
+npm run pixell du -sh projects/                 # Check project sizes
+```
+
+### Safe Operations
+- **Workspace isolation** - All operations contained within workspace
+- **Path validation** - Prevents access outside workspace boundaries  
+- **Interactive prompts** - Confirmation for destructive operations
+- **Progress indicators** - Visual feedback for long operations
+
+### Advanced Usage
+```bash
+# Batch operations
+npm run pixell cp -r templates/ new-project/
+npm run pixell find "*.js" | npm run pixell grep -l "deprecated"
+
+# Archive operations (requires system commands)
+npm run pixell zip backup.zip project/
+npm run pixell unzip backup.zip restore/
+
+# File monitoring and analysis
+npm run pixell stat important-file.txt
+npm run pixell head -50 logs/error.log
+```
+
+## 🌍 Environment Management
+
+Manage multiple development environments with ease:
+
+```bash
+# Environment lifecycle
+npm run pixell env                           # Interactive menu
+npm run pixell config-show                   # Show current configuration
+```
+
+### Environment Types
+
+**🏠 Local Development**
+- Pre-configured for local Supabase (localhost:54321)
+- Default development setup
+- Perfect for testing and development
+
+**☁️ Remote Environment**  
+- Custom database connections
+- Production/staging Supabase projects
+- Team collaboration environments
+
+### Environment Features
+
+- **🔄 Active Environment Switching** - Automatically updates `.env.local`
+- **🔒 Secure Configuration** - Encrypted storage of sensitive data
+- **📊 Connection Testing** - Verify environment connectivity
+- **⚖️ Environment Comparison** - Compare configurations across environments
+
+## 🗄️ Database & Migration Management
+
+Complete database lifecycle management:
+
+```bash
+# Migration workflow
+npm run pixell supabase-migrations           # Interactive migration menu
+npm run pixell supabase-status               # Check current status
+npm run pixell supabase-migrations -- --env staging  # Target specific environment
+```
+
+### Migration Features
+
+- **📋 Status Tracking** - View applied vs pending migrations
+- **🔄 Environment-Aware** - Apply migrations to any environment
+- **⚖️ Environment Comparison** - Compare migration status between environments
+- **📝 Interactive Creation** - Create new migrations with descriptions
+
 ## 🛠 Development Commands
 
 ```bash
-# Start all services
-npm run dev
+# Development workflow
+npm run dev                    # Start all services
+npm run build                  # Build for production
+npm run lint                   # Run linting
+npm run test                   # Run tests
 
-# Start specific services
-npm run dev:web          # Frontend only
-npm run dev:orchestrator # Backend only
+# Specific services
+npm run dev:web               # Frontend only
+npm run dev:orchestrator      # Backend only
 
-# Build for production
-npm run build
-
-# Run linting
-npm run lint
-
-# Run tests
-npm run test
+# Database management
+npm run supabase:status       # Check Supabase status
+npm run supabase:stop         # Stop local Supabase
 ```
-
-## 🔧 Pixell CLI
-
-The Pixell CLI provides developer tools for agent framework management. All commands can be run from the project root:
-
-### Supabase Management
-```bash
-# Setup Supabase (local or production)
-npm run supabase:init
-
-# Check Supabase service status  
-npm run supabase:status
-
-# Stop local Supabase services
-npm run supabase:stop
-
-# Reset local database (⚠️ destructive)
-npm run supabase:reset
-```
-
-### General CLI Usage
-```bash
-# Run any CLI command
-npm run pixell -- <command> [options]
-
-# Examples:
-npm run pixell -- create my-app              # Create new app
-npm run pixell -- generate-worker analytics  # Generate worker
-npm run pixell -- extensions-list            # List extensions
-npm run pixell -- config-show               # Show configuration
-```
-
-### CLI Help
-```bash
-# Show all available commands
-npm run pixell -- --help
-
-# Get help for specific command
-npm run pixell -- supabase-init --help
-```
-
-### For Frequent CLI Users
-If you're working heavily with the CLI, you can install it globally:
-```bash
-npm install -g ./packages/cli
-pixell --help  # Now available globally
-```
-
-## 🛠️ CLI Tools
-
-The Pixell CLI provides comprehensive tools for managing your agent development workflow:
-
-### Core Commands
-```bash
-# Framework commands
-npx pixell create my-agent-app          # Create new agent app
-npx pixell generate-worker 3            # Generate 3 worker agents
-npx pixell deploy --platform docker     # Deploy to production
-
-# Extension management
-npx pixell extensions-list              # List available extensions
-npx pixell extensions-install auth      # Install authentication extension
-
-# Configuration
-npx pixell config-init                  # Initialize CLI configuration
-npx pixell config-show                  # Show current settings
-```
-
-### 🌍 Environment Management
-
-Manage multiple development environments (local, staging, production, etc.) with full configuration support:
-
-```bash
-# Environment management
-npm run pixell env                       # Short command (recommended)
-npm run environments                     # Alternative full command
-npx pixell env                          # Direct CLI access (short)
-npx pixell environments                  # Direct CLI access (full)
-
-# Quick environment actions via the interactive menu:
-# 📋 List All Environments - View all configured environments
-# ➕ Add New Environment - Create local or remote environments
-# ✏️ Edit Environment - Modify name, description, and database settings
-# 🗑️ Delete Environment - Remove environments (with confirmation)
-# 🔄 Switch Active Environment - Change which environment is active
-# 📊 Test Environment Connection - Verify environment connectivity
-
-# Note: Supabase settings are managed via dedicated Supabase commands
-```
-
-#### Environment Types
-
-**🏠 Local Development**
-- Automatically configured for local Supabase (localhost:54321)
-- Uses default local database credentials
-- Perfect for development and testing
-
-**☁️ Remote Environment**
-- Custom database host, port, credentials
-- Production or staging Supabase projects
-- Flexible connection configuration
-
-#### Environment Configuration
-
-Each environment stores:
-- **Name & Description**: Custom identifiers (dev, staging, prod-v2, etc.)
-- **Database Settings**: Host, port, credentials, connection strings
-- **Supabase Configuration**: Project URL, anonymous keys
-- **Active Status**: Which environment is currently active
-- **Timestamps**: Creation and modification tracking
-
-#### Active Environment
-
-The active environment automatically:
-- ✅ Updates your `.env.local` file with correct URLs and keys
-- ✅ Used by default in migration commands
-- ✅ Shown with 🟢 indicator in environment lists
-- ✅ Applied to all CLI operations
-
-#### Environment Security
-
-🔒 **Secure by Design**:
-- Passwords masked during input
-- Service keys never displayed in output
-- Configuration stored locally in `.pixell/environments.json`
-- Connection strings properly formatted and protected
-
-### 🗄️ Database & Migrations
-
-Complete Supabase setup and migration management:
-
-```bash
-# Supabase setup
-npm run supabase:init                   # Complete Supabase setup
-npm run supabase:status                 # Check service status
-npm run supabase:stop                  # Stop local services
-npm run supabase:reset                 # Reset database
-
-# Migration management
-npm run supabase:migrations             # Interactive migration management
-npx pixell supabase-migrations         # Alternative way to run
-```
-
-#### Migration Features
-
-**📋 Migration Status & Tracking**
-- View all migrations with timestamps and descriptions
-- Check which migrations are applied vs pending
-- Compare migration status between any environments
-- File-system based tracking (works offline)
-
-**🔄 Environment-Aware Operations**
-- Apply migrations to any configured environment
-- Automatic environment selection from your configured environments
-- No more manual connection string entry
-- Smart local vs remote migration handling
-
-**⚖️ Environment Comparison**
-- Compare migration status between any two environments
-- Identify missing migrations and sync requirements
-- Generate sync plans for environment alignment
-- Visual diff showing environment discrepancies
-
-**📝 Migration Creation**
-- Interactive migration creation with descriptions
-- Automatic timestamp and naming
-- Integration with Supabase CLI migration tools
-
-### Storage Setup
-```bash
-npm run storage:init                    # Setup file storage
-npm run storage:status                  # Check storage config
-```
-
-### Quick Start for Contributors
-
-Set up the entire development environment in 3 commands:
-
-```bash
-npm install                             # Install dependencies
-npm run setup                          # Complete environment setup
-npm start                              # Start development (web + orchestrator)
-```
-
-The `npm run setup` command will:
-1. 🔧 Install all dependencies
-2. 🗄️ Initialize Supabase (with options for local/production)
-3. 🌍 Create your first environment configuration
-4. ✅ Set up database migrations
-5. 🚀 Prepare the development environment
-
-### Help & Discovery
-
-```bash
-npx pixell --help                       # Show all available commands
-npx pixell <command> --help             # Get help for specific command
-
-# Interactive help
-npm run pixell env                      # Environment management menu
-npm run supabase:migrations             # Migration management menu
-```
-
-### Optional Global Installation
-
-For frequent CLI usage, you can install globally:
-
-```bash
-npm install -g @pixell/cli               # Install globally
-pixell --help                           # Use directly without npx
-```
-
-**Note**: Project-level commands (`npm run`) work without global installation and are recommended for consistent contributor experience.
 
 ## 📁 Project Structure
 
 ```
 pixell-agent-framework/
 ├── apps/
-│   ├── web/                 # Next.js 15 frontend
+│   ├── web/                    # Next.js 15 frontend
 │   │   ├── src/
-│   │   │   ├── app/         # App router pages
-│   │   │   └── components/  # Reusable components
+│   │   │   ├── app/           # App router pages
+│   │   │   ├── components/    # Reusable components
+│   │   │   └── lib/           # Utilities and configurations
 │   │   └── package.json
-│   └── orchestrator/        # Express.js backend
+│   └── orchestrator/          # Express.js backend
 │       ├── src/
-│       │   └── index.ts     # Main server file
+│       │   ├── core/          # Core agent functionality
+│       │   └── index.ts       # Main server file
 │       └── package.json
-├── packages/                # Shared packages (future)
-├── supabase/               # Database schema & config
-├── turbo.json              # Monorepo configuration
-└── package.json            # Root workspace config
+├── packages/
+│   ├── cli/                   # Pixell CLI tools
+│   ├── protocols/             # Agent communication protocols
+│   ├── file-storage/          # File storage management
+│   └── workers/               # Worker agent implementations
+├── supabase/                  # Database schema & migrations
+├── .pixell/                   # CLI configuration (auto-generated)
+├── turbo.json                 # Monorepo configuration
+└── package.json               # Root workspace config
 ```
 
 ## 🔧 Technology Stack
@@ -381,15 +307,17 @@ pixell-agent-framework/
 - **Express.js** - Web server framework
 - **TypeScript** - Type-safe server development
 - **WebSocket (ws)** - Real-time communication
-- **AWS SDK** - Cloud integrations (Bedrock, Lambda)
+- **AWS SDK** - Cloud integrations
 
 ### Database & Real-time
 - **Supabase** - PostgreSQL with real-time subscriptions
 - **TanStack Query** - Server state management
 
-### DevOps
+### CLI & DevOps
+- **Commander.js** - CLI framework
+- **Inquirer.js** - Interactive prompts
+- **Chalk** - Colored terminal output
 - **Turbo** - Monorepo build system
-- **npm** - Package management
 
 ## ⚠️ Common Issues & Solutions
 
@@ -409,112 +337,119 @@ nvm alias default 20
 node --version  # Should be 20.x.x
 ```
 
-### Port Conflicts
-If you see port conflicts (3000, 3001 in use):
-
-**Solution**: The services are configured to use specific ports:
-- Frontend: Port 3003
-- Backend: Port 4001
-- Database: Port 54321
-
-### Supabase Not Starting
+### CLI Command Not Found
 ```bash
-# Stop and restart Supabase
-npx supabase stop
-npx supabase start
+# If npm run pixell commands fail, try:
+npm install                              # Reinstall dependencies
+npm run build --workspace=@pixell/cli    # Rebuild CLI
 ```
 
-## 🔍 Verification
+### Supabase Connection Issues
+```bash
+# Reset Supabase if connection fails
+npm run pixell supabase-stop
+npm run pixell supabase-reset
+npm run pixell supabase-init
+```
 
-### Health Checks
+### Environment Configuration Issues
+```bash
+# Reset environment configuration
+npm run pixell config-init
+npm run pixell env                       # Recreate environments
+```
 
-1. **Frontend**: Visit http://localhost:3003
-   - Should show "Pixell Agent Framework" with "Phase 0 Setup Complete"
+## 🔍 Verification & Health Checks
 
-2. **Backend**: 
-   ```bash
-   curl http://localhost:4001/health
-   # Should return: {"status":"ok","message":"Pixell Agent Framework Orchestrator"}
-   ```
+### 1. CLI Health Check
+```bash
+npm run pixell help                      # Should show all commands
+npm run pixell config-show               # Should show configuration
+npm run pixell ls                        # Should list workspace files
+```
 
-3. **Database**: Visit http://127.0.0.1:54323
-   - Should show Supabase Studio interface
+### 2. Service Health Checks
+```bash
+# Frontend
+curl http://localhost:3003               # Should return HTML
+
+# Backend  
+curl http://localhost:4001/health        # Should return JSON status
+
+# Database
+npm run pixell supabase-status           # Should show service status
+```
+
+### 3. Environment Verification
+```bash
+npm run pixell env                       # Should show configured environments
+cat .env.local                          # Should show active environment vars
+```
 
 ## 🚦 Development Status
 
 - ✅ **Phase 0**: Package Installation & Build Verification (COMPLETE)
-- 🔄 **Phase 1**: Core Implementation (READY TO START)
+- ✅ **CLI Tools**: Comprehensive filesystem and environment management (COMPLETE)
+- 🔄 **Phase 1**: Core Agent Implementation (READY TO START)
 
 ## 📝 Next Steps
 
-With Phase 0 complete, you can now:
+With the enhanced CLI and setup complete, you can now:
 
-1. **Start Phase 1 Implementation** - Begin building core features
-2. **Customize UI Components** - Modify the frontend interface
-3. **Add API Endpoints** - Extend the orchestrator with new routes
-4. **Configure Database** - Set up your data schemas in Supabase
+1. **🚀 Start Building Agents** - Use the CLI to scaffold new agents
+2. **📁 Manage Your Workspace** - Use filesystem commands for efficient development
+3. **🌍 Configure Environments** - Set up staging and production environments
+4. **🗄️ Database Development** - Create and manage migrations
+5. **🧩 Extend Functionality** - Install and develop extensions
+
+## 🎯 Pro Tips
+
+### Efficient Development Workflow
+```bash
+# Morning startup routine
+npm run pixell supabase-status           # Check database
+npm run dev                              # Start development
+
+# File management during development
+npm run pixell find "*.ts" | head -10    # Find recent TypeScript files
+npm run pixell tail -f logs/app.log      # Monitor application logs
+npm run pixell tree src/ | head -20      # Quick project overview
+
+# End of day cleanup
+npm run pixell find "*.tmp" -delete      # Clean temporary files
+npm run pixell supabase-stop             # Stop database
+```
+
+### Team Collaboration
+```bash
+# Share environment configuration
+npm run pixell env                       # Export environment settings
+npm run pixell supabase-migrations       # Sync database changes
+
+# Code organization
+npm run pixell mkdir -p features/{auth,dashboard,agents}
+npm run pixell cp templates/ new-feature/
+```
 
 ## 🤝 Contributing
 
-1. Ensure all services start without errors
-2. Follow the existing code structure
-3. Use TypeScript for type safety
-4. Test endpoints before committing
+1. **Setup**: Follow the Quick Start guide above
+2. **CLI**: Use `npm run pixell help` to discover available tools
+3. **Code Style**: Follow TypeScript best practices
+4. **Testing**: Verify all services start without errors
+5. **File Management**: Use CLI filesystem commands for consistency
 
 ## 📞 Support
 
 If you encounter issues:
 
-1. Check the **Common Issues** section above
-2. Verify all **Prerequisites** are met
-3. Ensure **Node.js version** is 18.18.0 or higher
-4. Check that all **ports are available**
+1. **Check CLI Help**: `npm run pixell help` and command-specific help
+2. **Verify Prerequisites**: Ensure Node.js 18.18.0+ is installed
+3. **Reset Environment**: Use CLI reset commands for clean state
+4. **Check Service Status**: Verify all endpoints are responding
+
+For detailed filesystem command documentation, see `packages/cli/FILESYSTEM_COMMANDS.md`.
 
 ---
 
-**Ready to build intelligent agents!** 🚀 
-
-#### 🗄️  Supabase Commands
-
-Set up and manage Supabase database, authentication, and storage. All Supabase configurations are now integrated with managed environments.
-
-**Available Commands:**
-```bash
-npm run supabase:init          # Complete Supabase setup for environments
-npm run supabase:init -- --env <name>  # Configure specific environment directly
-npm run supabase:edit          # Edit Supabase settings for environments  
-npm run supabase:edit -- --env <name>  # Edit specific environment directly
-npm run supabase:status        # Check Supabase service status
-npm run supabase:status -- --env <name>  # Check specific environment status
-npm run supabase:stop          # Stop local Supabase services
-npm run supabase:reset         # Reset local Supabase database
-npm run supabase:migrations    # Manage database migrations
-npm run supabase:migrations -- --env <name>  # Use specific environment for migrations
-```
-
-**Environment-Specific Commands:**
-- **Direct Environment Access**: Use `--env <name>` to target specific environments
-- **Status Checking**: `npm run supabase:status -- --env dev` shows dev environment status
-- **Configuration**: `npm run supabase:init -- --env staging` configures staging directly
-- **Error Handling**: Shows available environments if specified environment doesn't exist
-- **Connection Testing**: Tests actual connectivity for local/remote environments
-
-**Environment Integration:**
-- **🔗 Environment Dependency**: Supabase settings require managed environments to exist first
-- **🎯 Environment Selection**: Choose which environment to configure Supabase for
-- **⚡ Auto-Configuration**: Active environment settings update `.env.local` automatically
-- **🔒 Secure Storage**: All settings stored in managed environment configuration
-- **🔄 Easy Switching**: Change environments and Supabase config switches too
-
-**Clear Workflow:**
-1. **Create environments** with `npm run pixell env` (environment management only)
-2. **Configure Supabase** with `npm run supabase:init` (requires environments to exist)
-3. **Switch environments** with `npm run pixell env` (automatically updates Supabase config)
-4. **Check status** with `npm run supabase:status -- --env <name>` (environment-specific)
-
-**Key Design Principle:**
-- **Environment Management**: `npm run pixell env` handles environment lifecycle only
-- **Supabase Configuration**: `npm run supabase:init` handles all Supabase setup
-- **Foreign Key Relationship**: Supabase cannot be configured without managed environments
-- **Single Source of Truth**: One command for each responsibility
-- **Direct Access**: Use `--env` flags for quick environment-specific operations
+**Ready to build intelligent agents with powerful CLI tools!** 🚀🛠️
