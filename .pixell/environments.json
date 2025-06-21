@@ -1,0 +1,35 @@
+{
+  "environments": [
+    {
+      "name": "local",
+      "type": "local",
+      "database": {
+        "host": "127.0.0.1",
+        "port": 54322,
+        "user": "postgres",
+        "password": "postgres",
+        "database": "postgres"
+      },
+      "supabase": {
+        "projectUrl": "http://127.0.0.1:54321",
+        "anonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
+      },
+      "description": "",
+      "isActive": true,
+      "createdAt": "2025-06-20T18:25:01.493Z",
+      "updatedAt": "2025-06-20T18:25:24.505Z"
+    },
+    {
+      "name": "dev",
+      "type": "remote",
+      "database": {},
+      "supabase": {
+        "projectUrl": "https://nuictsxpsfnhdblmyqam.supabase.co",
+        "anonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51aWN0c3hwc2ZuaGRibG15cWFtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA0NDQ0MDYsImV4cCI6MjA2NjAyMDQwNn0.b4C8voFadNoYOyb71xX0HQM0Ky07lKo7MNPLH66NLn8"
+      },
+      "isActive": false,
+      "createdAt": "2025-06-20T18:48:07.291Z",
+      "updatedAt": "2025-06-20T18:54:15.151Z"
+    }
+  ]
+}

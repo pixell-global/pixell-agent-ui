@@ -17,28 +17,14 @@ export default function HomePage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
           <p className="mt-4 text-muted-foreground">Loading Pixell Agent Framework...</p>
+          <div className="mt-2 text-sm text-green-600 font-medium">
+            🎉 Phase 2: Multi-Agent Orchestration
+          </div>
         </div>
       </div>
     )
   }
 
-  // For Phase 1 demo, show workspace without authentication
-  // if (!user) {
-  //   return (
-  //     <div className="h-screen flex items-center justify-center">
-  //       <div className="text-center max-w-md">
-  //         <h1 className="text-2xl font-bold mb-4">Welcome to Pixell Agent Framework</h1>
-  //         <p className="text-muted-foreground mb-6">
-  //           Please log in to start building and orchestrating AI agent workflows.
-  //         </p>
-  //         <div className="text-sm text-muted-foreground">
-  //           <p>Authentication will be implemented in the next phase.</p>
-  //           <p className="mt-2">For now, the demo runs without authentication.</p>
-  //         </div>
-  //       </div>
-  //     </div>
-  //   )
-  // }
-
+  // Phase 2 demo runs with multi-agent orchestration
   return <AgentWorkspaceLayout />
 }
