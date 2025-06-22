@@ -45,11 +45,11 @@ export async function GET(request: NextRequest) {
         )
       }
       
-      // Check file size limit (100KB for content reading)
-      const maxSize = 100 * 1024 // 100KB
+      // Check file size limit (10MB for content reading)
+      const maxSize = 10 * 1024 * 1024 // 10MB
       if (stats.size > maxSize) {
         return NextResponse.json(
-          { success: false, error: `File too large to read (max ${maxSize / 1024}KB)` },
+          { success: false, error: `File too large to read (max ${maxSize / (1024 * 1024)}MB)` },
           { status: 400 }
         )
       }

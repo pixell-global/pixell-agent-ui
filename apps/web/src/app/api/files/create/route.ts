@@ -13,8 +13,36 @@ const getWorkspacePath = () => {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { path: filePath, content = '', type } = body
+    let filePath: string
+    let content: string = ''
+    let type: string = 'file'
+    let uploadedFile: File | null = null
+
+    const contentType = request.headers.get('content-type')
+    
+    if (contentType?.includes('multipart/form-data')) {
+      // Handle FormData for file uploads
+      const formData = await request.formData()
+      const file = formData.get('file') as File
+      const pathFromForm = formData.get('path') as string
+      
+      if (file && pathFromForm) {
+        uploadedFile = file
+        filePath = path.join(pathFromForm, file.name)
+        type = 'file'
+      } else {
+        return NextResponse.json(
+          { success: false, error: 'File and path are required for file upload' },
+          { status: 400 }
+        )
+      }
+    } else {
+      // Handle JSON for regular file/folder creation
+      const body = await request.json()
+      filePath = body.path
+      content = body.content || ''
+      type = body.type || 'file'
+    }
     
     if (!filePath) {
       return NextResponse.json(
@@ -53,8 +81,12 @@ export async function POST(request: NextRequest) {
         const parentDir = path.dirname(fullPath)
         await fs.ensureDir(parentDir)
         
-        // Create the file with content
-        if (content) {
+        if (uploadedFile) {
+          // Handle file upload
+          const buffer = Buffer.from(await uploadedFile.arrayBuffer())
+          await fs.writeFile(fullPath, buffer)
+        } else if (content) {
+          // Create file with text content
           await fs.writeFile(fullPath, content, 'utf-8')
         } else {
           // Use touch command for empty file

@@ -67,7 +67,27 @@ interface RemoveOptions {
 
 // Get workspace root path
 function getWorkspacePath(): string {
-  return process.env.STORAGE_LOCAL_PATH || path.join(process.cwd(), 'workspace-files')
+  if (process.env.STORAGE_LOCAL_PATH) {
+    return process.env.STORAGE_LOCAL_PATH
+  }
+  
+  // Look for workspace-files in common locations
+  const cwd = process.cwd()
+  const possiblePaths = [
+    path.join(cwd, 'workspace-files'),
+    path.join(cwd, 'apps/web/workspace-files'),
+    path.join(cwd, '../web/workspace-files'),
+    path.join(cwd, '../../apps/web/workspace-files')
+  ]
+  
+  for (const possiblePath of possiblePaths) {
+    if (fs.existsSync(possiblePath)) {
+      return possiblePath
+    }
+  }
+  
+  // Default fallback
+  return path.join(cwd, 'workspace-files')
 }
 
 // Resolve relative paths within workspace

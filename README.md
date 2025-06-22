@@ -13,21 +13,27 @@ cd pixell-agent-framework
 npm install
 ```
 
-### Step 2: Environment Setup
+### Step 2: Complete Setup (Auto-Install CLI!)
 ```bash
-# Let the CLI guide you through environment setup
-npm run pixell env
+# Complete setup - installs dependencies, links CLI globally, and sets up environment
+npm run setup
 ```
-This interactive command will:
-- 🏠 Create your local development environment  
-- 🔧 Configure database connections
+This comprehensive setup will:
+- 📦 Install all dependencies  
+- 🔗 **Link `pixell` command globally** (new!)
+- 🏠 Guide you through environment creation
+- 🔧 Configure database connections  
 - ✅ Update your `.env.local` automatically
 - 🎯 Set everything up for you
+
+**✨ After setup, you can use `pixell` directly instead of `npm run pixell`!**
 
 ### Step 3: Database Setup  
 ```bash
 # The CLI will automatically check for Docker and install it if needed!
-npm run pixell supabase-init
+# After setup, you can use either command:
+pixell supabase-init              # Direct command (after setup)
+npm run pixell supabase-init     # Traditional way (always works)
 ```
 This will:
 - 🐳 **Auto-install Docker if not present** (new!)
@@ -41,7 +47,14 @@ This will:
 
 ### Start Development
 ```bash
-npm run dev
+# Smart project startup with environment validation (after setup)
+pixell start --env local
+
+# Or using npm (always works)
+npm run pixell start --env local
+
+# Default is local environment if no --env specified
+pixell start
 ```
 
 **🎉 You're ready!** Visit:
@@ -94,7 +107,45 @@ docker --version
 docker ps
 ```
 
-**✨ The Pixell CLI can now auto-install Docker for you!** Just run `npm run pixell supabase-init` and it will handle everything automatically.
+**✨ The Pixell CLI can now auto-install Docker for you!** Just run `pixell supabase-init` (after setup) and it will handle everything automatically.
+
+### 🔗 CLI Global Installation
+
+The setup process automatically makes `pixell` available as a global command:
+
+```bash
+npm run setup                    # Links pixell globally
+pixell help                      # Now works directly!
+```
+
+**What happens during setup:**
+1. 📦 Installs all dependencies
+2. 🔗 Links `pixell` command globally via `npm link`
+3. 🌍 Guides you through environment creation
+4. 🗄️ Sets up database configuration
+
+**After setup, you can use:**
+- `pixell start --env local` (direct command)
+- `npm run pixell start --env local` (traditional way)
+
+Both work the same way!
+
+### 📋 Alternative Setup Commands
+
+If you need more control over the setup process:
+
+```bash
+npm run setup:install            # Just install dependencies
+npm run setup:link               # Just link CLI globally  
+npm run setup:env                # Just setup environment & database
+npm run setup:quick              # Install + link CLI (skip database setup)
+```
+
+**For quick CLI access without full setup:**
+```bash
+npm run setup:quick              # Fast: install deps + link CLI
+pixell help                      # Ready to use!
+```
 
 ### 🐳 Docker Command Guide
 
@@ -118,10 +169,16 @@ The Pixell CLI is your one-stop tool for agent development. It handles everythin
 
 **🏗️ Setup & Configuration**
 ```bash
-npm run pixell env                    # Manage environments (START HERE)
-npm run pixell supabase-init         # Setup database  
-npm run pixell config-show           # View current config
-npm run pixell help                  # See all commands
+# After running 'npm run setup', use pixell directly:
+pixell env                           # Manage environments (START HERE)
+pixell supabase-init                 # Setup database  
+pixell config-ai                     # Configure AI runtime and credentials (NEW!)
+pixell start --env local             # Smart project startup with AI
+pixell config-show                   # View current config
+pixell help                          # See all commands
+
+# Traditional way (always works):
+npm run pixell env                   # Alternative syntax
 ```
 
 **🐳 Docker Management (Auto-Installation & Start)**
@@ -276,7 +333,23 @@ open http://127.0.0.1:54323
 
 ### Daily Development Routine
 
-**Morning startup:**
+**Morning startup (New Smart Way!):**
+```bash
+# One command does it all! 🚀 (after running setup)
+pixell start --env local
+
+# Or traditional way
+npm run pixell start --env local
+```
+
+**This single command will:**
+- ✅ Validate your environment exists
+- ✅ Check Supabase configuration
+- ✅ Verify Docker is running (starts if needed)
+- ✅ Launch the development servers
+- ✅ Show you exactly what's happening
+
+**Traditional startup (still works):**
 ```bash
 # 1. Check environment status
 npm run pixell config-show
@@ -289,14 +362,6 @@ npm run pixell supabase-status
 
 # 4. Start development servers
 npm run dev
-```
-
-**Alternative startup (with detailed status):**
-```bash
-# Check everything and start what's needed
-npm run pixell docker-status         # Interactive Docker check & start
-npm run pixell supabase-status       # Database status
-npm run dev                          # Start development
 ```
 
 **During development:**
@@ -522,6 +587,107 @@ cat .env.local                     # ✅ Should show environment variables
 
 ---
 
+## 🚀 New: Smart Project Startup
+
+**The Pixell CLI now includes a powerful `start` command that handles everything for you!**
+
+### 🤖 Multi-Provider AI Configuration Guide
+
+**Configure multiple AI providers for maximum flexibility:**
+
+```bash
+# Interactive multi-provider AI setup
+pixell config-ai
+```
+
+**🚀 Quick Setup (Recommended for beginners):**
+- **OpenAI (Default)**: GPT-4o, GPT-4o Mini, o1-preview, o1-mini
+  - Just need an OpenAI API key from https://platform.openai.com/api-keys
+  - Best for getting started quickly
+
+**⚙️ Advanced Setup (Multiple providers):**
+- **🧠 OpenAI**: GPT-4o, GPT-4o Mini, o1 models
+- **🎭 Anthropic**: Claude 3.5 Sonnet, Claude 3.5 Haiku, Claude 3 Opus  
+- **🏗️ AWS Bedrock**: Multiple models via AWS (Claude, Llama, etc.)
+- **☁️ Azure OpenAI**: Enterprise GPT models with Azure infrastructure
+- **🔍 Google AI**: Gemini 1.5 Pro, Gemini 1.5 Flash
+
+**✨ Multi-Provider Benefits:**
+- **Fallback/Redundancy**: If one provider is down, use another
+- **Model Specialization**: Different models excel at different tasks
+- **Cost Optimization**: Use cheaper models for simple tasks
+- **Runtime Switching**: Change models dynamically in your application
+
+**The command will:**
+1. Guide you through provider selection
+2. Configure multiple providers simultaneously  
+3. Set a default provider for your application
+4. Write all credentials to `.env.local`
+5. Enable runtime model switching
+
+### ✨ What `pixell start` Does
+
+```bash
+# Direct command (after setup and AI config)
+pixell start --env local
+
+# Or traditional way
+npm run pixell start --env local
+```
+
+**This single command performs a complete startup sequence:**
+
+1. **🔍 Environment Validation**
+   - Checks if the specified environment exists
+   - Displays environment configuration details
+   - Lists available environments if the specified one doesn't exist
+
+2. **🗄️ Supabase Setup Verification**
+   - For **local** environments: Verifies local Supabase is initialized
+   - For **remote** environments: Validates connection credentials
+   - Aborts with clear instructions if setup is incomplete
+
+3. **🐳 Docker Management**
+   - Checks if Docker is installed
+   - Offers to install Docker automatically if missing
+   - Starts Docker if installed but not running
+   - Waits for Docker to be ready before proceeding
+
+4. **🎯 Project Launch**
+   - Maps environment to appropriate npm script
+   - Shows service URLs that will be available
+   - Starts the development servers
+
+### 🌍 Environment Support
+
+```bash
+# Local development (default) - after setup
+pixell start
+pixell start --env local
+
+# Staging environment
+pixell start --env staging
+
+# Production environment  
+pixell start --env production
+
+# Any custom environment you've created
+pixell start --env my-custom-env
+
+# Traditional syntax (always works)
+npm run pixell start --env local
+```
+
+### 🎯 Benefits
+
+- **⚡ One Command Setup**: No more running multiple commands
+- **🛡️ Validation First**: Catches configuration issues before starting
+- **🤖 Auto-Installation**: Installs Docker if needed
+- **📊 Clear Feedback**: Shows exactly what's happening at each step
+- **🚨 Smart Error Handling**: Provides actionable error messages
+
+---
+
 ## 🚦 Development Phases
 
 - ✅ **Phase 0**: Setup & Infrastructure (COMPLETE)
@@ -535,31 +701,46 @@ cat .env.local                     # ✅ Should show environment variables
 
 Now that your environment is set up:
 
-1. **🐳 Daily Docker Management**
+1. **🤖 Configure AI (Required for Chat Features)**
    ```bash
-   npm run pixell docker-start      # Quick start for daily use
-   npm run pixell docker-status     # When troubleshooting
+   pixell config-ai                  # Configure AWS Strand or OpenAI
    ```
 
-2. **🤖 Explore the Demo**
+2. **🚀 Start Development**
+   ```bash
+   pixell start --env local          # All-in-one startup command (after setup)
+   pixell start                      # Uses local env by default
+   
+   # Or traditional way:
+   npm run pixell start --env local  # Alternative syntax
+   ```
+
+3. **🤖 Explore the Demo**
    ```bash
    curl http://localhost:4001/demo/reddit
    ```
 
-3. **📝 Check the Logs**
+4. **📝 Check the Logs**
    ```bash
    npm run pixell tail -f logs/development.log
    ```
 
-4. **🔍 Explore the Code**
+5. **🔍 Explore the Code**
    ```bash
    npm run pixell tree apps/orchestrator/src/
    ```
 
-5. **🧪 Test Multi-Agent Features**
+6. **🧪 Test AI Chat Features**
    - Visit the frontend at http://localhost:3003
-   - Try the agent orchestration demo
+   - Try the AI-powered chat workspace
+   - Test real AI responses with your configured runtime
    - Explore the database studio
+
+7. **🌍 Multi-Environment Development**
+   ```bash
+   pixell start --env staging           # Start with staging env
+   pixell start --env production        # Start with production env
+   ```
 
 ---
 

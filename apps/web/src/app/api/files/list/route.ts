@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import path from 'path'
+import fs from 'fs-extra'
 
 const execAsync = promisify(exec)
 
@@ -10,35 +11,46 @@ const getWorkspacePath = () => {
   return process.env.STORAGE_LOCAL_PATH || path.join(process.cwd(), 'workspace-files')
 }
 
-// Convert filesystem output to FileNode structure
-const parseFileList = (output: string, basePath: string) => {
-  const lines = output.split('\n').filter(line => line.trim())
+// Recursively read directory structure
+const readDirectoryRecursive = async (dirPath: string, relativePath: string = ''): Promise<any[]> => {
   const files = []
   
-  for (const line of lines) {
-    // Parse ls -la output: permissions size date time name
-    const parts = line.trim().split(/\s+/)
-    if (parts.length < 9) continue
+  try {
+    const items = await fs.readdir(dirPath, { withFileTypes: true })
     
-    const permissions = parts[0]
-    const size = parseInt(parts[4]) || 0
-    const name = parts.slice(8).join(' ')
-    
-    if (name === '.' || name === '..') continue
-    
-    const isDirectory = permissions.startsWith('d')
-    const filePath = basePath === '/' ? `/${name}` : `${basePath}/${name}`
-    
-    files.push({
-      id: Buffer.from(filePath).toString('base64'),
-      name,
-      path: filePath,
-      type: isDirectory ? 'folder' : 'file',
-      size: isDirectory ? undefined : size,
-      lastModified: new Date().toISOString(), // Would need more parsing for actual date
-      children: isDirectory ? [] : undefined,
-      isExpanded: false
-    })
+    for (const item of items) {
+      if (item.name.startsWith('.') && item.name !== '.temp') continue // Skip hidden files except .temp
+      
+      const itemPath = path.join(dirPath, item.name)
+      const itemRelativePath = relativePath ? `${relativePath}/${item.name}` : item.name
+      const stats = await fs.stat(itemPath)
+      
+      const fileNode = {
+        id: Buffer.from(itemRelativePath).toString('base64'),
+        name: item.name,
+        path: `/${itemRelativePath}`,
+        type: item.isDirectory() ? 'folder' : 'file',
+        size: item.isDirectory() ? undefined : stats.size,
+        lastModified: stats.mtime.toISOString(),
+        isExpanded: false,
+        children: undefined as any
+      }
+      
+      // Recursively load children for directories
+      if (item.isDirectory()) {
+        try {
+          const children = await readDirectoryRecursive(itemPath, itemRelativePath)
+          fileNode.children = children
+        } catch (error) {
+          console.error(`Error reading directory ${itemPath}:`, error)
+          fileNode.children = []
+        }
+      }
+      
+      files.push(fileNode)
+    }
+  } catch (error) {
+    console.error(`Error reading directory ${dirPath}:`, error)
   }
   
   return files
@@ -46,31 +58,31 @@ const parseFileList = (output: string, basePath: string) => {
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const folderPath = searchParams.get('path') || '/'
     const workspacePath = getWorkspacePath()
     
-    // Use the filesystem CLI ls command
-    const targetPath = folderPath === '/' ? workspacePath : path.join(workspacePath, folderPath)
+    // Check if workspace directory exists
+    if (!(await fs.pathExists(workspacePath))) {
+      return NextResponse.json({
+        success: true,
+        files: [],
+        path: '/'
+      })
+    }
     
     try {
-      const { stdout } = await execAsync(`ls -la "${targetPath}"`, {
-        cwd: workspacePath
-      })
-      
-      const files = parseFileList(stdout, folderPath)
+      const files = await readDirectoryRecursive(workspacePath)
       
       return NextResponse.json({
         success: true,
         files,
-        path: folderPath
+        path: '/'
       })
     } catch (error) {
-      // If directory doesn't exist, return empty array
+      console.error('Error reading workspace directory:', error)
       return NextResponse.json({
         success: true,
         files: [],
-        path: folderPath
+        path: '/'
       })
     }
   } catch (error) {

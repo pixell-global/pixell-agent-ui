@@ -22,8 +22,13 @@
     "supabase:stop": "npm run cli -- supabase-stop",
     "supabase:reset": "npm run cli -- supabase-reset",
     "supabase:migrations": "npm run cli -- supabase-migrations",
-    "setup": "npm install && npm run supabase:init",
-    "start": "npm run dev"
+    "setup": "npm run setup:install && npm run setup:link && npm run setup:env",
+    "setup:install": "npm install",
+    "setup:link": "cd packages/cli && npm link",
+    "setup:env": "npm run cli -- supabase-init",
+    "setup:quick": "npm install && cd packages/cli && npm link",
+    "start": "npm run dev",
+    "pixell:start": "npm run cli -- start"
   },
   "keywords": [],
   "author": "",

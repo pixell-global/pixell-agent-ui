@@ -3,6 +3,12 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { runPhase2Demo } from './demo/phase2-demo';
+import { streamChatHandler, healthHandler } from './api/chat';
+import { config } from 'dotenv';
+import { resolve } from 'path';
+
+// Load environment variables from project root .env.local
+config({ path: resolve(__dirname, '../../../.env.local') });
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -293,6 +299,10 @@ app.get('/stats', (req, res) => {
   res.json(demoStats);
 });
 
+// Phase 3: Chat API endpoints
+app.post('/api/chat/stream', (req, res) => streamChatHandler(req, res));
+app.get('/api/health', (req, res) => healthHandler(req, res));
+
 // Create a simulated task with real-time progress
 const createTask = (name: string, description: string, agentId: string, agentName: string) => {
   const task = {
@@ -459,6 +469,10 @@ server.listen(port, () => {
   console.log(`   WS   /ws - WebSocket real-time updates`)
   console.log(`   POST /demo/reddit - Run Reddit automation demo`)
   console.log(`   POST /demo/full - Run complete Phase 2 demo`)
+  console.log('')
+  console.log('🤖 Phase 3: AI Chat Endpoints:')
+  console.log(`   POST /api/chat/stream - Stream AI responses`)
+  console.log(`   GET  /api/health - AI agent health status`)
   console.log('')
   console.log('✨ New Phase 2 Features:')
   console.log('   • Multi-agent orchestration')

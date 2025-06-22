@@ -7,10 +7,11 @@ import { generateWorker } from './commands/generate'
 import { deployApp } from './commands/deploy'
 import { swapRuntime } from './commands/runtime'
 import { installExtension, listExtensions, uninstallExtension } from './commands/extensions'
-import { initConfig, showConfig } from './commands/config'
+import { initConfig, showConfig, setStorageLimit, configAI } from './commands/config'
 import { initStorage, showStorageStatus } from './commands/storage'
 import { initSupabase, stopSupabase, statusSupabase, resetSupabase, migrationsSupabase, manageEnvironments, editSupabaseSettings } from './commands/supabase'
-import { installDocker, dockerStatus, dockerStart, ensureDockerForSupabase } from './commands/docker'
+import { installDocker, dockerStatus, dockerStart } from './commands/docker'
+import { startProject } from './commands/start'
 import { 
   listFiles, 
   copyFiles, 
@@ -36,17 +37,21 @@ const program = new Command()
 // CLI Header
 console.log(chalk.blue.bold(`
 ╔═══════════════════════════════════════╗
-║        🤖 Pixell CLI v0.3.0           ║
+║        🤖 Pixell CLI v0.5.0           ║
 ║   Agent Framework Developer Tools     ║
+║     Phase 2: Aliases & Shortcuts     ║
 ╚═══════════════════════════════════════╝
 `))
 
 program
   .name('pixell')
   .description('CLI tools for Pixell Agent Framework development')
-  .version('0.3.0')
+  .version('0.5.0')
 
-// Create new agent app
+// ============================================
+// CORE PROJECT COMMANDS (Top-level)
+// ============================================
+
 program
   .command('create <app-name>')
   .description('Create a new Pixell agent application')
@@ -56,16 +61,39 @@ program
   .option('--no-git', 'Skip git initialization')
   .action(createApp)
 
-// Generate worker agent
+// Alias for create
 program
-  .command('generate-worker <n>')
+  .command('new <app-name>')
+  .description('Create a new Pixell agent application (alias for create)')
+  .option('-t, --template <template>', 'App template to use', 'multi-agent')
+  .option('-r, --runtime <runtime>', 'Agent runtime to use', 'aws-strand')
+  .option('--no-install', 'Skip npm install')
+  .option('--no-git', 'Skip git initialization')
+  .action((name, options) => {
+    console.log(chalk.cyan('💡 Tip: You can also use "pixell create" for this command'))
+    createApp(name, options)
+  })
+
+program
+  .command('generate-worker <name>')
   .description('Generate a new worker agent')
   .option('-d, --domain <domain>', 'Agent domain (e.g., social-media, analytics)', 'custom')
   .option('-t, --tools <tools>', 'Comma-separated list of tools', 'api')
   .option('-p, --protocol <protocol>', 'Communication protocol', 'a2a')
   .action(generateWorker)
 
-// Deploy commands
+// Alias for generate-worker
+program
+  .command('gen <name>')
+  .description('Generate a new worker agent (alias for generate-worker)')
+  .option('-d, --domain <domain>', 'Agent domain (e.g., social-media, analytics)', 'custom')
+  .option('-t, --tools <tools>', 'Comma-separated list of tools', 'api')
+  .option('-p, --protocol <protocol>', 'Communication protocol', 'a2a')
+  .action((name, options) => {
+    console.log(chalk.cyan('💡 Tip: You can also use "pixell generate-worker" for this command'))
+    generateWorker(name, options)
+  })
+
 program
   .command('deploy')
   .description('Deploy your agent application')
@@ -74,133 +102,73 @@ program
   .option('--dry-run', 'Show deployment plan without executing')
   .action(deployApp)
 
-// Runtime management
 program
-  .command('runtime-swap')
-  .description('Swap the agent runtime')
-  .option('--from <from>', 'Current runtime')
-  .option('--to <to>', 'Target runtime')
-  .option('--backup', 'Create backup before swapping')
-  .action(swapRuntime)
+  .command('start')
+  .description('Start the Pixell Agent Framework with comprehensive setup validation')
+  .option('--env <environment>', 'Environment to use (defaults to local)', 'local')
+  .action((options) => startProject({ env: options.env }))
 
-// Extension management
+// Alias for start
 program
-  .command('extensions-list')
-  .description('List available and installed extensions')
-  .option('--type <type>', 'Filter by extension type')
-  .option('--installed', 'Show only installed extensions')
-  .action(listExtensions)
-
-program
-  .command('extensions-install <extension>')
-  .description('Install an extension')
-  .option('--version <version>', 'Specific version to install')
-  .action(installExtension)
+  .command('run')
+  .description('Start the Pixell Agent Framework (alias for start)')
+  .option('--env <environment>', 'Environment to use (defaults to local)', 'local')
+  .action((options) => {
+    console.log(chalk.cyan('💡 Tip: You can also use "pixell start" for this command'))
+    startProject({ env: options.env })
+  })
 
 program
-  .command('extensions-uninstall <extension>')
-  .description('Uninstall an extension')
-  .action(uninstallExtension)
-
-// Configuration
-program
-  .command('config-init')
-  .description('Initialize CLI configuration')
-  .action(initConfig)
-
-program
-  .command('config-show')
-  .description('Show current configuration')
-  .action(showConfig)
-
-// Storage setup
-program
-  .command('storage-init')
-  .description('Set up file storage (local, Supabase, S3, or database)')
-  .option('--force', 'Force reconfiguration of existing storage')
-  .action(initStorage)
-
-program
-  .command('storage-status')
-  .description('Show current storage configuration')
-  .action(showStorageStatus)
-
-// Environment Management
-program
-  .command('environments')
+  .command('env')
   .description('Manage development environments (local, staging, production)')
   .action(manageEnvironments)
 
-// Environment Management (short alias)
-program
-  .command('env')
-  .description('Manage development environments (short alias for environments)')
-  .action(manageEnvironments)
-
-// Supabase complete setup
-program
-  .command('supabase-init')
-  .description('Complete Supabase setup (database, auth, storage)')
-  .option('--env <environment>', 'Configure Supabase for specific environment')
-  .option('--local', 'Use local Supabase only')
-  .option('--skip-migrations', 'Skip running migrations')
-  .option('--skip-auth', 'Skip authentication setup')
-  .option('--skip-storage', 'Skip storage setup')
-  .action((options) => initSupabase(options.env))
-
-program
-  .command('supabase-status')
-  .description('Check Supabase service status')
-  .option('--env <environment>', 'Check status for specific environment')
-  .action((options) => statusSupabase(options.env))
-
-program
-  .command('supabase-stop')
-  .description('Stop local Supabase services')
-  .option('--env <environment>', 'Target specific environment (local only)')
-  .action((options) => stopSupabase(options.env))
-
-program
-  .command('supabase-reset')
-  .description('Reset local Supabase database')
-  .option('--env <environment>', 'Target specific environment (local only)')
-  .action((options) => resetSupabase(options.env))
-
-program
-  .command('supabase-migrations')
-  .description('Manage database migrations (status, apply, create)')
-  .option('--env <environment>', 'Use specific environment for migrations')
-  .action((options) => migrationsSupabase(options.env))
-
-program
-  .command('supabase-edit')
-  .description('Edit Supabase settings for managed environments')
-  .option('--env <environment>', 'Edit settings for specific environment')
-  .action((options) => editSupabaseSettings(options.env))
-
-// Docker management
-program
-  .command('docker-install')
-  .description('Install Docker (required for Supabase local development)')
-  .action(installDocker)
-
-program
-  .command('docker-status')
-  .description('Check Docker installation and running status (with option to start)')
-  .action(dockerStatus)
-
-program
-  .command('docker-start')
-  .description('Start Docker if installed (quick start without status check)')
-  .action(dockerStart)
-
 // ============================================
-// FILESYSTEM COMMANDS
+// CONFIG COMMAND GROUP (with aliases)
 // ============================================
 
-// List files and directories (ls)
-program
+const configCmd = program
+  .command('config')
+  .alias('c')
+  .description('Framework configuration management')
+
+configCmd
+  .command('init')
+  .alias('i')
+  .description('Initialize CLI configuration')
+  .action(initConfig)
+
+configCmd
+  .command('show')
+  .alias('s')
+  .description('Show current configuration')
+  .action(showConfig)
+
+configCmd
+  .command('storage')
+  .alias('st')
+  .description('Set storage limit for file uploads')
+  .option('--limit <limit>', 'Storage limit in GB (1-1000)')
+  .action((options) => setStorageLimit(options.limit))
+
+configCmd
+  .command('ai')
+  .alias('a')
+  .description('Configure AI runtime and credentials (AWS Strand or OpenAI)')
+  .action(configAI)
+
+// ============================================
+// FILESYSTEM COMMAND GROUP (with aliases)
+// ============================================
+
+const fsCmd = program
+  .command('fs')
+  .alias('f')
+  .description('Filesystem operations')
+
+fsCmd
   .command('ls [path]')
+  .alias('l')
   .description('List directory contents')
   .option('-a, --all', 'Show hidden files')
   .option('-l, --long', 'Use long listing format')
@@ -221,8 +189,7 @@ program
     })
   })
 
-// Copy files and directories (cp)
-program
+fsCmd
   .command('cp <source> <destination>')
   .description('Copy files or directories')
   .option('-r, --recursive', 'Copy directories recursively')
@@ -238,8 +205,7 @@ program
     })
   })
 
-// Move/rename files and directories (mv)
-program
+fsCmd
   .command('mv <source> <destination>')
   .description('Move or rename files and directories')
   .option('-f, --force', 'Force overwrite of destination files')
@@ -251,8 +217,7 @@ program
     })
   })
 
-// Remove files and directories (rm)
-program
+fsCmd
   .command('rm <files...>')
   .description('Remove files and directories')
   .option('-r, --recursive', 'Remove directories recursively')
@@ -268,8 +233,7 @@ program
     })
   })
 
-// Create directory (mkdir)
-program
+fsCmd
   .command('mkdir <directory>')
   .description('Create directories')
   .option('-p, --parents', 'Create parent directories as needed')
@@ -281,8 +245,7 @@ program
     })
   })
 
-// Create empty file or update timestamp (touch)
-program
+fsCmd
   .command('touch <file>')
   .description('Create empty file or update timestamp')
   .option('-v, --verbose', 'Verbose output')
@@ -292,8 +255,7 @@ program
     })
   })
 
-// Display file contents (cat)
-program
+fsCmd
   .command('cat <files...>')
   .description('Display file contents')
   .option('-n, --number', 'Number all output lines')
@@ -305,8 +267,7 @@ program
     })
   })
 
-// Display first lines of file (head)
-program
+fsCmd
   .command('head <file>')
   .description('Display first lines of a file')
   .option('-n, --lines <number>', 'Number of lines to display', '10')
@@ -316,8 +277,7 @@ program
     })
   })
 
-// Display last lines of file (tail)
-program
+fsCmd
   .command('tail <file>')
   .description('Display last lines of a file')
   .option('-n, --lines <number>', 'Number of lines to display', '10')
@@ -329,8 +289,7 @@ program
     })
   })
 
-// Find files (find)
-program
+fsCmd
   .command('find <pattern> [path]')
   .description('Search for files and directories')
   .option('-type <type>', 'File type filter (f=file, d=directory)')
@@ -342,8 +301,7 @@ program
     })
   })
 
-// Search within files (grep)
-program
+fsCmd
   .command('grep <pattern> <files...>')
   .description('Search for patterns within files')
   .option('-i, --ignore-case', 'Ignore case distinctions')
@@ -357,8 +315,7 @@ program
     })
   })
 
-// Show disk usage (du)
-program
+fsCmd
   .command('du [path]')
   .description('Display disk usage statistics')
   .option('-h, --human-readable', 'Human readable format')
@@ -370,16 +327,14 @@ program
     })
   })
 
-// Show file statistics (stat)
-program
+fsCmd
   .command('stat <file>')
   .description('Display file or directory status')
   .action((file) => {
     statFile(file)
   })
 
-// Display directory tree
-program
+fsCmd
   .command('tree [path]')
   .description('Display directory structure as a tree')
   .option('-L, --level <depth>', 'Maximum display depth')
@@ -391,8 +346,7 @@ program
     })
   })
 
-// Create zip archive
-program
+fsCmd
   .command('zip <archive> <files...>')
   .description('Create zip archive')
   .option('-v, --verbose', 'Verbose output')
@@ -404,8 +358,7 @@ program
     })
   })
 
-// Extract zip archive
-program
+fsCmd
   .command('unzip <archive> [path]')
   .description('Extract zip archive')
   .option('-v, --verbose', 'Verbose output')
@@ -415,8 +368,7 @@ program
     })
   })
 
-// Change file permissions (chmod)
-program
+fsCmd
   .command('chmod <mode> <files...>')
   .description('Change file permissions')
   .option('-R, --recursive', 'Change permissions recursively')
@@ -428,31 +380,291 @@ program
     })
   })
 
-// Global error handling - FIXED
-program.exitOverride((err) => {
-  if (err.code === 'commander.unknownCommand') {
-    console.log(chalk.red(`Unknown command: ${err.message}`))
-    console.log(chalk.yellow('Run `pixell --help` to see available commands'))
-    process.exit(1)
-  }
-  if (err.code === 'commander.help') {
-    // Allow help to display normally
-    process.exit(0)
-  }
-  throw err
-})
+// ============================================
+// SUPABASE COMMAND GROUP (with aliases)
+// ============================================
 
-// Parse arguments - FIXED
-try {
-  program.parse()
-  
-  // Show help if no command provided
-  if (!process.argv.slice(2).length) {
-    program.outputHelp()
-    process.exit(0)
-  }
-} catch (error) {
-  // Handle any parsing errors gracefully
-  console.error(chalk.red('CLI Error:'), error)
-  process.exit(1)
-} 
+const supabaseCmd = program
+  .command('supabase')
+  .alias('sb')
+  .description('Supabase database and services management')
+
+supabaseCmd
+  .command('init')
+  .alias('i')
+  .description('Complete Supabase setup (database, auth, storage)')
+  .option('--env <environment>', 'Configure Supabase for specific environment')
+  .option('--local', 'Use local Supabase only')
+  .option('--skip-migrations', 'Skip running migrations')
+  .option('--skip-auth', 'Skip authentication setup')
+  .option('--skip-storage', 'Skip storage setup')
+  .action((options) => initSupabase(options.env))
+
+supabaseCmd
+  .command('status')
+  .alias('st')
+  .description('Check Supabase service status')
+  .option('--env <environment>', 'Check status for specific environment')
+  .action((options) => statusSupabase(options.env))
+
+supabaseCmd
+  .command('stop')
+  .description('Stop local Supabase services')
+  .option('--env <environment>', 'Target specific environment (local only)')
+  .action((options) => stopSupabase(options.env))
+
+supabaseCmd
+  .command('reset')
+  .alias('r')
+  .description('Reset local Supabase database')
+  .option('--env <environment>', 'Target specific environment (local only)')
+  .action((options) => resetSupabase(options.env))
+
+supabaseCmd
+  .command('migrations')
+  .alias('m')
+  .description('Manage database migrations (status, apply, create)')
+  .option('--env <environment>', 'Use specific environment for migrations')
+  .action((options) => migrationsSupabase(options.env))
+
+supabaseCmd
+  .command('edit')
+  .alias('e')
+  .description('Edit Supabase settings for managed environments')
+  .option('--env <environment>', 'Edit settings for specific environment')
+  .action((options) => editSupabaseSettings(options.env))
+
+// ============================================
+// STORAGE COMMAND GROUP (with aliases)
+// ============================================
+
+const storageCmd = program
+  .command('storage')
+  .alias('st')
+  .description('File storage management')
+
+storageCmd
+  .command('init')
+  .alias('i')
+  .description('Set up file storage (local, Supabase, S3, or database)')
+  .option('--force', 'Force reconfiguration of existing storage')
+  .action(initStorage)
+
+storageCmd
+  .command('status')
+  .alias('s')
+  .description('Show current storage configuration')
+  .action(showStorageStatus)
+
+// ============================================
+// EXTENSIONS COMMAND GROUP (with aliases)
+// ============================================
+
+const extensionsCmd = program
+  .command('extensions')
+  .alias('ext')
+  .description('Extension management')
+
+extensionsCmd
+  .command('list')
+  .alias('ls')
+  .description('List available and installed extensions')
+  .option('--type <type>', 'Filter by extension type')
+  .option('--installed', 'Show only installed extensions')
+  .action(listExtensions)
+
+extensionsCmd
+  .command('install <extension>')
+  .alias('i')
+  .description('Install an extension')
+  .option('--version <version>', 'Specific version to install')
+  .action(installExtension)
+
+extensionsCmd
+  .command('uninstall <extension>')
+  .alias('rm')
+  .description('Uninstall an extension')
+  .action(uninstallExtension)
+
+// ============================================
+// DOCKER COMMAND GROUP (with aliases)
+// ============================================
+
+const dockerCmd = program
+  .command('docker')
+  .alias('d')
+  .description('Docker management')
+
+dockerCmd
+  .command('install')
+  .alias('i')
+  .description('Install Docker (required for Supabase local development)')
+  .action(installDocker)
+
+dockerCmd
+  .command('status')
+  .alias('st')
+  .description('Check Docker installation and running status (with option to start)')
+  .action(dockerStatus)
+
+dockerCmd
+  .command('start')
+  .description('Start Docker if installed (quick start without status check)')
+  .action(dockerStart)
+
+// ============================================
+// RUNTIME COMMAND GROUP (with aliases)
+// ============================================
+
+const runtimeCmd = program
+  .command('runtime')
+  .alias('rt')
+  .description('Agent runtime management')
+
+runtimeCmd
+  .command('swap')
+  .alias('s')
+  .description('Swap the agent runtime')
+  .option('--from <from>', 'Current runtime')
+  .option('--to <to>', 'Target runtime')
+  .option('--backup', 'Create backup before swapping')
+  .action(swapRuntime)
+
+// ============================================
+// POPULAR SHORTCUTS (Top-level)
+// ============================================
+
+// Popular filesystem shortcuts
+program
+  .command('ll [path]')
+  .description('List directory contents in long format (shortcut for fs ls -l)')
+  .action((path) => {
+    console.log(chalk.cyan('💡 Shortcut for: pixell fs ls -l'))
+    listFiles(path, {
+      all: false,
+      long: true,
+      human: true,
+      reverse: false,
+      recursive: false,
+      sort: 'name'
+    })
+  })
+
+program
+  .command('la [path]')
+  .description('List all files including hidden (shortcut for fs ls -a)')
+  .action((path) => {
+    console.log(chalk.cyan('💡 Shortcut for: pixell fs ls -a'))
+    listFiles(path, {
+      all: true,
+      long: false,
+      human: false,
+      reverse: false,
+      recursive: false,
+      sort: 'name'
+    })
+  })
+
+program
+  .command('tree [path]')
+  .description('Show directory tree (shortcut for fs tree)')
+  .option('-L, --level <depth>', 'Maximum display depth')
+  .option('-a, --all', 'Show all files including hidden')
+  .action((path, options) => {
+    console.log(chalk.cyan('💡 Shortcut for: pixell fs tree'))
+    showTree(path, {
+      maxDepth: options.level ? parseInt(options.level) : undefined,
+      showFiles: options.all
+    })
+  })
+
+// Configuration shortcuts
+program
+  .command('init')
+  .description('Initialize CLI configuration (shortcut for config init)')
+  .action(() => {
+    console.log(chalk.cyan('💡 Shortcut for: pixell config init'))
+    initConfig()
+  })
+
+program
+  .command('status')
+  .description('Show system status (config, storage, docker, supabase)')
+  .action(async () => {
+    console.log(chalk.cyan('💡 Combined status check'))
+    console.log(chalk.blue('\n📋 Configuration Status:'))
+    await showConfig()
+    console.log(chalk.blue('\n💾 Storage Status:'))
+    await showStorageStatus()
+    console.log(chalk.blue('\n🐳 Docker Status:'))
+    await dockerStatus()
+    console.log(chalk.blue('\n🗄️ Supabase Status:'))
+    await statusSupabase()
+  })
+
+// ============================================
+// BACKWARD COMPATIBILITY ALIASES
+// ============================================
+
+// Keep some popular commands as top-level for familiarity
+program
+  .command('ls [path]')
+  .description('List directory contents (alias for fs ls)')
+  .option('-a, --all', 'Show hidden files')
+  .option('-l, --long', 'Use long listing format')
+  .option('-h, --human-readable', 'Human readable file sizes')
+  .option('-r, --reverse', 'Reverse sort order')
+  .option('-R, --recursive', 'List subdirectories recursively')
+  .option('-t', 'Sort by modification time')
+  .option('-S', 'Sort by file size')
+  .action((path, options) => {
+    console.log(chalk.yellow('Note: Consider using "pixell fs ls" or "pixell f l" for the organized command structure'))
+    const sortOption = options.t ? 'date' : options.S ? 'size' : 'name'
+    listFiles(path, {
+      all: options.all,
+      long: options.long,
+      human: options.humanReadable,
+      reverse: options.reverse,
+      recursive: options.recursive,
+      sort: sortOption
+    })
+  })
+
+// Show help if no command provided
+if (!process.argv.slice(2).length) {
+  console.log(chalk.green('\n🚀 Welcome to Pixell CLI v0.5.0!'))
+  console.log(chalk.magenta('✨ Phase 2: Now with aliases and shortcuts!'))
+  console.log(chalk.cyan('\n📋 Organized command structure:'))
+  console.log(chalk.white('   Core Commands:'))
+  console.log(chalk.cyan('   pixell create    - Create new agent applications'))
+  console.log(chalk.cyan('   pixell start     - Start the framework'))
+  console.log(chalk.cyan('   pixell deploy    - Deploy applications'))
+  console.log(chalk.cyan('   pixell env       - Manage environments'))
+  console.log(chalk.white('\n   Service Groups (with aliases):'))
+  console.log(chalk.cyan('   pixell config (c)    - Framework configuration'))
+  console.log(chalk.cyan('   pixell fs (f)        - Filesystem operations'))
+  console.log(chalk.cyan('   pixell supabase (sb) - Database management'))
+  console.log(chalk.cyan('   pixell storage (st)  - Storage management'))
+  console.log(chalk.cyan('   pixell extensions (ext) - Extension management'))
+  console.log(chalk.cyan('   pixell docker (d)    - Docker management'))
+  console.log(chalk.cyan('   pixell runtime (rt)  - Runtime management'))
+  console.log(chalk.white('\n   🚀 Popular Shortcuts:'))
+  console.log(chalk.green('   pixell new       - Create app (alias for create)'))
+  console.log(chalk.green('   pixell gen       - Generate worker (alias for generate-worker)'))
+  console.log(chalk.green('   pixell run       - Start framework (alias for start)'))
+  console.log(chalk.green('   pixell ll        - Long list (fs ls -l)'))
+  console.log(chalk.green('   pixell la        - List all (fs ls -a)'))
+  console.log(chalk.green('   pixell tree      - Directory tree (fs tree)'))
+  console.log(chalk.green('   pixell init      - Initialize config (config init)'))
+  console.log(chalk.green('   pixell status    - Combined system status'))
+  console.log(chalk.yellow('\n   💡 Examples:'))
+  console.log(chalk.gray('   pixell c s       - Show config (config show)'))
+  console.log(chalk.gray('   pixell f l       - List files (fs ls)'))
+  console.log(chalk.gray('   pixell sb st     - Supabase status'))
+  console.log(chalk.gray('   pixell ext ls    - List extensions'))
+  console.log(chalk.yellow('\n   Use "pixell <command> --help" for detailed options'))
+  process.exit(0)
+}
+
+// Parse arguments
+program.parse() 

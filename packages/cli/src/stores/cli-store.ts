@@ -11,7 +11,52 @@ export const CLIConfigSchema = z.object({
   extensionRegistry: z.string().url().default('https://registry.pixell.dev'),
   telemetryEnabled: z.boolean().default(true),
   lastUpdate: z.string().optional(),
-  installedExtensions: z.array(z.string()).default([])
+  installedExtensions: z.array(z.string()).default([]),
+  storageLimit: z.number().int().min(1).max(1000).default(10), // Storage limit in GB
+  
+  // AI Configuration - Multi-Provider Support
+  aiConfig: z.object({
+    defaultProvider: z.enum(['openai', 'anthropic', 'aws-bedrock', 'azure-openai', 'google']).default('openai'),
+    providers: z.object({
+      openai: z.object({
+        apiKey: z.string().optional(),
+        defaultModel: z.string().default('gpt-4o'),
+        organization: z.string().optional(),
+        baseUrl: z.string().optional(), // For custom endpoints
+        enabled: z.boolean().default(true)
+      }).optional(),
+      anthropic: z.object({
+        apiKey: z.string().optional(),
+        defaultModel: z.string().default('claude-3-5-sonnet-20241022'),
+        enabled: z.boolean().default(false)
+      }).optional(),
+      awsBedrock: z.object({
+        accessKeyId: z.string().optional(),
+        secretAccessKey: z.string().optional(),
+        region: z.string().default('us-east-1'),
+        defaultModel: z.string().default('anthropic.claude-3-5-sonnet-20241022-v2:0'),
+        enabled: z.boolean().default(false)
+      }).optional(),
+      azureOpenai: z.object({
+        apiKey: z.string().optional(),
+        endpoint: z.string().optional(),
+        deploymentName: z.string().optional(),
+        apiVersion: z.string().default('2024-02-01'),
+        enabled: z.boolean().default(false)
+      }).optional(),
+      google: z.object({
+        apiKey: z.string().optional(),
+        defaultModel: z.string().default('gemini-1.5-pro'),
+        enabled: z.boolean().default(false)
+      }).optional()
+    }).default({}),
+    configured: z.boolean().default(false),
+    lastConfigured: z.string().optional()
+  }).default({
+    defaultProvider: 'openai',
+    providers: {},
+    configured: false
+  })
 })
 
 export type CLIConfig = z.infer<typeof CLIConfigSchema>

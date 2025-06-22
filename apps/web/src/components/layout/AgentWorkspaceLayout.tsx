@@ -82,9 +82,9 @@ export function AgentWorkspaceLayout() {
           {leftPanelVisible && (
             <>
               <Panel 
-                defaultSize={12} 
-                minSize={10} 
-                maxSize={25}
+                defaultSize={18} 
+                minSize={15} 
+                maxSize={30}
                 className="bg-muted/10 border-r"
               >
                 <NavigatorPane />
@@ -95,7 +95,7 @@ export function AgentWorkspaceLayout() {
           
           {/* Center Panel - Chat Workspace */}
           <Panel 
-            defaultSize={leftPanelVisible && rightPanelVisible ? 60 : leftPanelVisible || rightPanelVisible ? 75 : 100}
+            defaultSize={leftPanelVisible && rightPanelVisible ? 54 : leftPanelVisible || rightPanelVisible ? 70 : 100}
             minSize={30}
             className="min-w-0"
           >

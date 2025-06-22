@@ -1,6 +1,6 @@
 {
   "name": "@pixell/cli",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "description": "CLI tools for Pixell Agent Framework development",
   "main": "dist/index.js",
   "bin": {
