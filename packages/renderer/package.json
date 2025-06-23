@@ -22,7 +22,6 @@
     "prismjs": "^1.29.0",
     "dompurify": "^3.0.8",
     "isomorphic-dompurify": "^2.9.0",
-    "react-vega": "^7.6.0",
     "vega": "^5.28.0",
     "vega-lite": "^5.17.0",
     "katex": "^0.16.11",
