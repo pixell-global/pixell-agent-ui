@@ -29,13 +29,15 @@
     "ora": "^8.1.1",
     "yaml": "^2.5.1",
     "zod": "^3.24.1",
-    "zustand": "^5.0.3"
+    "zustand": "^5.0.3",
+    "glob": "^10.3.3"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",
     "@types/inquirer": "^9.0.7",
     "@types/mustache": "^4.2.5",
     "@types/node": "^22.10.5",
+    "@types/glob": "^8.0.2",
     "supabase": "^2.26.9",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
