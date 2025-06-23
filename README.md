@@ -13,28 +13,35 @@ cd pixell-agent-framework
 npm install
 ```
 
-### Step 2: Setup CLI & Environment
+### Step 2: Complete Setup (One Command!)
 ```bash
-# Install dependencies and link CLI globally
+# Complete setup - installs dependencies, links CLI globally, and configures everything
+npm run setup
+```
+
+This comprehensive setup will:
+- 📦 Install all dependencies  
+- 🔗 Link `pixell` command globally via `npm link`
+- 🌍 Guide you through environment creation
+- 🗄️ Setup local Supabase database
+- 🤖 Configure AI (OpenAI, AWS Strand, etc.)
+- ✅ Create your `.env.local` automatically
+
+**✨ After setup, you can use `pixell` directly!**
+
+### Alternative: Manual Step-by-Step Setup
+If you prefer more control:
+```bash
+# Step 2a: Install and link CLI
 npm run setup:install && npm run setup:link
 
-# Now you can use pixell directly
-pixell help
+# Step 2b: Configure environment, database, and AI
+pixell env              # Create environment
+pixell supabase init    # Setup database  
+pixell config ai        # Configure AI
 ```
 
-### Step 3: Configure Your Environment
-```bash
-# Create local development environment
-pixell env
-
-# Setup database
-pixell supabase init
-
-# Configure AI (OpenAI, AWS Strand, etc.)
-pixell config ai
-```
-
-### Step 4: Start Development
+### Step 3: Start Development
 ```bash
 # Smart project startup with environment validation
 pixell start --env local

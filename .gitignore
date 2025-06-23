@@ -28,6 +28,10 @@ build/
 .env.test.local
 .env.production.local
 
+# Environment-specific files (exclude from git, keep .env.example)
+.env.*
+!.env.example
+
 # Pixell CLI configuration (contains sensitive environment data)
 .pixell/
 

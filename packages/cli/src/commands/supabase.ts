@@ -2177,10 +2177,13 @@ async function setActiveEnvironment(environmentName: string) {
 }
 
 async function updateEnvFileWithActiveEnvironment(env: EnvironmentConfig) {
-  const envPath = path.join(process.cwd(), '.env.local')
+  // Create environment-specific file like .env.{environmentName}
+  const envPath = path.join(process.cwd(), `.env.${env.name}`)
+  const envLocalPath = path.join(process.cwd(), '.env.local')
   
   let envContent = ''
   
+  // Read existing environment-specific file if it exists
   if (await fs.pathExists(envPath)) {
     envContent = await fs.readFile(envPath, 'utf-8')
   }
@@ -2199,8 +2202,17 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=${env.supabase.anonKey}
 ${env.database.url ? `DATABASE_URL=${env.database.url}` : ''}
 `
   
+  // Write to environment-specific file
   await fs.writeFile(envPath, envContent.trim() + '\n')
-  console.log(chalk.blue('📝 Updated .env.local with environment configuration'))
+  console.log(chalk.blue(`📝 Created/updated .env.${env.name} with environment configuration`))
+  
+  // Also copy to .env.local for immediate use (Next.js convention)
+  await fs.copyFile(envPath, envLocalPath)
+  console.log(chalk.blue('📝 Updated .env.local to use this environment'))
+  
+  console.log(chalk.yellow(`\n💡 Environment files:`))
+  console.log(chalk.white(`   • .env.${env.name} - Environment-specific configuration`))
+  console.log(chalk.white(`   • .env.local - Active environment (for Next.js)`))
 }
 
 async function goBackToEnvironmentMenu() {
