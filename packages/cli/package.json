@@ -24,6 +24,7 @@
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "fs-extra": "^11.2.0",
+    "glob": "^10.3.10",
     "inquirer": "^10.2.2",
     "mustache": "^4.2.0",
     "ora": "^8.1.1",
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",
+    "@types/glob": "^8.1.0",
     "@types/inquirer": "^9.0.7",
     "@types/mustache": "^4.2.5",
     "@types/node": "^22.10.5",
