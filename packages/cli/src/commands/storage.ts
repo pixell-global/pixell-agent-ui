@@ -140,13 +140,13 @@ async function setupLocalStorage(): Promise<Record<string, any>> {
     },
     {
       type: 'input',
-      name: 'maxFileSize',
-      message: 'Maximum file size (in MB):',
-      default: '50',
+      name: 'maxStorageSize',
+      message: 'Maximum storage size (in GB):',
+      default: '10',
       validate: (input) => {
         const size = parseInt(input)
         if (isNaN(size) || size <= 0) return 'Please enter a valid number'
-        if (size > 1000) return 'Maximum file size cannot exceed 1000MB'
+        if (size > 100) return 'Maximum storage size cannot exceed 100GB'
         return true
       }
     },
@@ -177,7 +177,7 @@ async function setupLocalStorage(): Promise<Record<string, any>> {
 
   return {
     rootPath: answers.rootPath,
-    maxFileSize: parseInt(answers.maxFileSize) * 1024 * 1024, // Convert to bytes
+    maxFileSize: parseInt(answers.maxStorageSize) * 1024 * 1024 * 1024, // Convert GB to bytes
     allowedTypes: answers.allowedTypes.length > 0 ? answers.allowedTypes.join(',').split(',') : []
   }
 }

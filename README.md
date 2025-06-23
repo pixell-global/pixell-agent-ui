@@ -277,3 +277,39 @@ When running, access these services:
 ---
 
 **🚀 Ready to build intelligent agents? Start with `pixell env`!**
+
+## Quick Setup
+
+### For Fresh Machines (Recommended)
+```bash
+npm run setup:core  # Builds core packages only, fastest setup
+```
+
+### Alternative Setup Options
+```bash
+npm run setup         # Full setup with safe fallback
+npm run setup:quick   # Fast development setup  
+npm run setup:fresh   # Clean install + build
+npm run setup:packages # Core packages only (no CLI link)
+```
+
+### Verify Setup
+```bash
+pixell start          # Should start both services
+# - Orchestrator: http://localhost:3001/health
+# - Web App: http://localhost:3000
+```
+
+### What's Built
+- **Core Infrastructure**: ✅ Working
+  - `@pixell/protocols` - Inter-agent communication
+  - `@pixell/cli` - Command line interface  
+  - `@pixell/file-storage` - File management
+  - `@pixell/renderer` - Content rendering
+  - `orchestrator` - Agent orchestration service
+
+- **Web App**: ⚠️ Has minor type issues (non-blocking)
+  - Runs successfully in development mode
+  - Production build has TypeScript warnings (cosmetic)
+
+## Architecture
