@@ -15,6 +15,7 @@
   "dependencies": {
     "@aws-sdk/client-bedrock": "^3.716.0",
     "@aws-sdk/client-lambda": "^3.716.0",
+    "@pixell/protocols": "file:../../packages/protocols",
     "axios": "^1.7.9",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
