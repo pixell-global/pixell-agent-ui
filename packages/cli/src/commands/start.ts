@@ -46,6 +46,9 @@ export async function startProject(options: { env?: string }) {
     // Step 2: Check Supabase setup for the environment
     await validateSupabaseSetup(environment)
     
+    // NEW: ensure .env.local has Supabase vars for active environment
+    await ensureEnvFileSupabase(environment)
+    
     // Step 3: Check Docker status
     await validateDockerSetup()
     
@@ -369,4 +372,32 @@ function maskUrl(url: string): string {
 function maskKey(key: string): string {
   if (!key) return ''
   return key.substring(0, 12) + '...' + '*'.repeat(8)
+}
+
+/**
+ * Utility: ensure .env.local contains Supabase vars for the given environment
+ */
+async function ensureEnvFileSupabase(env: EnvironmentConfig): Promise<void> {
+  try {
+    if (!env.supabase?.projectUrl || !env.supabase?.anonKey) return // nothing to write
+
+    const envPath = path.join(process.cwd(), '.env.local')
+    let content = ''
+
+    if (await fs.pathExists(envPath)) {
+      content = await fs.readFile(envPath, 'utf8')
+    }
+
+    const lines = content.split('\n').filter(Boolean)
+
+    // remove existing Supabase lines
+    const filtered = lines.filter(l => !l.startsWith('NEXT_PUBLIC_SUPABASE_URL=') && !l.startsWith('NEXT_PUBLIC_SUPABASE_ANON_KEY='))
+
+    filtered.push(`NEXT_PUBLIC_SUPABASE_URL=${env.supabase.projectUrl}`)
+    filtered.push(`NEXT_PUBLIC_SUPABASE_ANON_KEY=${env.supabase.anonKey}`)
+
+    await fs.writeFile(envPath, filtered.join('\n') + '\n', 'utf8')
+  } catch (err) {
+    console.warn('Warning: failed to write Supabase vars to .env.local', err)
+  }
 } 
