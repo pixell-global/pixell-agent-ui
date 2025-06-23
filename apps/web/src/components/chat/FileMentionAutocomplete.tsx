@@ -157,7 +157,7 @@ export function FileMentionAutocomplete({
       
       {filteredFiles.length === 0 && searchTerm && (
         <div className="p-4 text-center text-gray-500 text-sm">
-          No files found matching "{searchTerm}"
+          No files found matching &quot;{searchTerm}&quot;
         </div>
       )}
     </div>

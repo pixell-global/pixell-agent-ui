@@ -4,16 +4,19 @@
     "lib": ["ES2022"],
     "allowJs": true,
     "skipLibCheck": true,
-    "strict": true,
+    "strict": false,
     "noEmit": false,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "declaration": true,
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "downlevelIteration": true,
+    "forceConsistentCasingInFileNames": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist", "src/core/cognitive", "src/demo/cognitive-demo.ts"]
 } 

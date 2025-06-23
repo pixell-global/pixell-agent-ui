@@ -30,6 +30,15 @@
       "isActive": false,
       "createdAt": "2025-06-20T18:48:07.291Z",
       "updatedAt": "2025-06-20T18:54:15.151Z"
+    },
+    {
+      "name": "test",
+      "type": "remote",
+      "database": {},
+      "supabase": {},
+      "isActive": false,
+      "createdAt": "2025-06-23T05:47:53.587Z",
+      "updatedAt": "2025-06-23T05:47:53.588Z"
     }
   ]
 }

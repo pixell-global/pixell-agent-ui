@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Search, Folder, Plus, History, Files, RefreshCw, FileText, FolderPlus, Upload, HardDrive, X, RotateCcw } from 'lucide-react'
 import { useWorkspaceStore, FileNode } from '@/stores/workspace-store'
-import { sampleFileTree } from '@/lib/sample-data'
 import { FileTree } from './file-tree'
 import { HistoryPane } from './history-pane'
 import { CreateFolderDialog } from './create-folder-dialog'

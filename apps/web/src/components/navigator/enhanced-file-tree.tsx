@@ -627,7 +627,7 @@ export const EnhancedFileTree: React.FC<EnhancedFileTreeProps> = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {contextMenuNode?.type}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{contextMenuNode?.name}"? 
+              Are you sure you want to delete &quot;{contextMenuNode?.name}&quot;? 
               {contextMenuNode?.type === 'folder' && ' This will delete all contents.'}
               This action cannot be undone.
             </AlertDialogDescription>
@@ -646,7 +646,7 @@ export const EnhancedFileTree: React.FC<EnhancedFileTreeProps> = ({
             <AlertDialogTitle>Create New Folder</AlertDialogTitle>
             <AlertDialogDescription>
               Enter a name for the new folder
-              {newFolderParent && ` in "${newFolderParent.name}"`}.
+              {newFolderParent && ` in &quot;${newFolderParent.name}&quot;`}.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">

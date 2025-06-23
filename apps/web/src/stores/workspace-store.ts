@@ -370,6 +370,7 @@ export const selectStreamingMessage = (state: WorkspaceState) =>
 export const selectSelectedFiles = (state: WorkspaceState) => state.selectedFiles
 export const selectActiveTasks = (state: WorkspaceState) => 
   state.tasks.filter(t => t.status === 'running' || t.status === 'queued')
+export const selectAgents = (state: WorkspaceState) => state.agents
 export const selectFileTree = (state: WorkspaceState) => state.fileTree
 export const selectLiveMetrics = (state: WorkspaceState) => state.liveMetrics
 export const selectCurrentFolder = (state: WorkspaceState) => state.currentFolder

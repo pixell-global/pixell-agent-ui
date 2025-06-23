@@ -225,7 +225,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
     const isCtrlOrCmd = event.ctrlKey || event.metaKey
     const isShift = event.shiftKey
     
-    let newSelectedFiles = new Set(selectedFiles)
+    const newSelectedFiles = new Set(selectedFiles)
     
     if (isShift && lastSelectedFile) {
       // Range selection

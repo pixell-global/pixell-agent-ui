@@ -95,7 +95,6 @@ export function NavigatorPane() {
   const handleUploadFolder = () => {
     const input = document.createElement('input')
     input.type = 'file'
-    // @ts-ignore - webkitdirectory is supported but not in types
     input.webkitdirectory = true
     input.onchange = (e) => {
       const target = e.target as HTMLInputElement

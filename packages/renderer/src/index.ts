@@ -1,14 +1,32 @@
-// Core types
+// Core components
+export { MarkdownRenderer } from './components/MarkdownRenderer';
+export { SimpleStreamingRenderer } from './components/SimpleStreamingRenderer';
+export { HybridStreamingRenderer } from './components/HybridStreamingRenderer';
+export { CodeBlock } from './components/CodeBlock';
+export { BlockRenderer } from './components/BlockRenderer';
+export { TableRenderer } from './components/TableRenderer';
+export { 
+  ChartRenderer,
+  createBarChart,
+  createLineChart,
+  createScatterPlot,
+  createPieChart
+} from './components/ChartRenderer';
+
+// Utilities
+export { ContentParser } from './utils/ContentParser';
+
+// Types
 export * from './types';
 
 // Security utilities
 export * from './security/Sanitizer';
 
-// Components (to be implemented in Phase 2)
-// export * from './components/MarkdownRenderer';
-// export * from './components/CodeBlock';
-// export * from './components/StreamingRenderer';
-// export * from './components/BlockRenderer';
+// Components (Phase 2 - Complete)
+export * from './components/StreamingRenderer';
+
+// Utils
+export * from './utils/ContentParser';
 
 // Registry (to be implemented in Phase 3)
 // export * from './registry/RendererRegistry';

@@ -156,42 +156,84 @@ export const useChatStore = create<ChatState>()(
               ? state.messages.find(m => m.id === state.streamingMessageId)
               : null
               
-            if (!streamingMessage) return
+            if (!streamingMessage) {
+              console.warn('No streaming message found for chunk:', chunk)
+              return
+            }
+            
+            console.log('🔄 Processing chunk:', chunk.type, chunk)
+            console.log('🔄 Current streaming message ID:', state.streamingMessageId)
+            console.log('🔄 Current streaming message content before update:', streamingMessage.content)
             
             switch (chunk.type) {
               case 'thinking':
                 if (chunk.context?.thoughts) {
-                  streamingMessage.thinkingSteps = [
-                    ...(streamingMessage.thinkingSteps || []),
-                    ...chunk.context.thoughts
-                  ]
-                  streamingMessage.isThinking = true
+                  const messageIndex = state.messages.findIndex(m => m.id === state.streamingMessageId)
+                  if (messageIndex !== -1) {
+                    state.messages[messageIndex] = {
+                      ...state.messages[messageIndex],
+                      thinkingSteps: [
+                        ...(state.messages[messageIndex].thinkingSteps || []),
+                        ...chunk.context.thoughts
+                      ],
+                      isThinking: true
+                    }
+                  }
                 }
                 break
                 
               case 'content':
-                if (chunk.delta?.content) {
-                  streamingMessage.content += chunk.delta.content
-                  streamingMessage.updatedAt = new Date().toISOString()
+                // Find the message index for proper Immer/Zustand reactivity
+                const messageIndex = state.messages.findIndex(m => m.id === state.streamingMessageId)
+                if (messageIndex !== -1) {
+                  if (chunk.delta?.content) {
+                    const newContent = state.messages[messageIndex].content + chunk.delta.content
+                    state.messages[messageIndex] = {
+                      ...state.messages[messageIndex],
+                      content: newContent,
+                      updatedAt: new Date().toISOString()
+                    }
+                    // Content updated successfully
+                  } else if (chunk.accumulated) {
+                    // Fallback: use accumulated content if delta is not available
+                    state.messages[messageIndex] = {
+                      ...state.messages[messageIndex],
+                      content: chunk.accumulated,
+                      updatedAt: new Date().toISOString()
+                    }
+                    console.log('Updated message with accumulated content:', chunk.accumulated)
+                  }
                 }
                 break
                 
               case 'complete':
-                streamingMessage.streaming = false
-                streamingMessage.isThinking = false
-                state.streamingMessageId = null
-                state.isLoading = false
-                break
-                
-              case 'error':
-                streamingMessage.streaming = false
-                streamingMessage.isThinking = false
-                streamingMessage.messageType = 'alert'
-                if (chunk.error) {
-                  streamingMessage.content = `Error: ${chunk.error}`
+                const completeMessageIndex = state.messages.findIndex(m => m.id === state.streamingMessageId)
+                if (completeMessageIndex !== -1) {
+                  state.messages[completeMessageIndex] = {
+                    ...state.messages[completeMessageIndex],
+                    streaming: false,
+                    isThinking: false
+                  }
                 }
                 state.streamingMessageId = null
                 state.isLoading = false
+                console.log('Stream completed')
+                break
+                
+              case 'error':
+                const errorMessageIndex = state.messages.findIndex(m => m.id === state.streamingMessageId)
+                if (errorMessageIndex !== -1) {
+                  state.messages[errorMessageIndex] = {
+                    ...state.messages[errorMessageIndex],
+                    streaming: false,
+                    isThinking: false,
+                    messageType: 'alert',
+                    content: chunk.error ? `Error: ${chunk.error}` : state.messages[errorMessageIndex].content
+                  }
+                }
+                state.streamingMessageId = null
+                state.isLoading = false
+                console.log('Stream error:', chunk.error)
                 break
             }
           }),

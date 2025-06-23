@@ -3,7 +3,7 @@
 import React, { useEffect, useRef } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ChatMessage, FileReference, FileAttachment, FileMention } from '@/types'
-import { MessageBubble } from './MessageBubble'
+import { EnhancedMessageBubble } from './EnhancedMessageBubble'
 import { ChatInput } from './ChatInput'
 import { useChatStore, selectMessages, selectIsLoading, selectStreamingMessage } from '@/stores/chat-store'
 import { coreAgentService } from '@/services/coreAgentService'
@@ -19,11 +19,16 @@ export function ChatWorkspace({ className = '' }: ChatWorkspaceProps) {
   const messages = useChatStore(selectMessages)
   const isLoading = useChatStore(selectIsLoading)
   const streamingMessage = useChatStore(selectStreamingMessage)
+  
+  // Debug logging removed - rendering now working
+  
   const settings = useChatStore(state => state.settings)
   const agentHealth = useChatStore(state => state.agentHealth)
   
   // Store actions
   const addMessage = useChatStore(state => state.addMessage)
+  
+  // Remove test message - rendering confirmed to work
   const setStreamingMessage = useChatStore(state => state.setStreamingMessage)
   const handleStreamingChunk = useChatStore(state => state.handleStreamingChunk)
   const setLoading = useChatStore(state => state.setLoading)
@@ -101,7 +106,6 @@ export function ChatWorkspace({ className = '' }: ChatWorkspaceProps) {
       streaming: true,
       createdAt: new Date().toISOString()
     }
-    
     addMessage(assistantMessage)
     setStreamingMessage(assistantMessage.id)
     setLoading(true)
@@ -204,7 +208,7 @@ export function ChatWorkspace({ className = '' }: ChatWorkspaceProps) {
         ) : (
           <div className="space-y-4 max-w-3xl mx-auto">
             {messages.map((message) => (
-              <MessageBubble
+              <EnhancedMessageBubble
                 key={message.id}
                 message={message}
                 isStreaming={streamingMessage?.id === message.id}

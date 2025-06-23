@@ -161,6 +161,244 @@ Choose the right Docker command for your situation:
 
 ---
 
+## ⚙️ Environment Variables Management
+
+The `npm run setup` command automatically configures all required environment variables for you. However, if setup fails or you need to modify settings later, here's how to manage them manually.
+
+### 🔧 What `npm run setup` Configures
+
+When you run `npm run setup`, it automatically sets up these critical environment variables in your `.env.local` file:
+
+**🚀 Core Framework Settings:**
+```bash
+NEXT_PUBLIC_ORCHESTRATOR_URL=http://localhost:3001    # Backend API endpoint
+NODE_ENV=development                                   # Development mode
+```
+
+**🤖 AI Configuration (via `pixell config-ai`):**
+```bash
+# OpenAI Settings (if configured)
+OPENAI_API_KEY=sk-...                                 # Your OpenAI API key
+OPENAI_DEFAULT_MODEL=gpt-4o                          # Default model
+AI_DEFAULT_PROVIDER=openai                           # Primary AI provider
+
+# Alternative AI Providers (if configured)
+ANTHROPIC_API_KEY=sk-ant-...                         # Claude API key
+AWS_ACCESS_KEY_ID=...                                # AWS Bedrock access
+AWS_SECRET_ACCESS_KEY=...                            # AWS Bedrock secret
+AWS_REGION=us-east-1                                 # AWS region
+AZURE_OPENAI_API_KEY=...                            # Azure OpenAI key
+GOOGLE_AI_API_KEY=...                               # Google AI key
+```
+
+**🗄️ Database Configuration (via environment setup):**
+```bash
+# Local Development (default)
+SUPABASE_URL=http://127.0.0.1:54321                 # Local Supabase URL
+SUPABASE_ANON_KEY=eyJ...                             # Local anon key
+SUPABASE_SERVICE_ROLE_KEY=eyJ...                     # Local service key
+
+# OR Remote Environment (if configured)
+SUPABASE_URL=https://your-project.supabase.co       # Remote project URL
+SUPABASE_ANON_KEY=eyJ...                             # Remote anon key
+SUPABASE_SERVICE_ROLE_KEY=eyJ...                     # Remote service key
+```
+
+**🔧 Agent Runtime Settings:**
+```bash
+AGENT_RUNTIME=aws-strand                             # Default: aws-strand or openai-assistants
+AGENT_TIMEOUT=30000                                  # Request timeout in ms
+AGENT_MAX_RETRIES=3                                  # Max retry attempts
+```
+
+### 🛠️ Manual Configuration (If Setup Fails)
+
+If `npm run setup` fails or you need to configure manually:
+
+#### 1. Create `.env.local` File
+```bash
+# Create the file in your project root
+touch .env.local
+```
+
+#### 2. Add Required Variables
+Copy this template and replace with your values:
+
+```bash
+# ===========================================
+# PIXELL AGENT FRAMEWORK - ENVIRONMENT CONFIG
+# ===========================================
+
+# Core Framework
+NEXT_PUBLIC_ORCHESTRATOR_URL=http://localhost:3001
+NODE_ENV=development
+
+# AI Configuration (Choose ONE primary provider)
+AI_DEFAULT_PROVIDER=openai
+OPENAI_API_KEY=your-openai-api-key-here
+OPENAI_DEFAULT_MODEL=gpt-4o
+
+# Database (Local Development)
+SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_ANON_KEY=your-local-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-local-service-key
+
+# Agent Runtime
+AGENT_RUNTIME=aws-strand
+AGENT_TIMEOUT=30000
+AGENT_MAX_RETRIES=3
+```
+
+#### 3. Get Your API Keys
+
+**🔑 OpenAI API Key:**
+1. Visit https://platform.openai.com/api-keys
+2. Create new secret key
+3. Copy and paste into `OPENAI_API_KEY`
+
+**🗄️ Supabase Keys (Local):**
+```bash
+# Start local Supabase to get keys
+npm run pixell supabase-init
+
+# Get keys from status
+npm run pixell supabase-status
+```
+
+#### 4. Verify Configuration
+```bash
+# Check if variables are loaded correctly
+npm run pixell config-show
+
+# Test the configuration
+npm run pixell start --env local
+```
+
+### 🔄 Editing Settings Later
+
+**Method 1: Use CLI Commands (Recommended)**
+```bash
+# Reconfigure AI settings
+pixell config-ai
+
+# Switch/edit environments  
+pixell env
+
+# Reconfigure from scratch
+npm run setup:env
+```
+
+**Method 2: Direct File Editing**
+```bash
+# Edit environment variables directly
+nano .env.local
+# or
+code .env.local
+
+# Restart services after changes
+npm run dev
+```
+
+**Method 3: Environment-Specific Configuration**
+```bash
+# Switch to different environment
+pixell env  # → Switch Active Environment
+
+# This automatically updates .env.local with new settings
+```
+
+### 🚨 Troubleshooting Environment Variables
+
+**Problem: "API key not configured"**
+```bash
+# Check if AI is configured
+pixell config-show
+
+# Reconfigure AI if needed
+pixell config-ai
+```
+
+**Problem: "Cannot connect to database"**
+```bash
+# Check Supabase status
+npm run pixell supabase-status
+
+# Reinitialize if needed
+npm run pixell supabase-init
+```
+
+**Problem: "Orchestrator URL not found"**
+```bash
+# Check .env.local file
+cat .env.local | grep ORCHESTRATOR
+
+# Add if missing:
+echo "NEXT_PUBLIC_ORCHESTRATOR_URL=http://localhost:3001" >> .env.local
+```
+
+**Problem: Changes not taking effect**
+```bash
+# Restart development servers
+npm run dev
+
+# Clear Next.js cache
+rm -rf .next/
+npm run dev
+```
+
+### 📁 Environment Files Location
+
+**Primary configuration:**
+- `.env.local` - Your main environment variables (auto-generated by setup)
+- `.pixell/environments.json` - CLI environment configurations
+
+**Other files:**
+- `.env.example` - Template showing required variables
+- `supabase/config.toml` - Supabase-specific configuration
+
+### 🔒 Security Notes
+
+**✅ Safe to commit:**
+- `.env.example` (template file)
+- `supabase/config.toml` (local development config)
+
+**❌ Never commit:**
+- `.env.local` (contains your API keys)
+- `.pixell/environments.json` (may contain sensitive data)
+
+These files are already in `.gitignore` to protect your keys.
+
+### 💡 Pro Tips
+
+**1. Multiple AI Providers:**
+```bash
+# Configure multiple providers for fallback
+pixell config-ai  # → Select multiple providers
+
+# Your .env.local will have keys for all configured providers
+# Switch between them programmatically in your code
+```
+
+**2. Environment Switching:**
+```bash
+# Quick environment switch
+pixell env  # → Switch Active Environment
+
+# This updates .env.local automatically
+# No need to edit files manually
+```
+
+**3. Backup Your Configuration:**
+```bash
+# Backup your working configuration
+cp .env.local .env.backup
+
+# Restore if needed
+cp .env.backup .env.local
+```
+
+---
+
 ## 🛠️ Pixell CLI - Your Development Assistant
 
 The Pixell CLI is your one-stop tool for agent development. It handles everything from environment management to database setup to file operations.

@@ -1,7 +1,11 @@
+# Demo
+demo/
+
+
 # Filesystem
 workspace-files/
 .temp/
-
+implementation_steps.md
 
 # Dependencies
 node_modules/

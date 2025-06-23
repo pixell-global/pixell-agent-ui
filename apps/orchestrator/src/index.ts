@@ -300,8 +300,27 @@ app.get('/stats', (req, res) => {
 });
 
 // Phase 3: Chat API endpoints
-app.post('/api/chat/stream', (req, res) => streamChatHandler(req, res));
-app.get('/api/health', (req, res) => healthHandler(req, res));
+app.post('/api/chat/stream', async (req, res) => {
+  try {
+    await streamChatHandler(req, res);
+  } catch (error) {
+    console.error('Chat stream error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+});
+
+app.get('/api/health', async (req, res) => {
+  try {
+    await healthHandler(req, res);
+  } catch (error) {
+    console.error('Health check error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Health check failed' });
+    }
+  }
+});
 
 // Create a simulated task with real-time progress
 const createTask = (name: string, description: string, agentId: string, agentName: string) => {
@@ -457,7 +476,7 @@ app.post('/demo/full', async (req, res) => {
 server.listen(port, () => {
   console.log('')
   console.log('🎉 PIXELL AGENT FRAMEWORK - PHASE 2')
-  console.log('=' .repeat(50))
+  console.log('='.repeat(50))
   console.log(`🚀 Orchestrator running on http://localhost:${port}`)
   console.log('')
   console.log('📚 API Endpoints:')

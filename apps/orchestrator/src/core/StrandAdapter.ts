@@ -14,6 +14,7 @@ export interface StrandConfig {
   }
   modelId?: string
   maxTokens?: number
+  aiProvider?: string
 }
 
 /**
@@ -32,15 +33,37 @@ export class StrandAdapter extends AgentRuntimeAdapter {
   private isInitialized = false
 
   async initialize(config: Record<string, any>): Promise<void> {
+    // Determine the model based on AI provider configuration
+    let modelId = config.modelId
+    
+    if (!modelId) {
+      // Default model based on AI provider
+      const aiProvider = config.aiProvider || 'openai'
+      switch (aiProvider) {
+        case 'openai':
+          modelId = config.openaiModel || 'gpt-4o'
+          break
+        case 'anthropic':
+          modelId = config.anthropicModel || 'claude-3-5-sonnet-20241022'
+          break
+        case 'aws-bedrock':
+          modelId = config.awsBedrockModel || 'anthropic.claude-3-5-sonnet-20241022-v2:0'
+          break
+        default:
+          modelId = 'gpt-4o' // Default fallback
+      }
+    }
+
     this.config = {
-      region: config.region || 'us-east-1',
+      region: config.awsRegion || config.region || 'us-east-1',
       endpoint: config.endpoint,
-      modelId: config.modelId || 'anthropic.claude-3-haiku-20240307-v1:0',
+      modelId,
       maxTokens: config.maxTokens || 1000,
+      aiProvider: config.aiProvider || 'openai',
       ...config
     }
 
-    console.log(`🔧 Initializing Strand Adapter with model: ${this.config.modelId}`)
+    console.log(`🔧 Initializing Strand Adapter with AI provider: ${this.config.aiProvider}, model: ${this.config.modelId}`)
 
     // In production, this would validate AWS credentials and test connectivity
     // For now, we'll simulate initialization
