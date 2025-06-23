@@ -397,6 +397,18 @@ async function ensureEnvFileSupabase(env: EnvironmentConfig): Promise<void> {
     filtered.push(`NEXT_PUBLIC_SUPABASE_ANON_KEY=${env.supabase.anonKey}`)
 
     await fs.writeFile(envPath, filtered.join('\n') + '\n', 'utf8')
+
+    // also ensure web app has its own .env.local
+    const webEnvPath = path.join(process.cwd(), 'apps', 'web', '.env.local')
+    let webContent = ''
+    if (await fs.pathExists(webEnvPath)) {
+      webContent = await fs.readFile(webEnvPath, 'utf8')
+    }
+    const wLines = webContent.split('\n').filter(Boolean)
+    const wFiltered = wLines.filter(l => !l.startsWith('NEXT_PUBLIC_SUPABASE_URL=') && !l.startsWith('NEXT_PUBLIC_SUPABASE_ANON_KEY='))
+    wFiltered.push(`NEXT_PUBLIC_SUPABASE_URL=${env.supabase.projectUrl}`)
+    wFiltered.push(`NEXT_PUBLIC_SUPABASE_ANON_KEY=${env.supabase.anonKey}`)
+    await fs.writeFile(webEnvPath, wFiltered.join('\n') + '\n', 'utf8')
   } catch (err) {
     console.warn('Warning: failed to write Supabase vars to .env.local', err)
   }
