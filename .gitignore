@@ -1,3 +1,8 @@
+# Filesystem
+workspace-files/
+.temp/
+
+
 # Dependencies
 node_modules/
 npm-debug.log*
