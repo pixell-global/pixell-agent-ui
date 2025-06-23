@@ -505,7 +505,7 @@ export class LearningEngine extends EventEmitter {
       executionResults,
       evaluationResults,
       domain: understanding.semanticIntent.context.domain || 'general',
-      complexity: understanding.semanticIntent.context.complexity || 'medium',
+      complexity: this.mapComplexity(understanding.semanticIntent.context.complexity || 'moderate'),
       successFactors,
       failureFactors,
       lessonsLearned,
@@ -933,7 +933,7 @@ export class LearningEngine extends EventEmitter {
     // Simple condition evaluation - in production this would be more sophisticated
     if (condition.includes('high_confidence') && understanding.confidence > 0.8) return true
     if (condition.includes('low_confidence') && understanding.confidence < 0.5) return true
-    if (condition.includes('complex') && understanding.semanticIntent.context.complexity === 'high') return true
+    if (condition.includes('complex') && (understanding.semanticIntent.context.complexity === 'complex' || understanding.semanticIntent.context.complexity === 'expert')) return true
     
     return false
   }
@@ -1067,5 +1067,15 @@ export class LearningEngine extends EventEmitter {
       usageCount: 0,
       lastUsed: new Date().toISOString()
     })
+  }
+
+  private mapComplexity(complexity: 'simple' | 'moderate' | 'complex' | 'expert'): 'low' | 'medium' | 'high' {
+    switch (complexity) {
+      case 'simple': return 'low'
+      case 'moderate': return 'medium'
+      case 'complex': return 'high'
+      case 'expert': return 'high'
+      default: return 'medium'
+    }
   }
 } 

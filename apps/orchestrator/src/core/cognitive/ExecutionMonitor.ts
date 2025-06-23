@@ -82,13 +82,21 @@ export interface AdaptationAction {
 }
 
 export interface MonitoringConfig {
-  monitoringInterval: number // milliseconds
-  anomalyDetectionEnabled: boolean
-  adaptationThreshold: number // 0-1
-  alertingEnabled: boolean
-  autoResolutionEnabled: boolean
-  performanceHistorySize: number
-  resourceThresholds: {
+  monitoringInterval?: number // milliseconds
+  anomalyDetectionEnabled?: boolean
+  adaptationThreshold?: number // 0-1
+  alertingEnabled?: boolean
+  autoResolutionEnabled?: boolean
+  performanceHistorySize?: number
+  enableRealTimeMonitoring?: boolean
+  enableAnomalyDetection?: boolean
+  enableAdaptiveAlerts?: boolean
+  enablePerformanceAnalytics?: boolean
+  monitoringIntervalMs?: number
+  anomalyThreshold?: number
+  alertThreshold?: number
+  performanceWindowSize?: number
+  resourceThresholds?: {
     cpu: number
     memory: number
     cost: number
@@ -124,10 +132,34 @@ export class ExecutionMonitor extends EventEmitter {
     uptime: Date.now()
   }
 
-  constructor(config: MonitoringConfig) {
+  constructor(config: MonitoringConfig = {}) {
     super()
-    this.config = config
+    this.config = {
+      monitoringInterval: 1000,
+      anomalyDetectionEnabled: true,
+      adaptationThreshold: 0.7,
+      alertingEnabled: true,
+      autoResolutionEnabled: false,
+      performanceHistorySize: 100,
+      enableRealTimeMonitoring: true,
+      enableAnomalyDetection: true,
+      enableAdaptiveAlerts: true,
+      enablePerformanceAnalytics: true,
+      monitoringIntervalMs: 1000,
+      anomalyThreshold: 2.0,
+      alertThreshold: 0.8,
+      performanceWindowSize: 100,
+      resourceThresholds: {
+        cpu: 0.8,
+        memory: 0.8,
+        cost: 10.0,
+        taskFailureRate: 0.3
+      },
+      ...config
+    }
     this.initializeAnomalyDetectors()
+    
+    console.log('📊 ExecutionMonitor initialized with enhanced monitoring capabilities')
   }
 
   /**

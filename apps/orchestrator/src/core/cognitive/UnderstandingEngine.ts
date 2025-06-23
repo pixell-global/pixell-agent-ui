@@ -7,6 +7,19 @@ import {
   AgentRuntimeAdapter
 } from '../AgentRuntimeAdapter'
 
+export interface UnderstandingEngineConfig {
+  enableDeepAnalysis?: boolean
+  enableAmbiguityDetection?: boolean
+  enableContextualInference?: boolean
+  enableGoalExtraction?: boolean
+  enableConstraintAnalysis?: boolean
+  confidenceThreshold?: number
+  maxAmbiguityResolutionAttempts?: number
+  semanticAnalysisDepth?: 'surface' | 'semantic' | 'strategic' | 'all'
+  contextWindowSize?: number
+  ambiguityThreshold?: number
+}
+
 export interface Goal {
   id: string
   description: string
@@ -109,7 +122,7 @@ export interface EnhancedUnderstanding extends CognitiveUnderstanding {
 export interface ClarificationEngine {
   detectAmbiguities(intent: CognitiveUnderstanding): Ambiguity[]
   generateClarificationQuestions(ambiguities: Ambiguity[]): Question[]
-  incorporateFeedback(feedback: UserFeedback): EnhancedUnderstanding
+  incorporateFeedback(originalUnderstanding: CognitiveUnderstanding, feedback: UserFeedback, userId: string): Promise<EnhancedUnderstanding>
 }
 
 /**
@@ -124,12 +137,39 @@ export interface ClarificationEngine {
 export class UnderstandingEngine extends EventEmitter implements ClarificationEngine {
   private memory: ConversationMemoryManager
   private runtime: AgentRuntimeAdapter
+  private config: UnderstandingEngineConfig
   private clarificationHistory = new Map<string, Array<{ question: Question; response: UserFeedback; impact: string }>>()
   
-  constructor(memory: ConversationMemoryManager, runtime: AgentRuntimeAdapter) {
+  constructor(memory: ConversationMemoryManager, runtime: AgentRuntimeAdapter, config: UnderstandingEngineConfig = {}) {
     super()
     this.memory = memory
     this.runtime = runtime
+    this.config = {
+      enableDeepAnalysis: true,
+      enableAmbiguityDetection: true,
+      enableContextualInference: true,
+      enableGoalExtraction: true,
+      enableConstraintAnalysis: true,
+      confidenceThreshold: 0.7,
+      maxAmbiguityResolutionAttempts: 3,
+      semanticAnalysisDepth: 'all',
+      contextWindowSize: 10,
+      ambiguityThreshold: 0.6,
+      ...config
+    }
+    
+    console.log('🧠 UnderstandingEngine initialized with enhanced cognitive capabilities')
+  }
+
+  /**
+   * Process user input string (convenience method)
+   */
+  async processUserInput(userInput: string): Promise<CognitiveUnderstanding> {
+    const userIntent: UserIntent = {
+      message: userInput,
+      userId: 'default-user' // TODO: get from context
+    }
+    return this.processIntent(userIntent)
   }
 
   /**

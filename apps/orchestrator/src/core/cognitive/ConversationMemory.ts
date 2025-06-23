@@ -1,6 +1,17 @@
 import { EventEmitter } from 'events'
 import { UserId } from '@pixell/protocols'
 
+export interface ConversationMemoryConfig {
+  shortTermCapacity?: number
+  workingMemoryCapacity?: number
+  longTermRetentionDays?: number
+  enableSemanticClustering?: boolean
+  enableEmotionalContext?: boolean
+  enableContextualPrioritization?: boolean
+  contextWindowSize?: number
+  memoryCompactionInterval?: number
+}
+
 export interface RecentContext {
   messages: Array<{
     id: string
@@ -67,6 +78,17 @@ export interface ConversationMemory {
   domainKnowledge: DomainExpertise
 }
 
+export interface ConversationContext {
+  userId: UserId
+  sessionId: string
+  startTime: string
+  lastActivity: string
+  messageCount: number
+  topics: string[]
+  sentiment: 'positive' | 'neutral' | 'negative'
+  urgency: 'low' | 'medium' | 'high'
+}
+
 export interface MemoryQuery {
   type: 'similar_context' | 'user_preference' | 'project_history' | 'domain_knowledge'
   query: string
@@ -96,11 +118,28 @@ export interface MemorySearchResult {
  */
 export class ConversationMemoryManager extends EventEmitter {
   private memories = new Map<UserId, ConversationMemory>()
-  private contextWindow = 10 // Number of recent messages to keep in short-term
-  private maxWorkingMemory = 50 // Maximum working memory entries
+  private config: ConversationMemoryConfig
+  private contextWindow: number
+  private maxWorkingMemory: number
 
-  constructor() {
+  constructor(config: ConversationMemoryConfig = {}) {
     super()
+    this.config = {
+      shortTermCapacity: 50,
+      workingMemoryCapacity: 50,
+      longTermRetentionDays: 30,
+      enableSemanticClustering: true,
+      enableEmotionalContext: false,
+      enableContextualPrioritization: false,
+      contextWindowSize: 10,
+      memoryCompactionInterval: 24 * 60 * 60 * 1000, // 24 hours
+      ...config
+    }
+    
+    this.contextWindow = this.config.contextWindowSize!
+    this.maxWorkingMemory = this.config.workingMemoryCapacity!
+    
+    console.log('💾 ConversationMemoryManager initialized with enhanced features')
   }
 
   /**

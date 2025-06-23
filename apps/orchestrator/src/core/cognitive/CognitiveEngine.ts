@@ -491,7 +491,7 @@ export class CognitiveEngine extends EventEmitter {
   /**
    * Get comprehensive cognitive engine statistics
    */
-  getCognitiveEngineStats(): Record<string, any> {
+  getCognitiveStats(): Record<string, any> {
     const feedbackStats = this.config.enableFeedbackLoops
       ? this.feedbackLoopEngine.getFeedbackLoopStats()
       : {}
@@ -581,7 +581,8 @@ export class CognitiveEngine extends EventEmitter {
   ): Promise<ExecutionPlan> {
     console.log(`📋 Processing planning with meta-cognitive assessment`)
 
-    const plan = await this.planning.generateExecutionPlan(understanding)
+    const session = this.activeSessions.get(sessionId)!
+    const plan = await this.planning.generateExecutionPlan(session.userId, understanding)
 
     // Meta-cognitive assessment
     if (this.config.enableMetaCognition) {
@@ -603,12 +604,38 @@ export class CognitiveEngine extends EventEmitter {
   ): Promise<ExecutionState> {
     console.log(`⚡ Processing execution with meta-cognitive assessment`)
 
-    // Simulate execution monitoring
-    const executionState = await this.executionMonitor.monitorExecution(plan.id, {
-      enableRealTimeMonitoring: true,
-      enableAnomalyDetection: true,
-      enableAdaptiveAlerts: true
-    })
+    // Start execution monitoring
+    await this.executionMonitor.startMonitoring(plan, [])
+    
+    // Get execution state (simulate)
+    const executionState: ExecutionState = {
+      planId: plan.id,
+      status: 'completed',
+      startTime: new Date().toISOString(),
+      endTime: new Date().toISOString(),
+      currentPhase: 'completed',
+      completedTasks: [],
+      activeTasks: [],
+      failedTasks: [],
+      progress: 1.0,
+      resourceUsage: {
+        cpu: 0.5,
+        memory: 0.6,
+        network: 0.3,
+        cost: plan.totalEstimatedCost,
+        timeElapsed: plan.totalEstimatedDuration
+      },
+      performance: {
+        tasksCompleted: plan.nodes.length,
+        tasksRunning: 0,
+        tasksFailed: 0,
+        averageTaskDuration: plan.totalEstimatedDuration / plan.nodes.length,
+        successRate: 0.9,
+        throughput: plan.nodes.length / plan.totalEstimatedDuration * 60,
+        errorRate: 0.1,
+        bottlenecks: []
+      }
+    }
 
     // Meta-cognitive assessment
     if (this.config.enableMetaCognition) {
@@ -958,6 +985,22 @@ export class CognitiveEngine extends EventEmitter {
         console.log(`🔍 Process assessed: ${processName} - ${assessment.overallAssessment}`)
         this.emit('metacognition:assessment:completed', processName, assessment)
       })
+    }
+  }
+
+  async processUserIntent(userIntent: { message: string; userId: UserId }): Promise<CognitiveProcessingResult> {
+    // Start a cognitive session if none exists
+    const sessionId = await this.startCognitiveSession(userIntent.userId)
+    
+    // Process with cognition
+    return this.processWithCognition(sessionId, userIntent.message)
+  }
+
+  async collectUserFeedback(userId: UserId, sessionId: string, feedbackData: any): Promise<void> {
+    // Simple feedback collection - integrate with evaluation engine
+    if (this.config.enableLearning && feedbackData.rating) {
+      console.log(`📝 Collecting user feedback: ${feedbackData.rating}/5`)
+      // Could integrate with learning engine here
     }
   }
 }

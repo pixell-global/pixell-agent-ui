@@ -146,16 +146,23 @@ export interface CognitiveEvaluation {
 }
 
 export interface EvaluationConfig {
-  enableRealTimeEvaluation: boolean
-  enableUserFeedbackCollection: boolean
-  enableLearningInsights: boolean
-  evaluationThresholds: {
+  enableRealTimeEvaluation?: boolean
+  enableUserFeedbackCollection?: boolean
+  enableLearningInsights?: boolean
+  enableDetailedMetrics?: boolean
+  enableQualityAssessment?: boolean
+  enableRiskAnalysis?: boolean
+  enableComparisonAnalysis?: boolean
+  enableLearningFromEvaluation?: boolean
+  evaluationTimeoutMs?: number
+  minConfidenceThreshold?: number
+  evaluationThresholds?: {
     successThreshold: number
     qualityThreshold: number
     efficiencyThreshold: number
   }
-  feedbackCollectionMethods: string[]
-  learningInsightCategories: string[]
+  feedbackCollectionMethods?: string[]
+  learningInsightCategories?: string[]
 }
 
 /**
@@ -174,21 +181,31 @@ export class EvaluationEngine extends EventEmitter {
   private learningInsights = new Map<string, LearningInsight[]>()
   private feedbackCollector: FeedbackCollector
   
-  constructor(config: EvaluationConfig = {
-    enableRealTimeEvaluation: true,
-    enableUserFeedbackCollection: true,
-    enableLearningInsights: true,
-    evaluationThresholds: {
-      successThreshold: 0.8,
-      qualityThreshold: 0.7,
-      efficiencyThreshold: 0.6
-    },
-    feedbackCollectionMethods: ['user_rating', 'system_metrics', 'behavioral_analysis'],
-    learningInsightCategories: ['pattern', 'failure', 'success', 'optimization', 'user_behavior']
-  }) {
+  constructor(config: EvaluationConfig = {}) {
     super()
-    this.config = config
+    this.config = {
+      enableRealTimeEvaluation: true,
+      enableUserFeedbackCollection: true,
+      enableLearningInsights: true,
+      enableDetailedMetrics: true,
+      enableQualityAssessment: true,
+      enableRiskAnalysis: true,
+      enableComparisonAnalysis: true,
+      enableLearningFromEvaluation: true,
+      evaluationTimeoutMs: 30000,
+      minConfidenceThreshold: 0.6,
+      evaluationThresholds: {
+        successThreshold: 0.8,
+        qualityThreshold: 0.7,
+        efficiencyThreshold: 0.6
+      },
+      feedbackCollectionMethods: ['user_rating', 'system_metrics', 'behavioral_analysis'],
+      learningInsightCategories: ['pattern', 'failure', 'success', 'optimization', 'user_behavior'],
+      ...config
+    }
     this.feedbackCollector = new FeedbackCollector()
+    
+    console.log('📊 EvaluationEngine initialized with enhanced evaluation capabilities')
   }
 
   /**

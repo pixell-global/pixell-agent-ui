@@ -125,7 +125,7 @@ export class EnhancedCoreAgent extends EventEmitter {
       enableContextualPrioritization: true
     })
 
-    this.understandingEngine = new UnderstandingEngine({
+    this.understandingEngine = new UnderstandingEngine(this.memoryManager, this.runtime, {
       enableDeepAnalysis: true,
       enableAmbiguityDetection: true,
       enableContextualInference: true,
@@ -147,15 +147,13 @@ export class EnhancedCoreAgent extends EventEmitter {
 
     // Initialize Phase 2 components
     this.planningEngine = new AdvancedPlanningEngine({
-      enableValidation: true,
-      enableSimulation: true,
-      enableRiskAssessment: true,
-      enableOptimization: true,
-      maxPlanComplexity: 50,
-      simulationRuns: 1000,
-      optimizationObjectives: ['time', 'cost', 'quality', 'resource_efficiency'],
-      riskTolerance: 'medium'
-    })
+      maxAlternatives: 3,
+      simulationEnabled: true,
+      riskAssessmentEnabled: true,
+      optimizationEnabled: true,
+      validationStrictness: 'medium',
+      resourceConstraints: {}
+    }, this.runtime)
 
     this.executionMonitor = new ExecutionMonitor({
       enableRealTimeMonitoring: true,
@@ -234,6 +232,7 @@ export class EnhancedCoreAgent extends EventEmitter {
       this.memoryManager,
       this.understandingEngine,
       this.evaluationEngine,
+      this.runtime,
       this.planningEngine,
       this.executionMonitor,
       this.feedbackLoopEngine,
@@ -315,19 +314,29 @@ export class EnhancedCoreAgent extends EventEmitter {
       // Process through cognitive engine
       const cognitiveResult = await this.cognitive.processUserIntent({
         userId,
-        message,
-        context
+        message
       })
 
-      // Store session
-      this.activeSessions.set(sessionId, cognitiveResult)
+      // Store session - adapt CognitiveProcessingResult to CognitiveResult interface
+      const adaptedResult = {
+        understanding: cognitiveResult.understanding,
+        finalConfidence: cognitiveResult.confidence,
+        iterationsCompleted: cognitiveResult.feedbackCycleId ? cognitiveResult.learningInsights.length + 1 : 1,
+        refinementHistory: cognitiveResult.improvementRecommendations.map((rec, index) => ({
+          iteration: index + 1,
+          reason: 'System improvement recommendation',
+          improvement: rec,
+          confidenceChange: 0.05 // Estimate based on recommendations
+        }))
+      }
+      this.activeSessions.set(sessionId, adaptedResult)
 
-      // Track performance
-      this.performanceHistory.push({
-        sessionId,
-        timestamp: new Date().toISOString(),
-        confidence: cognitiveResult.finalConfidence,
-        iterations: cognitiveResult.iterationsCompleted
+              // Track performance
+        this.performanceHistory.push({
+          sessionId,
+          timestamp: new Date().toISOString(),
+          confidence: cognitiveResult.confidence,
+          iterations: adaptedResult.iterationsCompleted
       })
 
       this.emit('message:processed', {
@@ -341,9 +350,9 @@ export class EnhancedCoreAgent extends EventEmitter {
         sessionId,
         cognitiveInsights: {
           understanding: cognitiveResult.understanding,
-          confidence: cognitiveResult.finalConfidence,
-          iterations: cognitiveResult.iterationsCompleted,
-          refinements: cognitiveResult.refinementHistory.length
+          confidence: cognitiveResult.confidence,
+          iterations: adaptedResult.iterationsCompleted,
+          refinements: adaptedResult.refinementHistory.length
         }
       }
     } catch (error) {

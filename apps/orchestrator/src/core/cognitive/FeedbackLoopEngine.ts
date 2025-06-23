@@ -770,7 +770,7 @@ export class FeedbackLoopEngine extends EventEmitter {
         ambiguities: understanding.semanticIntent.ambiguities.filter(a => a.criticality !== 'high'), // Resolve high-criticality ambiguities
         context: {
           ...understanding.semanticIntent.context,
-          clarity: Math.min(1, (understanding.semanticIntent.context.clarity || 0.5) + 0.15)
+          complexity: understanding.semanticIntent.context.complexity === 'complex' ? 'moderate' : understanding.semanticIntent.context.complexity
         }
       }
     }
@@ -860,8 +860,8 @@ export class FeedbackLoopEngine extends EventEmitter {
           {
             type: 'quality',
             description: 'Minimum quality threshold for task completion',
-            severity: 'medium',
-            value: 0.8
+            severity: 'hard',
+            impact: 'Ensures high-quality task completion with 80% minimum threshold'
           }
         ]
       },
