@@ -11,7 +11,8 @@ import {
   selectActiveTasks 
 } from '@/stores/workspace-store'
 import { useWebSocket, webSocketActions } from '@/lib/websocket-manager'
-import type { ChatMessage, WorkerAgentStatus } from '@/types'
+import type { WorkerAgentStatus } from '@/types'
+import type { ChatMessage } from '@/stores/workspace-store'
 
 // Demo component to showcase Phase 1 implementation
 export const WorkspaceDemo: React.FC = () => {

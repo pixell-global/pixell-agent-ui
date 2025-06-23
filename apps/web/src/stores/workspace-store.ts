@@ -21,7 +21,7 @@ export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
-  messageType: 'text' | 'plan' | 'progress' | 'alert' | 'file_context'
+  messageType: 'text' | 'plan' | 'progress' | 'alert' | 'file_context' | 'code'
   streaming?: boolean
   taskId?: string
   fileReferences?: FileReference[]
