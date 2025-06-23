@@ -28,6 +28,9 @@ build/
 .env.test.local
 .env.production.local
 
+# Pixell CLI configuration (contains sensitive environment data)
+.pixell/
+
 # Turbo
 .turbo/
 
