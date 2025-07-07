@@ -1,61 +1,13 @@
 import { Request, Response } from 'express'
-import { CoreAgent } from '../core/CoreAgent'
+import { getPafCoreAgentUrl } from '../utils/environments'
 
-// Initialize Core Agent with environment configuration
-let coreAgent: CoreAgent | null = null
-
-const initializeCoreAgent = async () => {
-  if (!coreAgent) {
-    // Agent Runtime (execution framework)
-    const agentRuntime = process.env.AGENT_RUNTIME || 'aws-strand'
-    
-    // AI Provider (model API)
-    const aiProvider = process.env.AI_DEFAULT_PROVIDER || 'openai'
-    
-    coreAgent = new CoreAgent({
-      runtimeProvider: agentRuntime as any,
-      runtimeConfig: {
-        // Multi-provider AI configuration
-        aiProvider,
-        
-        // OpenAI configuration
-        openaiApiKey: process.env.OPENAI_API_KEY,
-        openaiModel: process.env.OPENAI_MODEL || 'gpt-4o',
-        openaiOrganization: process.env.OPENAI_ORGANIZATION,
-        openaiBaseUrl: process.env.OPENAI_BASE_URL,
-        
-        // Anthropic configuration
-        anthropicApiKey: process.env.ANTHROPIC_API_KEY,
-        anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022',
-        
-        // AWS Bedrock configuration
-        awsRegion: process.env.AWS_REGION || 'us-east-1',
-        awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-        awsBedrockModel: process.env.AWS_BEDROCK_MODEL || 'anthropic.claude-3-5-sonnet-20241022-v2:0',
-        
-        // Azure OpenAI configuration
-        azureApiKey: process.env.AZURE_OPENAI_API_KEY,
-        azureEndpoint: process.env.AZURE_OPENAI_ENDPOINT,
-        azureDeployment: process.env.AZURE_OPENAI_DEPLOYMENT,
-        azureApiVersion: process.env.AZURE_OPENAI_API_VERSION || '2024-02-01',
-        
-        // Google AI configuration
-        googleApiKey: process.env.GOOGLE_AI_API_KEY,
-        googleModel: process.env.GOOGLE_AI_MODEL || 'gemini-1.5-pro'
-      },
-      maxConcurrentTasks: 5,
-      defaultTimeout: 30000
-    })
-    
-    // Actually initialize the agent
-    await coreAgent.initialize()
-  }
-  return coreAgent
+// PAF Core Agent service URL
+const getCoreAgentUrl = async () => {
+  return await getPafCoreAgentUrl()
 }
 
 /**
- * POST /api/chat/stream - Stream chat responses from Core Agent
+ * POST /api/chat/stream - Stream chat responses from PAF Core Agent
  */
 export async function streamChatHandler(req: Request, res: Response) {
   try {
@@ -65,40 +17,48 @@ export async function streamChatHandler(req: Request, res: Response) {
       return res.status(400).json({ error: 'Message is required' })
     }
 
-    // Initialize Core Agent
-    const agent = await initializeCoreAgent()
+    const coreAgentUrl = await getCoreAgentUrl()
     
-    // Check if agent is properly configured based on AI provider
-    const aiProvider = process.env.AI_DEFAULT_PROVIDER || 'openai'
-    let isConfigured = false
-    
-    switch (aiProvider) {
-      case 'openai':
-        isConfigured = !!process.env.OPENAI_API_KEY
-        break
-      case 'anthropic':
-        isConfigured = !!process.env.ANTHROPIC_API_KEY
-        break
-      case 'aws-bedrock':
-        isConfigured = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY)
-        break
-      case 'azure-openai':
-        isConfigured = !!(process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_ENDPOINT)
-        break
-      case 'google':
-        isConfigured = !!process.env.GOOGLE_AI_API_KEY
-        break
-      default:
-        isConfigured = false
+    // Transform fileContext to the format expected by PAF Core Agent
+    const files = fileContext.map((file: any) => ({
+      path: file.path || file.name || 'unknown',
+      content: file.content || ''
+    }))
+
+    // Prepare request payload for PAF Core Agent
+    const payload = {
+      message,
+      files,
+      settings: {
+        showThinking: settings.showThinking || false,
+        streamingEnabled: settings.streamingEnabled !== false // default to true
+      }
     }
 
-    if (!isConfigured) {
-      return res.status(503).json({ 
-        error: `AI provider "${aiProvider}" not configured. Run "pixell config ai" to setup API keys.` 
-      })
+    // Make request to PAF Core Agent
+    const response = await fetch(`${coreAgentUrl}/api/chat/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      let errorMessage = 'Failed to connect to PAF Core Agent'
+      
+      try {
+        const errorJson = JSON.parse(errorText)
+        errorMessage = errorJson.error || errorMessage
+      } catch {
+        // Use default error message if JSON parsing fails
+      }
+
+      return res.status(response.status).json({ error: errorMessage })
     }
 
-    // Set up Server-Sent Events for streaming
+    // Set up Server-Sent Events headers
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -107,147 +67,159 @@ export async function streamChatHandler(req: Request, res: Response) {
       'Access-Control-Allow-Headers': 'Content-Type'
     })
 
-    const sendChunk = (data: any) => {
-      res.write(`data: ${JSON.stringify(data)}\n\n`)
+    // Stream the response from PAF Core Agent to client
+    const reader = response.body?.getReader()
+    const decoder = new TextDecoder()
+
+    if (!reader) {
+      res.write(`data: ${JSON.stringify({ type: 'error', error: 'No response stream available' })}\n\n`)
+      res.end()
+      return
     }
 
     try {
-      // Show thinking if enabled
-      if (settings.showThinking) {
-        sendChunk({
-          type: 'thinking',
-          context: {
-            thoughts: [{
-              id: `thinking_${Date.now()}`,
-              content: 'Processing your request and determining the best approach...',
-              isCompleted: false,
-              timestamp: new Date().toISOString(),
-              importance: 'medium'
-            }]
-          }
-        })
+      let buffer = ''
+      let currentEvent = {
+        id: '',
+        event: '',
+        data: ''
       }
-
-      // Prepare context from files
-      let contextPrompt = message
-      if (fileContext.length > 0) {
-        const fileContextStr = fileContext.map((file: any) => 
-          `File: ${file.name}\nPath: ${file.path}\n${file.content ? `Content:\n${file.content}\n` : ''}`
-        ).join('\n---\n')
-        
-        contextPrompt = `Context files:\n${fileContextStr}\n\nUser request: ${message}`
-      }
-
-      // Create user intent for Core Agent
-      const userIntent = {
-        message: contextPrompt,
-        userId: 'web-user',
-        context: {
-          timestamp: new Date().toISOString(),
-          source: 'web-chat',
-          fileReferences: fileContext
-        }
-      }
-
-      // Make direct OpenAI API call for now (bypassing Core Agent complexity)
-      const aiProvider = process.env.AI_DEFAULT_PROVIDER || 'openai'
-      let aiResponse = "I'm sorry, I couldn't generate a response."
       
-      if (aiProvider === 'openai' && process.env.OPENAI_API_KEY) {
-        try {
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: process.env.OPENAI_MODEL || 'gpt-4o',
-              messages: [
-                {
-                  role: 'system',
-                  content: 'You are a helpful AI assistant in the Pixell Agent Framework. Be concise and helpful.'
-                },
-                {
-                  role: 'user',
-                  content: contextPrompt
+      const processCurrentEvent = () => {
+        if (currentEvent.event && currentEvent.data) {
+          console.log('📦 Processing SSE event:', currentEvent)
+          
+          let sseData = null
+          
+          // Handle different SSE event types
+          if (currentEvent.event === 'EventType.CONTENT') {
+            try {
+              const contentData = JSON.parse(currentEvent.data)
+              sseData = {
+                type: 'content',
+                delta: { content: contentData.content || '' },
+                accumulated: contentData.content || ''
+              }
+              console.log('📤 Sending content chunk:', contentData.content)
+            } catch (parseError) {
+              console.log('⚠️ Failed to parse content data:', currentEvent.data)
+              // Fallback if data isn't JSON - treat as raw content
+              sseData = {
+                type: 'content',
+                delta: { content: currentEvent.data },
+                accumulated: currentEvent.data
+              }
+            }
+          } else if (currentEvent.event === 'EventType.THINKING') {
+            try {
+              const thinkingData = JSON.parse(currentEvent.data)
+              sseData = {
+                type: 'thinking',
+                context: {
+                  thoughts: [{
+                    id: currentEvent.id || `thinking_${Date.now()}`,
+                    content: thinkingData.content || thinkingData.message || 'Processing...',
+                    isCompleted: thinkingData.completed || false,
+                    timestamp: thinkingData.timestamp || new Date().toISOString(),
+                    importance: thinkingData.importance || 'medium'
+                  }]
                 }
-              ],
-              max_tokens: 1000,
-              temperature: 0.7,
-              stream: false
-            })
-          })
-          
-          if (response.ok) {
-            const data = await response.json() as any
-            aiResponse = data.choices?.[0]?.message?.content || "I couldn't generate a response."
-          } else {
-            console.error('OpenAI API error:', response.status, response.statusText)
-            aiResponse = "Sorry, I encountered an error while processing your request."
+              }
+            } catch {
+              // Fallback if data isn't JSON
+              sseData = {
+                type: 'thinking',
+                context: {
+                  thoughts: [{
+                    id: currentEvent.id || `thinking_${Date.now()}`,
+                    content: currentEvent.data,
+                    isCompleted: false,
+                    timestamp: new Date().toISOString(),
+                    importance: 'medium'
+                  }]
+                }
+              }
+            }
+          } else if (currentEvent.event === 'EventType.COMPLETE') {
+            sseData = { type: 'complete' }
+            console.log('📤 Sending completion signal')
+          } else if (currentEvent.event === 'EventType.DONE') {
+            sseData = { type: 'complete' }
+            console.log('📤 Sending final completion signal')
+          } else if (currentEvent.event === 'EventType.ERROR') {
+            sseData = { 
+              type: 'error', 
+              error: currentEvent.data || 'Unknown error occurred'
+            }
           }
-        } catch (error) {
-          console.error('OpenAI API call failed:', error)
-          aiResponse = "Sorry, I couldn't connect to the AI service."
-        }
-      } else {
-        aiResponse = `AI provider "${aiProvider}" is not yet implemented for direct API calls.`
-      }
-
-      // Stream response back to frontend
-      if (settings.streamingEnabled) {
-        // Simulate streaming by breaking response into chunks
-        const words = aiResponse.split(' ')
-        let accumulated = ''
-
-        for (let i = 0; i < words.length; i++) {
-          const word = words[i] + (i < words.length - 1 ? ' ' : '')
-          accumulated += word
           
-          sendChunk({
-            type: 'content',
-            delta: { content: word },
-            accumulated
-          })
-
-          // Small delay to simulate real streaming
-          await new Promise(resolve => setTimeout(resolve, 30))
-        }
-      } else {
-        // Send complete response
-        sendChunk({
-          type: 'content',
-          delta: { content: aiResponse },
-          accumulated: aiResponse
-        })
-      }
-
-      // Complete thinking step
-      if (settings.showThinking) {
-        sendChunk({
-          type: 'thinking',
-          context: {
-            thoughts: [{
-              id: `thinking_${Date.now()}`,
-              content: 'Response generated successfully',
-              isCompleted: true,
-              timestamp: new Date().toISOString(),
-              importance: 'low'
-            }]
+          // Send the transformed SSE data
+          if (sseData) {
+            res.write(`data: ${JSON.stringify(sseData)}\n\n`)
+            console.log('📤 Sent SSE data:', sseData)
           }
-        })
+          
+          // Reset for next event
+          currentEvent = { id: '', event: '', data: '' }
+        }
       }
-
-      sendChunk({ type: 'complete' })
-      res.write('data: [DONE]\n\n')
-
-    } catch (aiError) {
-      console.error('AI processing error:', aiError)
       
-      sendChunk({
-        type: 'error',
-        error: 'Failed to get AI response. Please check your API configuration.'
-      })
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value, { stream: true })
+        buffer += chunk
+        
+        // Process complete lines
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || '' // Keep incomplete line in buffer
+        
+        for (const line of lines) {
+          console.log('🔍 PAF Core Agent raw line:', line)
+          
+          if (line.trim() === '') {
+            // Empty line indicates end of SSE event - process if we haven't already
+            processCurrentEvent()
+            continue
+          }
+          
+          // Parse SSE field lines
+          if (line.startsWith('id: ')) {
+            // Process previous event if we're starting a new one
+            if (currentEvent.event && currentEvent.data) {
+              processCurrentEvent()
+            }
+            currentEvent.id = line.slice(4).trim()
+          } else if (line.startsWith('event: ')) {
+            currentEvent.event = line.slice(7).trim()
+          } else if (line.startsWith('data: ')) {
+            currentEvent.data = line.slice(6).trim()
+            // Process immediately when we have all three fields
+            if (currentEvent.id && currentEvent.event && currentEvent.data) {
+              processCurrentEvent()
+            }
+          } else if (line.startsWith('data:')) {
+            currentEvent.data = line.slice(5).trim()
+            // Process immediately when we have all three fields
+            if (currentEvent.id && currentEvent.event && currentEvent.data) {
+              processCurrentEvent()
+            }
+          }
+        }
+      }
+      
+      // Process any remaining event
+      processCurrentEvent()
+      
+      // Send final completion signal if not already sent
+      res.write(`data: ${JSON.stringify({ type: 'complete' })}\n\n`)
+      res.write(`data: [DONE]\n\n`)
+      console.log('🏁 Stream completed')
+      
+    } catch (streamError) {
+      console.error('Streaming error:', streamError)
+      res.write(`data: ${JSON.stringify({ type: 'error', error: 'Streaming interrupted' })}\n\n`)
     }
 
     res.end()
@@ -256,86 +228,153 @@ export async function streamChatHandler(req: Request, res: Response) {
     console.error('Chat API error:', error)
     
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Internal server error' })
+      const errorMessage = error instanceof Error && error.message.includes('fetch') 
+        ? 'Cannot connect to PAF Core Agent. Please ensure the service is running.'
+        : 'Internal server error'
+      
+      res.status(500).json({ error: errorMessage })
     }
   }
 }
 
 /**
- * GET /api/health - Check Core Agent health
+ * GET /api/health - Check PAF Core Agent health
  */
 export async function healthHandler(req: Request, res: Response) {
   try {
-    const agent = await initializeCoreAgent()
+    const coreAgentUrl = await getCoreAgentUrl()
     
-    // Get configuration details
-    const agentRuntime = process.env.AGENT_RUNTIME || 'aws-strand'
-    const aiProvider = process.env.AI_DEFAULT_PROVIDER || 'openai'
-    
-    // Check if AI provider is configured
-    let isConfigured = false
-    let modelId = 'unknown'
-    
-    switch (aiProvider) {
-      case 'openai':
-        isConfigured = !!process.env.OPENAI_API_KEY
-        modelId = process.env.OPENAI_MODEL || 'gpt-4o'
-        break
-      case 'anthropic':
-        isConfigured = !!process.env.ANTHROPIC_API_KEY
-        modelId = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022'
-        break
-      case 'aws-bedrock':
-        isConfigured = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY)
-        modelId = process.env.AWS_BEDROCK_MODEL || 'anthropic.claude-3-5-sonnet-20241022-v2:0'
-        break
-      case 'azure-openai':
-        isConfigured = !!(process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_ENDPOINT)
-        modelId = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o'
-        break
-      case 'google':
-        isConfigured = !!process.env.GOOGLE_AI_API_KEY
-        modelId = process.env.GOOGLE_AI_MODEL || 'gemini-1.5-pro'
-        break
-    }
-    
-    if (!isConfigured) {
-      return res.json({
+    // Check PAF Core Agent health
+    const response = await fetch(`${coreAgentUrl}/api/health`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      // Add timeout for health checks
+      signal: AbortSignal.timeout(5000) // 5 second timeout
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      return res.status(response.status).json({
         status: 'error',
-        error: `AI provider "${aiProvider}" not configured`,
+        error: `PAF Core Agent health check failed: ${errorText}`,
         runtime: {
-          provider: aiProvider,
-          agentRuntime,
-          configured: false
+          provider: 'unknown',
+          configured: false,
+          coreAgentUrl,
+          connected: false
         }
       })
     }
 
-    // Get status from Core Agent
-    const stats = agent.getStats()
+    const healthData = await response.json() as any
     
+    // Return the health data from PAF Core Agent with additional orchestrator info
     res.json({
-      status: 'healthy',
-      runtime: {
-        provider: aiProvider,
-        agentRuntime,
-        modelId,
-        configured: true,
-        initialized: true,
-        stats
+      status: healthData.status || 'healthy',
+      runtime: healthData.runtime || {},
+      orchestrator: {
+        status: 'healthy',
+        coreAgentUrl,
+        connected: true
       }
     })
     
   } catch (error) {
     console.error('Health check error:', error)
+    
+    const errorMessage = error instanceof Error && error.name === 'TimeoutError'
+      ? 'PAF Core Agent health check timed out'
+      : error instanceof Error && error.message.includes('fetch')
+      ? 'Cannot connect to PAF Core Agent'
+      : error instanceof Error ? error.message : 'Unknown error'
+    
     res.status(500).json({ 
       status: 'error', 
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorMessage,
       runtime: { 
         provider: 'unknown', 
-        agentRuntime: 'unknown',
-        configured: false 
+        configured: false,
+        coreAgentUrl: await getCoreAgentUrl(),
+        connected: false
       }
     })
   }
-} 
+}
+
+/**
+ * GET /api/chat/status - Check PAF Core Agent detailed status
+ */
+export async function statusHandler(req: Request, res: Response) {
+  try {
+    const coreAgentUrl = await getCoreAgentUrl()
+    
+    const response = await fetch(`${coreAgentUrl}/api/chat/status`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(5000)
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      return res.status(response.status).json({
+        error: `PAF Core Agent status check failed: ${errorText}`
+      })
+    }
+
+    const statusData = await response.json()
+    res.json(statusData)
+    
+  } catch (error) {
+    console.error('Status check error:', error)
+    
+    const errorMessage = error instanceof Error && error.name === 'TimeoutError'
+      ? 'PAF Core Agent status check timed out'
+      : error instanceof Error && error.message.includes('fetch')
+      ? 'Cannot connect to PAF Core Agent'
+      : error instanceof Error ? error.message : 'Unknown error'
+    
+    res.status(500).json({ error: errorMessage })
+  }
+}
+
+/**
+ * GET /api/chat/models - Get available models from PAF Core Agent
+ */
+export async function modelsHandler(req: Request, res: Response) {
+  try {
+    const coreAgentUrl = await getCoreAgentUrl()
+    
+    const response = await fetch(`${coreAgentUrl}/api/chat/models`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(5000)
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      return res.status(response.status).json({
+        error: `PAF Core Agent models check failed: ${errorText}`
+      })
+    }
+
+    const modelsData = await response.json()
+    res.json(modelsData)
+    
+  } catch (error) {
+    console.error('Models check error:', error)
+    
+    const errorMessage = error instanceof Error && error.name === 'TimeoutError'
+      ? 'PAF Core Agent models check timed out'
+      : error instanceof Error && error.message.includes('fetch')
+      ? 'Cannot connect to PAF Core Agent'
+      : error instanceof Error ? error.message : 'Unknown error'
+    
+    res.status(500).json({ error: errorMessage })
+  }
+}

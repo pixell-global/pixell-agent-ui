@@ -2,8 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
-import { runPhase2Demo } from './demo/phase2-demo';
-import { streamChatHandler, healthHandler } from './api/chat';
+import { streamChatHandler, healthHandler, statusHandler, modelsHandler } from './api/chat';
 import { config } from 'dotenv';
 import { resolve } from 'path';
 
@@ -322,6 +321,28 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+app.get('/api/chat/status', async (req, res) => {
+  try {
+    await statusHandler(req, res);
+  } catch (error) {
+    console.error('Status check error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Status check failed' });
+    }
+  }
+});
+
+app.get('/api/chat/models', async (req, res) => {
+  try {
+    await modelsHandler(req, res);
+  } catch (error) {
+    console.error('Models check error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Models check failed' });
+    }
+  }
+});
+
 // Create a simulated task with real-time progress
 const createTask = (name: string, description: string, agentId: string, agentName: string) => {
   const task = {
@@ -449,19 +470,13 @@ app.post('/demo/reddit', async (req, res) => {
 
 app.post('/demo/full', async (req, res) => {
   try {
-    console.log('🎬 Running full Phase 2 demonstration...');
+    console.log('🎬 Demo functionality has been removed');
     
     res.json({
-      status: 'started',
-      message: 'Phase 2 demonstration started',
-      note: 'Check the console for real-time progress',
-      estimatedDuration: 30
+      status: 'unavailable',
+      message: 'Demo functionality has been removed',
+      note: 'Use the Reddit automation demo instead: POST /demo/reddit'
     });
-    
-    // Run the demo asynchronously
-    setTimeout(() => {
-      runPhase2Demo().catch(console.error);
-    }, 1000);
 
   } catch (error: any) {
     console.error('Demo error:', error);
@@ -487,11 +502,12 @@ server.listen(port, () => {
   console.log(`   GET  /stream - SSE real-time updates`)
   console.log(`   WS   /ws - WebSocket real-time updates`)
   console.log(`   POST /demo/reddit - Run Reddit automation demo`)
-  console.log(`   POST /demo/full - Run complete Phase 2 demo`)
   console.log('')
-  console.log('🤖 Phase 3: AI Chat Endpoints:')
+  console.log('🤖 Phase 3: AI Chat Endpoints (via PAF Core Agent):')
   console.log(`   POST /api/chat/stream - Stream AI responses`)
-  console.log(`   GET  /api/health - AI agent health status`)
+  console.log(`   GET  /api/health - PAF Core Agent health status`)
+  console.log(`   GET  /api/chat/status - Detailed PAF Core Agent status`)
+  console.log(`   GET  /api/chat/models - Available AI models`)
   console.log('')
   console.log('✨ New Phase 2 Features:')
   console.log('   • Multi-agent orchestration')

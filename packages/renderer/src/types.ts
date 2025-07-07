@@ -1,13 +1,42 @@
 import React from 'react';
 
 export interface RenderBlock {
-  type: 'chart' | 'table' | 'button' | 'custom' | 'code' | 'markdown';
+  id: string;
+  type: 'markdown' | 'math' | 'code' | 'chart' | 'table' | 'text';
   payload: any;
-  metadata?: {
-    id?: string;
-    timestamp?: string;
-    security?: SecurityLevel;
-  };
+  complete: boolean;
+  startIndex: number;
+  endIndex: number;
+}
+
+// New types for improved rendering architecture
+export interface ContentBuffer {
+  content: string;
+  lastParsedIndex: number;
+  isStreaming: boolean;
+  messageId: string;
+}
+
+export interface DelimiterState {
+  type: 'math' | 'code' | 'chart';
+  startIndex: number;
+  delimiter: string;
+  language?: string;
+}
+
+export interface ParserState {
+  delimiterStack: DelimiterState[];
+  blocks: RenderBlock[];
+  lastProcessedIndex: number;
+}
+
+export type RendererComponent = React.FC<{
+  block: RenderBlock;
+  isStreaming?: boolean;
+}>;
+
+export interface RendererRegistry {
+  [type: string]: RendererComponent;
 }
 
 export interface StreamingToken {

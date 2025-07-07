@@ -12,6 +12,10 @@ import { initStorage, showStorageStatus } from './commands/storage'
 import { initSupabase, stopSupabase, statusSupabase, resetSupabase, migrationsSupabase, manageEnvironments, editSupabaseSettings } from './commands/supabase'
 import { installDocker, dockerStatus, dockerStart } from './commands/docker'
 import { startProject } from './commands/start'
+import { setupComplete } from './commands/setup-complete'
+import { clonePafCoreAgent, updatePafCoreAgent, statusPafCoreAgent, removePafCoreAgent } from './commands/paf-core-agent'
+import { startServices, stopServices, restartServices, statusServices, logsServices, scaleServices } from './commands/services'
+import { checkSystemDependencies, ensureSystemDependencies } from './commands/system-dependencies'
 import { 
   listFiles, 
   copyFiles, 
@@ -513,6 +517,125 @@ dockerCmd
   .action(dockerStart)
 
 // ============================================
+// SETUP COMMANDS (Enhanced)
+// ============================================
+
+program
+  .command('setup:complete')
+  .description('Complete automated setup - installs everything automatically')
+  .option('--skip-clone', 'Skip cloning PAF Core Agent')
+  .option('--skip-docker', 'Skip Docker setup')
+  .option('--skip-env', 'Skip environment creation')
+  .option('--environment <env>', 'Target environment', 'local')
+  .action(setupComplete)
+
+program
+  .command('check-deps')
+  .description('Check system dependencies (Docker, Python, Git, etc.)')
+  .action(checkSystemDependencies)
+
+program
+  .command('install-deps')
+  .description('Install missing system dependencies automatically')
+  .action(ensureSystemDependencies)
+
+// ============================================
+// PAF CORE AGENT COMMAND GROUP
+// ============================================
+
+const pafCmd = program
+  .command('paf-core-agent')
+  .alias('paf')
+  .description('PAF Core Agent repository management')
+
+pafCmd
+  .command('clone')
+  .alias('c')
+  .description('Clone PAF Core Agent repository')
+  .option('--branch <branch>', 'Git branch to clone', 'main')
+  .option('--force', 'Force overwrite existing directory')
+  .option('--dev', 'Setup development environment')
+  .action(clonePafCoreAgent)
+
+pafCmd
+  .command('update')
+  .alias('u')
+  .description('Update PAF Core Agent repository')
+  .option('--branch <branch>', 'Git branch to update')
+  .action(updatePafCoreAgent)
+
+pafCmd
+  .command('status')
+  .alias('st')
+  .description('Check PAF Core Agent status')
+  .action(statusPafCoreAgent)
+
+pafCmd
+  .command('remove')
+  .alias('rm')
+  .description('Remove PAF Core Agent repository')
+  .action(removePafCoreAgent)
+
+// ============================================
+// SERVICES COMMAND GROUP
+// ============================================
+
+const servicesCmd = program
+  .command('services')
+  .alias('svc')
+  .description('Manage all Pixell services (Docker Compose)')
+
+servicesCmd
+  .command('start')
+  .alias('up')
+  .description('Start all services')
+  .option('--environment <env>', 'Target environment', 'local')
+  .option('--no-detached', 'Run in foreground')
+  .option('--services <services>', 'Specific services to start (comma-separated)')
+  .action((options) => startServices({
+    environment: options.environment,
+    detached: options.detached,
+    services: options.services ? options.services.split(',') : undefined
+  }))
+
+servicesCmd
+  .command('stop')
+  .alias('down')
+  .description('Stop all services')
+  .option('--environment <env>', 'Target environment', 'local')
+  .action((options) => stopServices({ environment: options.environment }))
+
+servicesCmd
+  .command('restart')
+  .alias('r')
+  .description('Restart all services')
+  .option('--environment <env>', 'Target environment', 'local')
+  .action((options) => restartServices({ environment: options.environment }))
+
+servicesCmd
+  .command('status')
+  .alias('st')
+  .description('Check status of all services')
+  .action(statusServices)
+
+servicesCmd
+  .command('logs')
+  .alias('l')
+  .description('Show service logs')
+  .option('--service <service>', 'Specific service to show logs for')
+  .option('--follow', 'Follow log output')
+  .action((options) => logsServices({
+    service: options.service,
+    follow: options.follow
+  }))
+
+servicesCmd
+  .command('scale <service> <replicas>')
+  .alias('s')
+  .description('Scale a service to specified number of replicas')
+  .action(scaleServices)
+
+// ============================================
 // RUNTIME COMMAND GROUP (with aliases)
 // ============================================
 
@@ -648,6 +771,8 @@ if (!process.argv.slice(2).length) {
   console.log(chalk.cyan('   pixell extensions (ext) - Extension management'))
   console.log(chalk.cyan('   pixell docker (d)    - Docker management'))
   console.log(chalk.cyan('   pixell runtime (rt)  - Runtime management'))
+  console.log(chalk.cyan('   pixell paf-core-agent (paf) - PAF Core Agent management'))
+  console.log(chalk.cyan('   pixell services (svc) - Service orchestration'))
   console.log(chalk.white('\n   🚀 Popular Shortcuts:'))
   console.log(chalk.green('   pixell new       - Create app (alias for create)'))
   console.log(chalk.green('   pixell gen       - Generate worker (alias for generate-worker)'))
@@ -657,11 +782,14 @@ if (!process.argv.slice(2).length) {
   console.log(chalk.green('   pixell tree      - Directory tree (fs tree)'))
   console.log(chalk.green('   pixell init      - Initialize config (config init)'))
   console.log(chalk.green('   pixell status    - Combined system status'))
+  console.log(chalk.green('   pixell setup:complete - Complete automated setup'))
   console.log(chalk.yellow('\n   💡 Examples:'))
   console.log(chalk.gray('   pixell c s       - Show config (config show)'))
   console.log(chalk.gray('   pixell f l       - List files (fs ls)'))
   console.log(chalk.gray('   pixell sb st     - Supabase status'))
   console.log(chalk.gray('   pixell ext ls    - List extensions'))
+  console.log(chalk.gray('   pixell paf c     - Clone PAF Core Agent'))
+  console.log(chalk.gray('   pixell svc up    - Start all services'))
   console.log(chalk.yellow('\n   Use "pixell <command> --help" for detailed options'))
   process.exit(0)
 }

@@ -1,23 +1,49 @@
-// Core components
+// Core hooks for improved rendering architecture
+export { useContentBuffer, useIncrementalParser, useRenderEngine } from './hooks';
+
+// Main rendering components
 export { MarkdownRenderer } from './components/MarkdownRenderer';
+export { CodeBlock } from './components/CodeBlock';
+export { ChartRenderer } from './components/ChartRenderer';
+export { TableRenderer } from './components/TableRenderer';
+export { BlockRenderer } from './components/BlockRenderer';
+export { MathSkeleton } from './components/MathSkeleton';
+
+// Streaming renderers
+export { StreamingRenderer } from './components/StreamingRenderer';
 export { SimpleStreamingRenderer } from './components/SimpleStreamingRenderer';
 export { HybridStreamingRenderer } from './components/HybridStreamingRenderer';
-export { CodeBlock } from './components/CodeBlock';
-export { BlockRenderer } from './components/BlockRenderer';
-export { TableRenderer } from './components/TableRenderer';
+
+// Demo components
+export { StreamingDemo } from './components/StreamingDemo';
+
+// Utility functions
+export { ContentParser } from './utils/ContentParser';
+export { ContentPostProcessor } from './utils/ContentPostProcessor';
+export { sanitizeContent, validateBlockPayload, sanitizeUrl, escapeHtml } from './security/Sanitizer';
+
+// Chart utility functions
 export { 
-  ChartRenderer,
-  createBarChart,
-  createLineChart,
-  createScatterPlot,
-  createPieChart
+  createBarChart, 
+  createLineChart, 
+  createScatterPlot, 
+  createPieChart 
 } from './components/ChartRenderer';
 
-// Utilities
-export { ContentParser } from './utils/ContentParser';
-
 // Types
-export * from './types';
+export type {
+  RenderBlock,
+  StreamingToken,
+  RendererPlugin,
+  SecurityLevel,
+  MarkdownRendererProps,
+  StreamingRendererProps,
+  ContentBuffer,
+  DelimiterState,
+  ParserState,
+  RendererComponent,
+  RendererRegistry
+} from './types';
 
 // Security utilities
 export * from './security/Sanitizer';
@@ -39,13 +65,7 @@ export * from './utils/ContentParser';
 export const VERSION = '0.1.0';
 
 // Default export for convenience
-export { sanitizeContent, validateBlockPayload } from './security/Sanitizer';
 export type { 
-  RenderBlock, 
-  StreamingToken, 
-  RendererPlugin, 
-  SecurityLevel,
-  MarkdownRendererProps,
-  CodeBlockProps,
-  StreamingRendererProps
+  RenderBlock as Block,
+  StreamingToken as Token 
 } from './types'; 

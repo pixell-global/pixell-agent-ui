@@ -13,6 +13,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.28.0",
     "@aws-sdk/client-bedrock": "^3.716.0",
     "@aws-sdk/client-lambda": "^3.716.0",
     "@pixell/protocols": "file:../../packages/protocols",
@@ -20,6 +21,8 @@
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
+    "fs-extra": "^11.2.0",
+    "openai": "^4.69.0",
     "uuid": "^10.0.0",
     "ws": "^8.18.0",
     "zod": "^3.24.1"
@@ -27,6 +30,7 @@
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
+    "@types/fs-extra": "^11.0.4",
     "@types/uuid": "^10.0.0",
     "@types/ws": "^8.5.13",
     "nodemon": "^3.1.7",

@@ -1,0 +1,53 @@
+version: '3.8'
+
+# Development override for docker-compose.yml
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  # PAF Core Agent - Development Configuration
+  paf-core-agent:
+    build:
+      context: ./paf-core-agent
+      dockerfile: Dockerfile.dev
+      args:
+        - INSTALL_DEV=true
+    ports:
+      - "8000:8000"
+      - "5678:5678"  # Python debugger port
+    volumes:
+      - ./paf-core-agent:/app
+      - /app/venv  # Exclude virtual environment from volume mount
+    environment:
+      - DEBUG=true
+      - RELOAD=true
+      - LOG_LEVEL=debug
+      - PYTHONPATH=/app
+    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  # Development Database with exposed port for direct access
+  supabase-db:
+    ports:
+      - "54322:5432"  # Expose PostgreSQL for development tools
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_HOST=supabase-db
+    volumes:
+      - supabase-db-dev-data:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d
+      - ./supabase/seed.sql:/docker-entrypoint-initdb.d/seed.sql
+
+  # Development Studio with different port to avoid conflicts
+  supabase-studio:
+    ports:
+      - "54323:3000"  # Different port for dev
+    environment:
+      - SUPABASE_URL=http://localhost:54321
+      - SUPABASE_REST_URL=http://localhost:54321
+      - NEXT_PUBLIC_ENABLE_LOGS=true
+      - NEXT_ANALYTICS_DISABLED=true
+
+volumes:
+  supabase-db-dev-data:
+    driver: local

@@ -122,3 +122,82 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ChatGPT-style layout stability for math rendering */
+@layer components {
+  /* Math block container - reserve space to prevent layout shifts */
+  .math-block {
+    min-height: 2rem;
+    position: relative;
+    margin: 0.5rem 0;
+  }
+  
+  /* Inline math container */
+  .math-inline {
+    min-height: 1.2rem;
+    position: relative;
+    display: inline-block;
+    vertical-align: baseline;
+  }
+  
+  /* Skeleton loading animation for incomplete math */
+  .math-skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 0.25rem;
+    min-height: inherit;
+  }
+  
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+  
+  /* Dark mode skeleton */
+  .dark .math-skeleton {
+    background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+    background-size: 200% 100%;
+  }
+  
+  /* Ensure KaTeX displays properly */
+  .katex-display {
+    margin: 0.5rem 0;
+  }
+  
+  .katex {
+    font-size: 1em;
+  }
+  
+  /* Copy button for math expressions */
+  .math-container {
+    position: relative;
+    display: inline-block;
+  }
+  
+  .math-container:hover .math-copy-button {
+    opacity: 1;
+  }
+  
+  .math-copy-button {
+    position: absolute;
+    top: -0.5rem;
+    right: -0.5rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    background: rgba(0, 0, 0, 0.1);
+    border: none;
+    border-radius: 0.25rem;
+    padding: 0.25rem;
+    cursor: pointer;
+    font-size: 0.75rem;
+  }
+  
+  .math-copy-button:hover {
+    background: rgba(0, 0, 0, 0.2);
+  }
+}

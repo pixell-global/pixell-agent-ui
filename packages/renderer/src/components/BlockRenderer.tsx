@@ -28,18 +28,6 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({ node, ...props }) 
         />
       );
       
-    case 'button':
-      return (
-        <div className="my-4 pixell-block-button">
-          <button
-            className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-            onClick={() => blockData.payload.action && blockData.payload.action()}
-          >
-            {blockData.payload.label || 'Click me'}
-          </button>
-        </div>
-      );
-      
     default:
       // Fallback renderer for unknown block types
       return (
@@ -66,9 +54,12 @@ function extractBlockData(node: any): RenderBlock | null {
     if (match) {
       const [, type, payload] = match;
       return {
+        id: `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         type: type as any,
         payload: JSON.parse(payload),
-        metadata: {}
+        complete: true,
+        startIndex: 0,
+        endIndex: content.length
       };
     }
     

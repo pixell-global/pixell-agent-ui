@@ -19,6 +19,11 @@ export function EnhancedMessageBubble({
   isStreaming = false,
   className = '' 
 }: EnhancedMessageBubbleProps) {
+  // Don't render empty messages at all
+  if (!message.content.trim()) {
+    return null;
+  }
+  
   // const settings = useChatStore(state => state.settings) // Unused for now
 
   const getMessageIcon = () => {
@@ -106,10 +111,11 @@ export function EnhancedMessageBubble({
           )}
 
           {/* Message Content with Enhanced Renderer */}
-          <div className="prose prose-sm max-w-none">
+          <div className="max-w-none">
             <HybridStreamingRenderer
               content={message.content}
               isStreaming={isStreaming}
+              messageId={message.id}
               className=""
             />
           </div>

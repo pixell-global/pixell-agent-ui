@@ -18,8 +18,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   securityLevel = 'safe',
   className = ''
 }) => {
-  // For markdown content, we don't sanitize the input - ReactMarkdown handles this safely
-  // We only sanitize if we're dealing with raw HTML content
+  // ChatGPT-style content processing with memoization for performance
   const processedContent = useMemo(() => {
     // Check if content looks like HTML (contains HTML tags)
     const htmlTagRegex = /<[^>]*>/;
@@ -34,6 +33,11 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     }
   }, [content, securityLevel]);
 
+  // Memoize sanitized content to avoid re-processing
+  const memoizedContent = useMemo(() => {
+    return processedContent;
+  }, [processedContent]);
+
   const remarkPlugins = useMemo(() => [
     remarkGfm,
     ...(enableMath ? [remarkMath] : [])
@@ -46,7 +50,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   ], [enableMath, enableCodeHighlight]);
 
   const components = useMemo(() => ({
-    // Enhanced code block component
+    // Enhanced code block component with raw content preservation for copy
     code: ({ node, inline, className, children, ...props }: any) => {
       if (!inline && children) {
         const match = /language-(\w+)/.exec(className || '');
@@ -63,11 +67,96 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         );
       }
       
-      // Inline code
+      // Inline code with copy capability
       return (
-        <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+        <code 
+          className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm font-mono cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" 
+          onClick={() => navigator.clipboard?.writeText(String(children))}
+          title="Click to copy"
+          {...props}
+        >
           {children}
         </code>
+      );
+    },
+
+    // Enhanced math rendering with layout stability
+    span: ({ node, className, children, ...props }: any) => {
+      // Handle KaTeX inline math spans
+      if (className?.includes('katex')) {
+        return (
+          <span 
+            className={`math-container ${className}`} 
+            data-latex={children}
+            {...props}
+          >
+            <span className="math-inline">
+              {children}
+            </span>
+            <button 
+              className="math-copy-button"
+              onClick={() => navigator.clipboard?.writeText(props['data-latex'] || String(children))}
+              title="Copy LaTeX"
+            >
+              📋
+            </button>
+          </span>
+        );
+      }
+      return <span className={className} {...props}>{children}</span>;
+    },
+
+    // Enhanced div handling for math display blocks
+    div: ({ node, className, children, ...props }: any) => {
+      // Handle KaTeX display math
+      if (className?.includes('katex-display')) {
+        return (
+          <div className={`math-block ${className}`} {...props}>
+            {children}
+          </div>
+        );
+      }
+      
+      if (className?.includes('pixell-block')) {
+        return <BlockRenderer node={node} {...props} />;
+      }
+      return <div className={className} {...props}>{children}</div>;
+    },
+
+    // Fix paragraph nesting - don't wrap block elements in paragraphs
+    p: ({ node, children, ...props }: any) => {
+      // Simple check: if any child contains code blocks or block elements, use div
+      const childrenString = React.Children.toArray(children).join('');
+      const hasBlockContent = /```|<div|<pre|<table|<ul|<ol|<blockquote|<h[1-6]/.test(childrenString);
+      
+      // Also check if we have CodeBlock components
+      const hasCodeBlock = React.Children.toArray(children).some((child: any) => {
+        if (React.isValidElement(child)) {
+          const type = child.type;
+          if (typeof type === 'function' && type.name === 'CodeBlock') {
+            return true;
+          }
+          // Check for divs that look like block components
+          if (type === 'div') {
+            const className = (child.props as any)?.className || '';
+            if (className.includes('relative') || className.includes('overflow-') || className.includes('bg-')) {
+              return true;
+            }
+          }
+        }
+        return false;
+      });
+
+      // If it has block content or CodeBlock components, use div
+      if (hasBlockContent || hasCodeBlock) {
+        return <div className="my-2" {...props}>{children}</div>;
+      }
+
+      // Normal paragraph
+      return (
+        <p className="text-gray-700 leading-relaxed my-2" {...props}>
+          {children}
+        </p>
       );
     },
     
@@ -110,13 +199,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       </td>
     ),
 
-    // Block detection for custom renderers
-    div: ({ node, className, children, ...props }: any) => {
-      if (className?.includes('pixell-block')) {
-        return <BlockRenderer node={node} {...props} />;
-      }
-      return <div className={className} {...props}>{children}</div>;
-    },
+
     
     // Enhanced list styling
     ul: ({ children, ...props }: any) => (
@@ -161,13 +244,6 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       <h3 className="text-lg font-medium text-gray-900 mt-4 mb-2" {...props}>
         {children}
       </h3>
-    ),
-    
-    // Enhanced paragraph spacing
-    p: ({ children, ...props }: any) => (
-      <p className="text-gray-700 leading-relaxed my-2" {...props}>
-        {children}
-      </p>
     )
   }), []);
 
@@ -182,7 +258,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         rehypePlugins={rehypePlugins}
         components={components}
       >
-        {processedContent}
+        {memoizedContent}
       </ReactMarkdown>
       
       {isStreaming && (
