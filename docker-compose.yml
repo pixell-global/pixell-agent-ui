@@ -29,7 +29,7 @@ services:
 
   # Supabase Database
   supabase-db:
-    image: supabase/postgres:15.1.1.117
+    image: postgres:15
     container_name: supabase-db
     ports:
       - "54322:5432"
@@ -46,7 +46,7 @@ services:
 
   # Supabase Auth
   supabase-auth:
-    image: supabase/gotrue:v2.143.0
+    image: supabase/gotrue:v2.99.0
     container_name: supabase-auth
     ports:
       - "54323:9999"
@@ -69,7 +69,7 @@ services:
 
   # Supabase Storage
   supabase-storage:
-    image: supabase/storage-api:v1.0.6
+    image: supabase/storage-api:v0.40.4
     container_name: supabase-storage
     ports:
       - "54324:5000"
@@ -94,7 +94,7 @@ services:
 
   # Supabase REST API
   supabase-rest:
-    image: postgrest/postgrest:v12.0.1
+    image: postgrest/postgrest:v11.2.0
     container_name: supabase-rest
     ports:
       - "54321:3000"
@@ -113,7 +113,7 @@ services:
 
   # Supabase Realtime
   supabase-realtime:
-    image: supabase/realtime:v2.29.15
+    image: supabase/realtime:v2.25.50
     container_name: supabase-realtime
     ports:
       - "54325:4000"
@@ -139,7 +139,7 @@ services:
 
   # Supabase Studio (Database Admin Interface)
   supabase-studio:
-    image: supabase/studio:20240729-ce42139
+    image: supabase/studio:20240326-5e5586d
     container_name: supabase-studio
     ports:
       - "54323:3000"
@@ -157,7 +157,7 @@ services:
 
   # Supabase Meta (Database Schema Management)
   supabase-meta:
-    image: supabase/postgres-meta:v0.80.0
+    image: supabase/postgres-meta:v0.68.0
     container_name: supabase-meta
     ports:
       - "54326:8080"

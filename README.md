@@ -95,21 +95,57 @@ npm run setup:complete
 ✅ Configure Docker environment with all services  
 ✅ Create 4 default environments (local, dev, staging, prod)  
 ✅ Initialize Supabase database with proper configuration  
-✅ Start all services with health monitoring  
+✅ Prompt for AI provider API keys (OpenAI, Anthropic, etc.)
+✅ Create both `.env.local` and `.env` files for seamless integration
 
 ### Step 2: Start Development
 
-The setup automatically starts all services. Visit:
+After setup completes, start all services with a single command:
 
+```bash
+pixell start
+```
+
+This automatically starts:
 - **🌐 Web Interface**: http://localhost:3003
 - **🔗 API Gateway**: http://localhost:3001  
-- **🧠 PAF Core Agent**: http://localhost:8000
+- **🧠 PAF Core Agent**: http://localhost:8000 (auto-installed dependencies)
 - **🗄️ Database Admin**: http://localhost:54323
 
-To start the main applications:
+**Alternative**: For manual control:
 ```bash
-npm run dev
+npm run dev  # Start frontend/backend only
 ```
+
+### Step 3: Configure AI Providers
+
+The framework supports multiple AI providers for maximum flexibility. You can configure them during setup or later:
+
+#### Option 1: During Complete Setup
+The `npm run setup:complete` command automatically prompts for your OpenAI API key and creates both `.env.local` and `.env` files for seamless integration.
+
+#### Option 2: Configure AI Separately
+You can configure AI providers anytime using the dedicated command:
+
+```bash
+pixell config ai
+```
+
+This interactive setup allows you to:
+- **Quick Setup**: Configure OpenAI only (recommended for beginners)
+- **Advanced Setup**: Configure multiple providers (OpenAI, Anthropic, AWS Bedrock, etc.)
+- **Manage Providers**: Update existing configurations
+
+**Supported Providers:**
+- 🧠 **OpenAI** - GPT-4o, GPT-4o Mini, o1 models
+- 🎭 **Anthropic** - Claude 3.5 Sonnet, Haiku
+- 🏗️ **AWS Bedrock** - Multiple models via AWS
+- ☁️ **Azure OpenAI** - Enterprise GPT models
+- 🔍 **Google** - Gemini 1.5 Pro
+
+The configuration automatically creates:
+- `.env.local` - For local development and frontend
+- `.env` - For Docker Compose services
 
 ## 🛠️ How Setup Actually Works
 
@@ -373,6 +409,25 @@ npm run dev
 open http://localhost:3003  # Web interface
 open http://localhost:8000/docs  # PAF Core Agent API docs
 open http://localhost:54323      # Database admin
+```
+
+### AI Configuration Management
+
+```bash
+# Configure AI providers interactively
+pixell config ai
+
+# Quick OpenAI setup
+echo -e "quick\nyour-api-key\ngpt-4o" | pixell config ai
+
+# Check current configuration
+pixell config show
+
+# Update API keys in existing setup
+pixell config ai  # Choose "Manage Existing Providers"
+
+# Verify Docker can read API keys
+docker compose config | grep API_KEY
 ```
 
 ### Working with PAF Core Agent

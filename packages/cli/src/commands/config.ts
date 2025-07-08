@@ -783,6 +783,38 @@ async function writeEnvironmentVariables(aiConfig: any) {
     
     console.log(chalk.green(`✅ Environment variables written to ${envPath}`))
     
+    // Also create/update .env file for Docker Compose
+    try {
+      const dockerEnvPath = path.join(process.cwd(), '.env')
+      const dockerEnvLines: string[] = []
+      
+      // Add essential environment variables for Docker
+      Object.keys(aiConfig.providers).forEach(provider => {
+        const config = aiConfig.providers[provider]
+        if (!config?.enabled) return
+        
+        if (provider === 'openai') {
+          dockerEnvLines.push(`OPENAI_API_KEY=${config.apiKey}`)
+        } else if (provider === 'anthropic') {
+          dockerEnvLines.push(`ANTHROPIC_API_KEY=${config.apiKey}`)
+        }
+      })
+      
+      // Add other defaults needed for Docker
+      dockerEnvLines.push('AWS_REGION=us-east-1')
+      dockerEnvLines.push('DEBUG=false')
+      dockerEnvLines.push('MAX_CONTEXT_TOKENS=4000')
+      dockerEnvLines.push('DEFAULT_MODEL=gpt-3.5-turbo')
+      
+      // Filter out empty lines and write
+      const dockerEnvContent = dockerEnvLines.filter(line => line.trim()).join('\n') + '\n'
+      await fs.writeFile(dockerEnvPath, dockerEnvContent)
+      
+      console.log(chalk.green(`✅ Docker environment file created at ${dockerEnvPath}`))
+    } catch (dockerError) {
+      console.log(chalk.yellow(`⚠️  Could not create .env for Docker: ${dockerError}`))
+    }
+    
   } catch (error) {
     console.log(chalk.yellow(`⚠️  Could not write to .env.local: ${error}`))
     console.log(chalk.gray('You may need to set environment variables manually'))

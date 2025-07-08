@@ -70,7 +70,7 @@ export async function clonePafCoreAgent(options: PafCoreAgentOptions = {}): Prom
     console.log(chalk.green('\n🎉 PAF Core Agent is ready!'))
     console.log(chalk.blue('\n📚 Next steps:'))
     console.log(chalk.gray('   1. Configure your API keys in .env'))
-    console.log(chalk.gray('   2. Run: docker-compose up paf-core-agent'))
+    console.log(chalk.gray('   2. Run: docker compose up paf-core-agent'))
     console.log(chalk.gray('   3. Visit: http://localhost:8000/docs'))
     
   } catch (error) {
@@ -497,6 +497,6 @@ async function checkServiceHealth(): Promise<void> {
     console.log(chalk.green('✅ PAF Core Agent service is running and healthy'))
   } catch {
     console.log(chalk.yellow('⚠️ PAF Core Agent service is not running'))
-    console.log(chalk.gray('   Start with: docker-compose up paf-core-agent'))
+    console.log(chalk.gray('   Start with: docker compose up paf-core-agent'))
   }
 }

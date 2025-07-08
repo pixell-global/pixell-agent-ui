@@ -54,8 +54,16 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/inquirer": "^9.0.8",
+    "@types/mustache": "^4.2.6",
     "supabase": "^2.26.9",
     "turbo": "^2.5.4"
   },
-  "packageManager": "npm@10.8.2"
+  "packageManager": "npm@10.8.2",
+  "dependencies": {
+    "mustache": "^4.2.0",
+    "zod": "^3.25.75",
+    "zustand": "^5.0.6"
+  }
 }

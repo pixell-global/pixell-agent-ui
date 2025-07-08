@@ -314,9 +314,16 @@ app.get('/api/health', async (req, res) => {
   try {
     await healthHandler(req, res);
   } catch (error) {
-    console.error('Health check error:', error);
+    // Only log if it's not a connection refused error (expected when PAF Core Agent is down)
+    if (!error.message?.includes('ECONNREFUSED') && !error.message?.includes('fetch failed')) {
+      console.error('Health check error:', error);
+    }
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Health check failed' });
+      res.status(500).json({ 
+        status: 'error',
+        error: 'PAF Core Agent unavailable',
+        runtime: { provider: 'unknown', configured: false, connected: false }
+      });
     }
   }
 });

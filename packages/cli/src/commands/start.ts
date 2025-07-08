@@ -1,7 +1,7 @@
 import chalk from 'chalk'
 import inquirer from 'inquirer'
 import ora from 'ora'
-import { execSync } from 'child_process'
+import { execSync, spawn, ChildProcess } from 'child_process'
 import execa from 'execa'
 import path from 'path'
 import fs from 'fs-extra'
@@ -261,11 +261,30 @@ async function runProject(envName: string): Promise<void> {
     console.log(chalk.blue(`📋 Script: npm run ${scriptName}`))
     console.log(chalk.gray('\n📍 Services will be available at:'))
     console.log(chalk.gray('   • Frontend: http://localhost:3003'))
-    console.log(chalk.gray('   • Backend: http://localhost:4001'))
+    console.log(chalk.gray('   • Backend: http://localhost:3001'))
+    console.log(chalk.gray('   • PAF Core Agent: http://localhost:8000'))
     console.log(chalk.gray('   • Database Studio: http://127.0.0.1:54323'))
     console.log(chalk.gray('\n⏳ Starting services...\n'))
     
-    // Start the project
+    // Start PAF Core Agent as a separate process
+    const pafCoreAgentProcess = await startPafCoreAgent()
+    
+    // Set up cleanup on exit
+    process.on('SIGINT', () => {
+      console.log(chalk.yellow('\n🛑 Shutting down services...'))
+      if (pafCoreAgentProcess && !pafCoreAgentProcess.killed) {
+        pafCoreAgentProcess.kill('SIGTERM')
+      }
+      process.exit(0)
+    })
+    
+    process.on('SIGTERM', () => {
+      if (pafCoreAgentProcess && !pafCoreAgentProcess.killed) {
+        pafCoreAgentProcess.kill('SIGTERM')
+      }
+    })
+    
+    // Start the main project
     execSync(`npm run ${scriptName}`, { 
       stdio: 'inherit',
       cwd: process.cwd()
@@ -274,6 +293,107 @@ async function runProject(envName: string): Promise<void> {
   } catch (error) {
     spinner.fail('❌ Failed to start project')
     throw error
+  }
+}
+
+/**
+ * Start PAF Core Agent as a separate process
+ */
+async function startPafCoreAgent(): Promise<ChildProcess | null> {
+  const pafCoreAgentPath = path.join(process.cwd(), 'paf-core-agent')
+  
+  // Check if PAF Core Agent directory exists
+  if (!(await fs.pathExists(pafCoreAgentPath))) {
+    console.log(chalk.yellow('⚠️ PAF Core Agent directory not found, skipping...'))
+    return null
+  }
+  
+  // Check if it's a valid PAF Core Agent installation
+  const requirementsPath = path.join(pafCoreAgentPath, 'requirements.txt')
+  const mainPath = path.join(pafCoreAgentPath, 'app', 'main.py')
+  
+  if (!(await fs.pathExists(requirementsPath)) || !(await fs.pathExists(mainPath))) {
+    console.log(chalk.yellow('⚠️ PAF Core Agent not properly installed, skipping...'))
+    return null
+  }
+  
+  console.log(chalk.blue('🧠 Starting PAF Core Agent...'))
+  
+  try {
+    // Check if virtual environment exists, create if it doesn't
+    const venvPath = path.join(pafCoreAgentPath, 'venv')
+    if (!(await fs.pathExists(venvPath))) {
+      console.log(chalk.gray('📦 Creating Python virtual environment...'))
+      execSync('python3 -m venv venv', { cwd: pafCoreAgentPath, stdio: 'inherit' })
+    }
+    
+    // Check if dependencies are installed
+    try {
+      execSync('source venv/bin/activate && python -c "import fastapi"', { 
+        cwd: pafCoreAgentPath, 
+        stdio: 'pipe' 
+      })
+    } catch {
+      console.log(chalk.gray('📦 Installing PAF Core Agent dependencies...'))
+      execSync('source venv/bin/activate && pip install -r requirements.txt', { 
+        cwd: pafCoreAgentPath, 
+        stdio: 'inherit' 
+      })
+    }
+    
+    // Start PAF Core Agent using the start script
+    const startScriptPath = path.join(pafCoreAgentPath, 'scripts', 'start.sh')
+    let pafProcess: ChildProcess
+    
+    if (await fs.pathExists(startScriptPath)) {
+      // Make script executable and run it
+      execSync('chmod +x scripts/start.sh', { cwd: pafCoreAgentPath })
+      pafProcess = spawn('./scripts/start.sh', [], {
+        cwd: pafCoreAgentPath,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        detached: false
+      })
+    } else {
+      // Fallback to direct uvicorn command
+      pafProcess = spawn('bash', ['-c', 'source venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload'], {
+        cwd: pafCoreAgentPath,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        detached: false
+      })
+    }
+    
+    // Handle PAF Core Agent output
+    pafProcess.stdout?.on('data', (data) => {
+      const output = data.toString().trim()
+      if (output) {
+        console.log(chalk.gray(`[PAF Core Agent] ${output}`))
+      }
+    })
+    
+    pafProcess.stderr?.on('data', (data) => {
+      const output = data.toString().trim()
+      if (output && !output.includes('INFO') && !output.includes('WARNING')) {
+        console.log(chalk.red(`[PAF Core Agent Error] ${output}`))
+      } else if (output) {
+        console.log(chalk.gray(`[PAF Core Agent] ${output}`))
+      }
+    })
+    
+    pafProcess.on('exit', (code) => {
+      if (code !== 0 && code !== null) {
+        console.log(chalk.red(`❌ PAF Core Agent exited with code ${code}`))
+      }
+    })
+    
+    // Give it a moment to start
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    console.log(chalk.green('✅ PAF Core Agent started successfully'))
+    return pafProcess
+    
+  } catch (error) {
+    console.log(chalk.red(`❌ Failed to start PAF Core Agent: ${error instanceof Error ? error.message : String(error)}`))
+    return null
   }
 }
 

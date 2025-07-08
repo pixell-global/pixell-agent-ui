@@ -532,7 +532,9 @@ program
 program
   .command('check-deps')
   .description('Check system dependencies (Docker, Python, Git, etc.)')
-  .action(checkSystemDependencies)
+  .action(async () => {
+    await checkSystemDependencies()
+  })
 
 program
   .command('install-deps')

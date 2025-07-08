@@ -282,7 +282,10 @@ export async function healthHandler(req: Request, res: Response) {
     })
     
   } catch (error) {
-    console.error('Health check error:', error)
+    // Only log unexpected errors, not connection failures which are expected when PAF Core Agent is down
+    if (!(error instanceof Error && (error.message.includes('ECONNREFUSED') || error.message.includes('fetch failed')))) {
+      console.error('Health check error:', error)
+    }
     
     const errorMessage = error instanceof Error && error.name === 'TimeoutError'
       ? 'PAF Core Agent health check timed out'

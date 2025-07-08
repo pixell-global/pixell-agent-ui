@@ -79,7 +79,7 @@ export async function stopServices(options: ServicesOptions = {}): Promise<void>
     const spinner = ora('🛑 Stopping Docker services...').start()
     
     // Stop services
-    execSync(`docker-compose ${composeFiles.join(' ')} down`, {
+    execSync(`docker compose ${composeFiles.join(' ')} down`, {
       stdio: 'pipe',
       cwd: process.cwd()
     })
@@ -160,12 +160,12 @@ export async function logsServices(options: { service?: string; follow?: boolean
     const serviceArg = options.service ? options.service : ''
     const followArg = options.follow ? '-f' : ''
     
-    const command = `docker-compose ${composeFiles.join(' ')} logs ${followArg} ${serviceArg}`.trim()
+    const command = `docker compose ${composeFiles.join(' ')} logs ${followArg} ${serviceArg}`.trim()
     
     console.log(chalk.gray(`Command: ${command}\n`))
     
     // Use spawn for real-time logs
-    const child = spawn('docker-compose', [
+    const child = spawn('docker', ['compose',
       ...composeFiles,
       'logs',
       ...(options.follow ? ['-f'] : []),
@@ -199,7 +199,7 @@ export async function scaleServices(service: string, replicas: number): Promise<
     
     const spinner = ora(`📈 Scaling ${service} to ${replicas} replicas...`).start()
     
-    execSync(`docker-compose ${composeFiles.join(' ')} up -d --scale ${service}=${replicas}`, {
+    execSync(`docker compose ${composeFiles.join(' ')} up -d --scale ${service}=${replicas}`, {
       stdio: 'pipe',
       cwd: process.cwd()
     })
@@ -222,7 +222,7 @@ async function checkPrerequisites(): Promise<void> {
   try {
     // Check Docker
     await execa('docker', ['--version'])
-    await execa('docker-compose', ['--version'])
+    await execa('docker', ['compose', '--version'])
     
     // Check if Docker is running
     await execa('docker', ['ps'])
@@ -263,7 +263,7 @@ async function startDockerServices(composeFiles: string[], options: ServicesOpti
     const services = options.services ? options.services.join(' ') : ''
     const detachedFlag = options.detached !== false ? '-d' : '' // Default to detached
     
-    const command = `docker-compose ${composeFiles.join(' ')} up ${detachedFlag} ${services}`.trim()
+    const command = `docker compose ${composeFiles.join(' ')} up ${detachedFlag} ${services}`.trim()
     
     execSync(command, {
       stdio: 'pipe',
@@ -407,7 +407,7 @@ async function showDockerComposeStatus(): Promise<void> {
   try {
     console.log(chalk.blue('\n🐳 Docker Compose Status:'))
     
-    const result = await execa('docker-compose', ['ps'], {
+    const result = await execa('docker', ['compose', 'ps'], {
       cwd: process.cwd()
     })
     

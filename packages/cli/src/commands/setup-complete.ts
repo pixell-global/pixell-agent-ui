@@ -387,6 +387,35 @@ async function configureAIProviders(): Promise<void> {
   // Check if OpenAI API key is already configured
   if (envContent.includes('OPENAI_API_KEY=sk-')) {
     console.log(chalk.green('✅ OpenAI API key already configured'))
+    
+    // Extract the API key and ensure it's also in .env for Docker
+    const apiKeyMatch = envContent.match(/OPENAI_API_KEY=(.+)/)
+    if (apiKeyMatch && apiKeyMatch[1]) {
+      const dockerEnvPath = path.join(process.cwd(), '.env')
+      let dockerEnvContent = ''
+      
+      if (await fs.pathExists(dockerEnvPath)) {
+        dockerEnvContent = await fs.readFile(dockerEnvPath, 'utf8')
+      }
+      
+      if (!dockerEnvContent.includes('OPENAI_API_KEY=')) {
+        const dockerEnvLines = dockerEnvContent.split('\n').filter(line => !line.startsWith('OPENAI_API_KEY='))
+        dockerEnvLines.push(`OPENAI_API_KEY=${apiKeyMatch[1]}`)
+        
+        // Add other defaults if not present
+        if (!dockerEnvContent.includes('ANTHROPIC_API_KEY=')) {
+          dockerEnvLines.push('ANTHROPIC_API_KEY=')
+        }
+        if (!dockerEnvContent.includes('AWS_REGION=')) {
+          dockerEnvLines.push('AWS_REGION=us-east-1')
+        }
+        if (!dockerEnvContent.includes('DEBUG=')) {
+          dockerEnvLines.push('DEBUG=false')
+        }
+        
+        await fs.writeFile(dockerEnvPath, dockerEnvLines.filter(line => line.trim()).join('\n') + '\n')
+      }
+    }
   } else {
     const aiConfig = await inquirer.prompt([
       {
@@ -405,6 +434,30 @@ async function configureAIProviders(): Promise<void> {
       const envLines = envContent.split('\n').filter(line => !line.startsWith('OPENAI_API_KEY='))
       envLines.push(`OPENAI_API_KEY=${aiConfig.openaiKey}`)
       await fs.writeFile(envPath, envLines.join('\n') + '\n')
+      
+      // Also create/update .env file for Docker Compose
+      const dockerEnvPath = path.join(process.cwd(), '.env')
+      let dockerEnvContent = ''
+      
+      if (await fs.pathExists(dockerEnvPath)) {
+        dockerEnvContent = await fs.readFile(dockerEnvPath, 'utf8')
+      }
+      
+      const dockerEnvLines = dockerEnvContent.split('\n').filter(line => !line.startsWith('OPENAI_API_KEY='))
+      dockerEnvLines.push(`OPENAI_API_KEY=${aiConfig.openaiKey}`)
+      
+      // Add other defaults if not present
+      if (!dockerEnvContent.includes('ANTHROPIC_API_KEY=')) {
+        dockerEnvLines.push('ANTHROPIC_API_KEY=')
+      }
+      if (!dockerEnvContent.includes('AWS_REGION=')) {
+        dockerEnvLines.push('AWS_REGION=us-east-1')
+      }
+      if (!dockerEnvContent.includes('DEBUG=')) {
+        dockerEnvLines.push('DEBUG=false')
+      }
+      
+      await fs.writeFile(dockerEnvPath, dockerEnvLines.filter(line => line.trim()).join('\n') + '\n')
       console.log(chalk.green('✅ OpenAI API key configured'))
     } else {
       console.log(chalk.yellow('⚠️ OpenAI API key skipped - you can configure it later'))
@@ -429,7 +482,7 @@ async function startAllServices(environment: string): Promise<void> {
     }
     
     // Start services in detached mode
-    spawn('docker-compose', [...composeFiles, 'up', '-d'], {
+    spawn('docker', ['compose', ...composeFiles, 'up', '-d'], {
       stdio: 'pipe',
       cwd: process.cwd(),
       detached: true
@@ -571,7 +624,7 @@ function displaySuccessInfo(): void {
   console.log(chalk.white('   • npm run dev - Start frontend and backend'))
   console.log(chalk.white('   • pixell services:status - Check service health'))
   console.log(chalk.white('   • pixell env - Manage environments'))
-  console.log(chalk.white('   • docker-compose logs -f - View service logs'))
+  console.log(chalk.white('   • docker compose logs -f - View service logs'))
   
   console.log(chalk.blue('\n📚 Next steps:'))
   console.log(chalk.gray('   1. Visit http://localhost:3003 to see the web interface'))
