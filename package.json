@@ -34,7 +34,7 @@
     "setup:env": "npm run cli -- env && npm run cli -- supabase init && npm run cli -- config ai",
     "setup:quick": "npm install && npm run build && cd packages/cli && npm link",
     "setup:fresh": "npm ci && npm run build && cd packages/cli && npm link",
-    "setup:packages": "turbo build --filter='!web' && cd packages/cli && npm link",
+    "setup:packages": "turbo build --filter=!web && cd packages/cli && npm link",
     "start": "npm run dev",
     "pixell:start": "npm run cli -- start",
     "paf-core-agent:clone": "npm run cli -- paf-core-agent:clone",
