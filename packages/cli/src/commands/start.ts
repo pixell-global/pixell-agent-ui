@@ -262,27 +262,9 @@ async function runProject(envName: string): Promise<void> {
     console.log(chalk.gray('\n📍 Services will be available at:'))
     console.log(chalk.gray('   • Frontend: http://localhost:3003'))
     console.log(chalk.gray('   • Backend: http://localhost:3001'))
-    console.log(chalk.gray('   • PAF Core Agent: http://localhost:8000'))
     console.log(chalk.gray('   • Database Studio: http://127.0.0.1:54323'))
+    console.log(chalk.gray('\n💡 To start PAF Core Agent separately, run: pixell start core-agent'))
     console.log(chalk.gray('\n⏳ Starting services...\n'))
-    
-    // Start PAF Core Agent as a separate process
-    const pafCoreAgentProcess = await startPafCoreAgent()
-    
-    // Set up cleanup on exit
-    process.on('SIGINT', () => {
-      console.log(chalk.yellow('\n🛑 Shutting down services...'))
-      if (pafCoreAgentProcess && !pafCoreAgentProcess.killed) {
-        pafCoreAgentProcess.kill('SIGTERM')
-      }
-      process.exit(0)
-    })
-    
-    process.on('SIGTERM', () => {
-      if (pafCoreAgentProcess && !pafCoreAgentProcess.killed) {
-        pafCoreAgentProcess.kill('SIGTERM')
-      }
-    })
     
     // Start the main project
     execSync(`npm run ${scriptName}`, { 
@@ -299,7 +281,7 @@ async function runProject(envName: string): Promise<void> {
 /**
  * Start PAF Core Agent as a separate process
  */
-async function startPafCoreAgent(): Promise<ChildProcess | null> {
+export async function startPafCoreAgent(): Promise<ChildProcess | null> {
   const pafCoreAgentPath = path.join(process.cwd(), 'paf-core-agent')
   
   // Check if PAF Core Agent directory exists
@@ -394,6 +376,63 @@ async function startPafCoreAgent(): Promise<ChildProcess | null> {
   } catch (error) {
     console.log(chalk.red(`❌ Failed to start PAF Core Agent: ${error instanceof Error ? error.message : String(error)}`))
     return null
+  }
+}
+
+/**
+ * Start PAF Core Agent command - for use with 'pixell start core-agent'
+ */
+export async function startPafCoreAgentCommand(): Promise<void> {
+  console.log(chalk.blue.bold('\n🧠 STARTING PAF CORE AGENT'))
+  console.log(chalk.blue('='.repeat(50)))
+  
+  try {
+    const pafProcess = await startPafCoreAgent()
+    
+    if (!pafProcess) {
+      console.log(chalk.red('\n❌ Failed to start PAF Core Agent'))
+      return
+    }
+    
+    console.log(chalk.green('\n🎉 PAF Core Agent started successfully!'))
+    console.log(chalk.gray('\n📍 Available at:'))
+    console.log(chalk.gray('   • API: http://localhost:8000'))
+    console.log(chalk.gray('   • Docs: http://localhost:8000/docs'))
+    console.log(chalk.gray('   • Health: http://localhost:8000/api/health'))
+    console.log(chalk.gray('\n📋 Press Ctrl+C to stop the PAF Core Agent\n'))
+    
+    // Set up cleanup on exit
+    process.on('SIGINT', () => {
+      console.log(chalk.yellow('\n🛑 Shutting down PAF Core Agent...'))
+      if (pafProcess && !pafProcess.killed) {
+        pafProcess.kill('SIGTERM')
+      }
+      process.exit(0)
+    })
+    
+    process.on('SIGTERM', () => {
+      if (pafProcess && !pafProcess.killed) {
+        pafProcess.kill('SIGTERM')
+      }
+    })
+    
+    // Keep the process running
+    pafProcess.on('exit', (code) => {
+      if (code !== 0 && code !== null) {
+        console.log(chalk.red(`\n❌ PAF Core Agent exited with code ${code}`))
+      } else {
+        console.log(chalk.gray('\n👋 PAF Core Agent stopped'))
+      }
+      process.exit(code || 0)
+    })
+    
+    // Keep the main process alive
+    await new Promise(() => {}) // This will run indefinitely until killed
+    
+  } catch (error) {
+    console.log(chalk.red('\n❌ Failed to start PAF Core Agent'))
+    console.error(chalk.red(error instanceof Error ? error.message : String(error)))
+    process.exit(1)
   }
 }
 

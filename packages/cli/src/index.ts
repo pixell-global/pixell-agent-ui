@@ -11,7 +11,7 @@ import { initConfig, showConfig, setStorageLimit, configAI } from './commands/co
 import { initStorage, showStorageStatus } from './commands/storage'
 import { initSupabase, stopSupabase, statusSupabase, resetSupabase, migrationsSupabase, manageEnvironments, editSupabaseSettings } from './commands/supabase'
 import { installDocker, dockerStatus, dockerStart } from './commands/docker'
-import { startProject } from './commands/start'
+import { startProject, startPafCoreAgentCommand } from './commands/start'
 import { setupComplete } from './commands/setup-complete'
 import { clonePafCoreAgent, updatePafCoreAgent, statusPafCoreAgent, removePafCoreAgent } from './commands/paf-core-agent'
 import { startServices, stopServices, restartServices, statusServices, logsServices, scaleServices } from './commands/services'
@@ -106,11 +106,16 @@ program
   .option('--dry-run', 'Show deployment plan without executing')
   .action(deployApp)
 
-program
+const startCmd = program
   .command('start')
   .description('Start the Pixell Agent Framework with comprehensive setup validation')
   .option('--env <environment>', 'Environment to use (defaults to local)', 'local')
   .action((options) => startProject({ env: options.env }))
+
+startCmd
+  .command('core-agent')
+  .description('Start PAF Core Agent only')
+  .action(() => startPafCoreAgentCommand())
 
 // Alias for start
 program

@@ -100,17 +100,36 @@ npm run setup:complete
 
 ### Step 2: Start Development
 
-After setup completes, start all services with a single command:
+After setup completes, you have flexible options for starting services:
 
+#### Option A: Start Frontend & Backend Only (Recommended for UI Development)
 ```bash
 pixell start
 ```
 
-This automatically starts:
+This starts:
 - **🌐 Web Interface**: http://localhost:3003
 - **🔗 API Gateway**: http://localhost:3001  
-- **🧠 PAF Core Agent**: http://localhost:8000 (auto-installed dependencies)
 - **🗄️ Database Admin**: http://localhost:54323
+
+#### Option B: Start PAF Core Agent Only (For AI/Backend Development)
+```bash
+pixell start core-agent
+```
+
+This starts:
+- **🧠 PAF Core Agent**: http://localhost:8000
+- **📚 API Documentation**: http://localhost:8000/docs
+- **🏥 Health Check**: http://localhost:8000/api/health
+
+#### Option C: Start Everything Together
+```bash
+# Terminal 1: Start frontend/backend
+pixell start
+
+# Terminal 2: Start PAF Core Agent
+pixell start core-agent
+```
 
 **Alternative**: For manual control:
 ```bash
@@ -402,11 +421,21 @@ npm run setup:complete         # Start fresh
 # Check everything is healthy
 pixell services status
 
-# Start main applications (auto-connects to Docker services)
-npm run dev
+# Start services based on your development needs:
+
+# Frontend/UI Development (most common)
+pixell start
+
+# AI/Backend Development
+pixell start core-agent
+
+# Full-stack development (run in separate terminals)
+pixell start             # Terminal 1: Frontend & API
+pixell start core-agent  # Terminal 2: AI Agent
 
 # Access services
-open http://localhost:3003  # Web interface
+open http://localhost:3003       # Web interface
+open http://localhost:3001       # API Gateway
 open http://localhost:8000/docs  # PAF Core Agent API docs
 open http://localhost:54323      # Database admin
 ```
