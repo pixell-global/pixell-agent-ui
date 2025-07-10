@@ -3,8 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Activity, CheckCircle, Clock, Zap, AlertCircle, Wifi, WifiOff } from 'lucide-react'
-import { useWorkspaceStore } from '@/stores/workspace-store'
+import { useWorkspaceStore, selectKPIMetrics, selectRecentJobs } from '@/stores/workspace-store'
 import { useWebSocket } from '@/lib/websocket-manager'
+import { useRealtimeKPI } from '@/hooks/use-realtime-kpi'
+import { useSupabase } from '@/hooks/use-supabase'
+import { KPIWidget, ActiveJobsKPI, SuccessRateKPI, AverageRuntimeKPI, QueuedJobsKPI } from '@/components/kpi/KPIWidget'
+import { JobsTable } from '@/components/kpi/JobsTable'
 import { cn } from '@/lib/utils'
 
 export function ActivityPane() {
@@ -12,15 +16,33 @@ export function ActivityPane() {
     liveMetrics, 
     tasks, 
     isConnected,
-    agents 
+    agents,
+    setKPIMetrics,
+    setRecentJobs
   } = useWorkspaceStore()
   
+  const { user } = useSupabase()
   const { connect } = useWebSocket()
+  
+  // Use realtime KPI data
+  const kpiData = useRealtimeKPI(user?.id || 'demo-user')
+  const kpiMetrics = useWorkspaceStore(selectKPIMetrics)
+  const recentJobs = useWorkspaceStore(selectRecentJobs)
 
   // Connect to WebSocket on mount
   useEffect(() => {
     connect()
   }, [connect])
+  
+  // Update workspace store with KPI data
+  useEffect(() => {
+    if (kpiData.metrics) {
+      setKPIMetrics(kpiData.metrics)
+    }
+    if (kpiData.recentJobs) {
+      setRecentJobs(kpiData.recentJobs)
+    }
+  }, [kpiData.metrics, kpiData.recentJobs, setKPIMetrics, setRecentJobs])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -60,8 +82,30 @@ export function ActivityPane() {
 
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
-          {/* Live Metrics */}
-          {liveMetrics && (
+          {/* KPI Widgets Grid */}
+          {kpiMetrics && (
+            <div className="grid grid-cols-2 gap-3">
+              <ActiveJobsKPI value={kpiMetrics.activeJobs} />
+              <SuccessRateKPI value={kpiMetrics.successRate} />
+              <AverageRuntimeKPI value={kpiMetrics.averageRuntime} />
+              <QueuedJobsKPI value={kpiMetrics.queuedJobs} />
+            </div>
+          )}
+
+          {/* Jobs Table */}
+          {recentJobs.length > 0 && (
+            <JobsTable 
+              jobs={recentJobs}
+              maxHeight="300px"
+              onJobAction={(action, jobId) => {
+                console.log(`Job action: ${action} on ${jobId}`)
+                // Handle job actions here
+              }}
+            />
+          )}
+
+          {/* Legacy Live Metrics (fallback) */}
+          {liveMetrics && !kpiMetrics && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">System Status</CardTitle>

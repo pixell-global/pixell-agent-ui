@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 
 interface ChatRequest {
   message: string
+  history?: Array<{
+    role: 'user' | 'assistant'
+    content: string
+  }>
   fileContext?: Array<{
     path: string
     name: string
@@ -22,10 +26,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
-    // Get orchestrator URL from environment
-    const orchestratorUrl = process.env.NEXT_PUBLIC_ORCHESTRATOR_URL || 'http://localhost:3001'
+    // Connect to orchestrator instead of PAF Core Agent directly
+    const orchestratorUrl = process.env.ORCHESTRATOR_URL || 'http://localhost:3001'
     
-    // Forward request to orchestrator's chat endpoint
+    // Forward request to orchestrator
     const orchestratorResponse = await fetch(`${orchestratorUrl}/api/chat/stream`, {
       method: 'POST',
       headers: {
@@ -40,7 +44,7 @@ export async function POST(request: NextRequest) {
       console.error('Orchestrator error:', orchestratorResponse.status, errorText)
       
       return NextResponse.json(
-        { error: `AI service error: ${orchestratorResponse.status}` }, 
+        { error: `Orchestrator service error: ${orchestratorResponse.status}` }, 
         { status: orchestratorResponse.status }
       )
     }
@@ -63,7 +67,7 @@ export async function POST(request: NextRequest) {
             const { done, value } = await reader.read()
             if (done) break
 
-            // Forward the chunk directly
+            // Forward the chunk directly from orchestrator
             controller.enqueue(value)
           }
 

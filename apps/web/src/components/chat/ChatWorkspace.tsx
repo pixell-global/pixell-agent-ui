@@ -27,6 +27,7 @@ export function ChatWorkspace({ className = '' }: ChatWorkspaceProps) {
   
   // Store actions
   const addMessage = useChatStore(state => state.addMessage)
+  const getRecentHistory = useChatStore(state => state.getRecentHistory)
   
   // Remove test message - rendering confirmed to work
   const setStreamingMessage = useChatStore(state => state.setStreamingMessage)
@@ -112,10 +113,22 @@ export function ChatWorkspace({ className = '' }: ChatWorkspaceProps) {
 
     // Send to Core Agent
     try {
+      // Get recent message history for context (last 10 exchanges)
+      const history = getRecentHistory(10)
+      
+      // Process file attachments - combine file references and attachments
+      const allFileReferences: FileReference[] = [...fileReferences]
+      
+      // Add attachment data that was passed from ChatInput component
+      // Note: We need to get the actual file content from the ChatInput component
+      // For now, we'll use the attachment metadata and fetch content later
+      
       await coreAgentService.sendMessage(
         {
           message: content,
-          fileReferences,
+          history,
+          fileReferences: allFileReferences,
+          fileAttachments: attachments, // Pass attachments separately so service can handle them
           settings
         },
         // On streaming chunk

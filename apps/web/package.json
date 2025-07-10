@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:regular": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -19,6 +20,9 @@
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tabs": "^1.1.12",
+    "@radix-ui/react-toast": "^1.2.14",
+    "@supabase/auth-helpers-nextjs": "^0.10.0",
+    "@supabase/auth-ui-react": "^0.4.7",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.47.0",
     "@tanstack/react-query": "^5.61.5",
@@ -26,6 +30,7 @@
     "clsx": "^2.1.1",
     "dompurify": "^3.2.6",
     "immer": "^10.1.1",
+    "iron-session": "^8.0.4",
     "isomorphic-dompurify": "^2.25.0",
     "katex": "^0.16.22",
     "lucide-react": "^0.518.0",
@@ -43,6 +48,7 @@
     "remark-math": "^6.0.0",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
+    "zod": "^3.25.76",
     "zustand": "^5.0.3"
   },
   "devDependencies": {

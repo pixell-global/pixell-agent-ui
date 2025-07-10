@@ -52,6 +52,7 @@ interface ChatState {
   
   // Utility actions
   clearMessages: () => void
+  getRecentHistory: (maxMessages?: number) => Array<{ role: 'user' | 'assistant', content: string }>
 }
 
 export const useChatStore = create<ChatState>()(
@@ -66,12 +67,12 @@ export const useChatStore = create<ChatState>()(
         pendingAttachments: [],
         agentHealth: null,
         settings: {
-          showThinking: 'auto',
+          showThinking: 'always',
           streamingEnabled: true,
           markdownEnabled: true,
           codeHighlightEnabled: true,
-          autoScrollEnabled: true,
-          maxTokensPerStream: 4096
+          autoScrollEnabled: true
+          // Removed maxTokensPerStream - using natural completion without limits
         },
         
         // Message actions
@@ -277,7 +278,20 @@ export const useChatStore = create<ChatState>()(
             state.messages = []
             state.streamingMessageId = null
             state.isLoading = false
-          })
+          }),
+          
+        // Get recent message history for LLM context
+        getRecentHistory: (maxMessages = 10) => {
+          const state = get()
+          return state.messages
+            .filter(m => m.role === 'user' || m.role === 'assistant') // Only user/assistant messages
+            .filter(m => !m.streaming) // Don't include currently streaming messages
+            .slice(-maxMessages) // Keep last N messages
+            .map(m => ({
+              role: m.role as 'user' | 'assistant',
+              content: m.content
+            }))
+        }
               }))
     )
   )

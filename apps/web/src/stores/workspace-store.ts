@@ -75,6 +75,33 @@ export interface LiveMetrics {
   uptime: string
 }
 
+export interface KPIMetrics {
+  activeJobs: number
+  successRate: number
+  averageRuntime: string
+  queuedJobs: number
+  totalJobsToday: number
+  failedJobsToday: number
+  systemUptime: string
+  lastUpdated: string
+}
+
+export interface JobData {
+  id: string
+  name: string
+  description?: string
+  status: 'running' | 'queued' | 'completed' | 'failed' | 'paused'
+  progress: number
+  startTime: string
+  endTime?: string
+  duration?: string
+  agentId: string
+  agentName: string
+  priority: 'low' | 'medium' | 'high'
+  tags?: string[]
+  error?: string
+}
+
 interface WorkspaceState {
   // Chat State
   messages: ChatMessage[]
@@ -85,6 +112,10 @@ interface WorkspaceState {
   tasks: TaskActivity[]
   agents: WorkerAgentStatus[]
   liveMetrics: LiveMetrics | null
+  
+  // KPI State
+  kpiMetrics: KPIMetrics | null
+  recentJobs: JobData[]
   
   // Navigator State
   fileTree: FileNode[]
@@ -110,6 +141,11 @@ interface WorkspaceState {
   updateTask: (task: TaskActivity) => void
   updateAgent: (agent: WorkerAgentStatus) => void
   setLiveMetrics: (metrics: LiveMetrics) => void
+  
+  setKPIMetrics: (metrics: KPIMetrics) => void
+  setRecentJobs: (jobs: JobData[]) => void
+  addJob: (job: JobData) => void
+  updateJob: (id: string, updates: Partial<JobData>) => void
   
   setFileTree: (tree: FileNode[]) => void
   updateFileNode: (path: string, updates: Partial<FileNode>) => void
@@ -139,6 +175,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         tasks: [],
         agents: [],
         liveMetrics: null,
+        kpiMetrics: null,
+        recentJobs: [],
         fileTree: [],
         uploadProgress: {},
         currentFolder: '/',
@@ -216,6 +254,34 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         setLiveMetrics: (metrics) =>
           set((state) => {
             state.liveMetrics = metrics
+          }),
+          
+        // KPI actions
+        setKPIMetrics: (metrics) =>
+          set((state) => {
+            state.kpiMetrics = metrics
+          }),
+          
+        setRecentJobs: (jobs) =>
+          set((state) => {
+            state.recentJobs = jobs
+          }),
+          
+        addJob: (job) =>
+          set((state) => {
+            state.recentJobs.unshift(job)
+            // Keep only the last 50 jobs
+            if (state.recentJobs.length > 50) {
+              state.recentJobs = state.recentJobs.slice(0, 50)
+            }
+          }),
+          
+        updateJob: (id, updates) =>
+          set((state) => {
+            const jobIndex = state.recentJobs.findIndex(j => j.id === id)
+            if (jobIndex !== -1) {
+              Object.assign(state.recentJobs[jobIndex], updates)
+            }
           }),
           
         // Navigator actions
@@ -373,5 +439,9 @@ export const selectActiveTasks = (state: WorkspaceState) =>
 export const selectAgents = (state: WorkspaceState) => state.agents
 export const selectFileTree = (state: WorkspaceState) => state.fileTree
 export const selectLiveMetrics = (state: WorkspaceState) => state.liveMetrics
+export const selectKPIMetrics = (state: WorkspaceState) => state.kpiMetrics
+export const selectRecentJobs = (state: WorkspaceState) => state.recentJobs
+export const selectActiveJobs = (state: WorkspaceState) => 
+  state.recentJobs.filter(j => j.status === 'running' || j.status === 'queued')
 export const selectCurrentFolder = (state: WorkspaceState) => state.currentFolder
 export const selectIsLoading = (state: WorkspaceState) => state.isLoading 

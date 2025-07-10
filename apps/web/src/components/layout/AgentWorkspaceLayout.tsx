@@ -95,7 +95,7 @@ export function AgentWorkspaceLayout() {
           
           {/* Center Panel - Chat Workspace */}
           <Panel 
-            defaultSize={leftPanelVisible && rightPanelVisible ? 54 : leftPanelVisible || rightPanelVisible ? 70 : 100}
+            defaultSize={leftPanelVisible && rightPanelVisible ? 50 : leftPanelVisible || rightPanelVisible ? 70 : 100}
             minSize={30}
             className="min-w-0"
           >
@@ -107,8 +107,8 @@ export function AgentWorkspaceLayout() {
             <>
               <PanelResizeHandle className="w-px bg-border hover:bg-blue-500 hover:w-1 transition-all duration-200 active:bg-blue-600" />
               <Panel 
-                defaultSize={28} 
-                minSize={20} 
+                defaultSize={32} 
+                minSize={25} 
                 maxSize={45}
                 className="bg-muted/10 border-l"
               >

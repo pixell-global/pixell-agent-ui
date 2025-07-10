@@ -1,6 +1,7 @@
 'use client'
 import React from 'react'
 import { useWorkspaceStore } from '@/stores/workspace-store'
+import { useNotificationStore, createJobNotification, createHypothesisNotification, createSystemNotification } from '@/stores/notification-store'
 
 interface WebSocketMessage {
   type: string
@@ -95,6 +96,7 @@ class SimpleWebSocketManager {
     
     try {
       const store = useWorkspaceStore.getState()
+      const notificationStore = useNotificationStore.getState()
       
       switch (message.type) {
         case 'task_created':
@@ -114,6 +116,18 @@ class SimpleWebSocketManager {
           
           store.updateTask(taskData)
           console.log('📋 Task updated:', taskData.name, `${taskData.progress}%`, taskData.status)
+          
+          // Create notifications for task events
+          if (message.type === 'task_created') {
+            notificationStore.addEvent(createJobNotification('started', taskData.name, taskData.description))
+          } else if (message.type === 'task_completed') {
+            const isError = taskData.status === 'error' || taskData.status === 'failed'
+            notificationStore.addEvent(createJobNotification(
+              isError ? 'error' : 'success',
+              taskData.name,
+              isError ? 'Task failed to complete' : 'Task completed successfully'
+            ))
+          }
           break
 
         case 'live_metrics':
@@ -133,6 +147,35 @@ class SimpleWebSocketManager {
           
           store.setLiveMetrics(metrics)
           console.log('📊 Metrics updated:', metrics)
+          break
+
+        // New notification-specific event handlers
+        case 'job.error':
+          notificationStore.addEvent(createJobNotification('error', message.data.jobName, message.data.error))
+          break
+
+        case 'job.success':
+          notificationStore.addEvent(createJobNotification('success', message.data.jobName, message.data.description))
+          break
+
+        case 'hypothesis.win':
+          notificationStore.addEvent(createHypothesisNotification('win', message.data.hypothesis, message.data.confidence))
+          break
+
+        case 'hypothesis.fail':
+          notificationStore.addEvent(createHypothesisNotification('fail', message.data.hypothesis, message.data.confidence))
+          break
+
+        case 'system.alert':
+          notificationStore.addEvent(createSystemNotification(message.data.title, message.data.description, message.data.persistent))
+          break
+
+        case 'data.ingest':
+          notificationStore.addEvent({
+            type: 'data.ingest',
+            title: 'Data Ingestion Complete',
+            description: `${message.data.recordCount} records processed from ${message.data.source}`,
+          })
           break
 
         case 'pong':

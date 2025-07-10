@@ -310,16 +310,23 @@ export async function startPafCoreAgent(): Promise<ChildProcess | null> {
     }
     
     // Check if dependencies are installed
+    const isWindows = process.platform === 'win32'
+    const activateCmd = isWindows ? 'venv\\Scripts\\activate.bat' : 'source venv/bin/activate'
+    const shellCmd = isWindows ? 'cmd' : 'bash'
+    const shellArgs = isWindows ? ['/c'] : ['-c']
+    
     try {
-      execSync('source venv/bin/activate && python -c "import fastapi"', { 
+      execSync(`${activateCmd} && python -c "import fastapi"`, { 
         cwd: pafCoreAgentPath, 
-        stdio: 'pipe' 
+        stdio: 'pipe',
+        shell: shellCmd
       })
     } catch {
       console.log(chalk.gray('📦 Installing PAF Core Agent dependencies...'))
-      execSync('source venv/bin/activate && pip install -r requirements.txt', { 
+      execSync(`${activateCmd} && pip install -r requirements.txt`, { 
         cwd: pafCoreAgentPath, 
-        stdio: 'inherit' 
+        stdio: 'inherit',
+        shell: shellCmd
       })
     }
     
@@ -337,11 +344,19 @@ export async function startPafCoreAgent(): Promise<ChildProcess | null> {
       })
     } else {
       // Fallback to direct uvicorn command
-      pafProcess = spawn('bash', ['-c', 'source venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload'], {
-        cwd: pafCoreAgentPath,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        detached: false
-      })
+      if (isWindows) {
+        pafProcess = spawn('cmd', ['/c', 'venv\\Scripts\\activate.bat && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload'], {
+          cwd: pafCoreAgentPath,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          detached: false
+        })
+      } else {
+        pafProcess = spawn('bash', ['-c', 'source venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload'], {
+          cwd: pafCoreAgentPath,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          detached: false
+        })
+      }
     }
     
     // Handle PAF Core Agent output
@@ -354,10 +369,13 @@ export async function startPafCoreAgent(): Promise<ChildProcess | null> {
     
     pafProcess.stderr?.on('data', (data) => {
       const output = data.toString().trim()
-      if (output && !output.includes('INFO') && !output.includes('WARNING')) {
-        console.log(chalk.red(`[PAF Core Agent Error] ${output}`))
-      } else if (output) {
-        console.log(chalk.gray(`[PAF Core Agent] ${output}`))
+      if (output) {
+        // On Windows, pip info messages may appear in stderr, so treat them as normal output
+        if (output.includes('INFO') || output.includes('WARNING') || output.includes('Successfully installed')) {
+          console.log(chalk.gray(`[PAF Core Agent] ${output}`))
+        } else {
+          console.log(chalk.red(`[PAF Core Agent Error] ${output}`))
+        }
       }
     })
     

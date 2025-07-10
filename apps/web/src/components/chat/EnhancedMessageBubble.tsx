@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { User, Bot, AlertTriangle, FileText, Code2, Paperclip } from 'lucide-react'
+import { User, Bot, AlertTriangle, FileText, Code2, Paperclip, Copy, Check } from 'lucide-react'
 import { ChatMessage } from '@/types'
 import { HybridStreamingRenderer } from '@pixell/renderer'
 import { ThinkingIndicator } from './ThinkingIndicator'
@@ -24,7 +24,19 @@ export function EnhancedMessageBubble({
     return null;
   }
   
+  const [copied, setCopied] = React.useState(false)
+  
   // const settings = useChatStore(state => state.settings) // Unused for now
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(message.content)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      console.error('Failed to copy message:', error)
+    }
+  }
 
   const getMessageIcon = () => {
     switch (message.role) {
@@ -66,7 +78,22 @@ export function EnhancedMessageBubble({
         </div>
 
         {/* Message Content */}
-        <div className="flex-1 space-y-2">
+        <div className="flex-1 space-y-2 relative">
+          {/* Copy Button - Only show for assistant messages */}
+          {!isUser && (
+            <button
+              onClick={copyToClipboard}
+              className="absolute top-0 right-0 p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
+              title="Copy message"
+            >
+              {copied ? (
+                <Check size={16} className="text-green-500" />
+              ) : (
+                <Copy size={16} />
+              )}
+            </button>
+          )}
+
           {/* Message Header - Only show for system messages or when there are attachments */}
           {(message.messageType && message.messageType !== 'text') || 
            (message.attachments && message.attachments.length > 0) || 

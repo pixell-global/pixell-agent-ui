@@ -124,7 +124,12 @@ export function ThinkingIndicator({
                     </span>
                   </div>
                   
-                  <p className="text-gray-700 leading-relaxed">{step.content}</p>
+                  <p className="text-gray-700 leading-relaxed">
+                    {step.content}
+                    {typeof step.score === 'number' && (
+                      <span className="ml-2 text-xs font-mono text-blue-600">(score: {step.score.toFixed(2)})</span>
+                    )}
+                  </p>
                 </div>
               </div>
             </div>

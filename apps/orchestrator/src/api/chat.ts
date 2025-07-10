@@ -11,7 +11,18 @@ const getCoreAgentUrl = async () => {
  */
 export async function streamChatHandler(req: Request, res: Response) {
   try {
-    const { message, fileContext = [], settings = {} } = req.body
+    const { 
+      message, 
+      files = [], 
+      history = [],
+      show_thinking = false,
+      model = 'gpt-4o',
+      temperature = 0.7,
+      max_tokens, // No default limit - let AI complete naturally
+      // Legacy support for old format
+      fileContext = [], 
+      settings = {} 
+    } = req.body
 
     if (!message?.trim()) {
       return res.status(400).json({ error: 'Message is required' })
@@ -19,21 +30,39 @@ export async function streamChatHandler(req: Request, res: Response) {
 
     const coreAgentUrl = await getCoreAgentUrl()
     
-    // Transform fileContext to the format expected by PAF Core Agent
-    const files = fileContext.map((file: any) => ({
-      path: file.path || file.name || 'unknown',
-      content: file.content || ''
-    }))
-
-    // Prepare request payload for PAF Core Agent
-    const payload = {
-      message,
-      files,
-      settings: {
-        showThinking: settings.showThinking || false,
-        streamingEnabled: settings.streamingEnabled !== false // default to true
-      }
+    // Use the new files format if provided, otherwise fall back to legacy fileContext
+    let processedFiles = files
+    if (files.length === 0 && fileContext.length > 0) {
+      // Transform legacy fileContext to new files format for backward compatibility
+      processedFiles = fileContext.map((file: any) => ({
+        file_name: file.name || 'unknown',
+        content: file.content || '',
+        file_type: 'text/plain',
+        file_size: file.content?.length || 0,
+        file_path: file.path
+      }))
     }
+
+    // Prepare request payload for PAF Core Agent per official API spec
+    const payload: any = {
+      message,
+      files: processedFiles,
+      history,
+      show_thinking,
+      model,
+      temperature
+    }
+    
+    // Only include max_tokens if explicitly provided
+    if (max_tokens !== undefined) {
+      payload.max_tokens = max_tokens
+    }
+
+    console.log('📤 Sending to PAF Core Agent:', {
+      message: payload.message,
+      filesCount: payload.files.length,
+      model: payload.model
+    })
 
     // Make request to PAF Core Agent
     const response = await fetch(`${coreAgentUrl}/api/chat/stream`, {
@@ -140,6 +169,44 @@ export async function streamChatHandler(req: Request, res: Response) {
                 }
               }
             }
+          } else if (currentEvent.event === 'EventType.UPEE_PHASE') {
+            try {
+              const upeeData = JSON.parse(currentEvent.data)
+              const phaseMap: Record<string, string> = {
+                'understand': '🔍 Understanding the request',
+                'plan': '📋 Planning the approach', 
+                'execute': '⚡ Executing the plan',
+                'evaluate': '🎯 Evaluating the results'
+              }
+              
+              sseData = {
+                type: 'thinking',
+                context: {
+                  thoughts: [{
+                    id: currentEvent.id || `upee_${upeeData.phase}_${Date.now()}`,
+                    content: phaseMap[upeeData.phase] || `${upeeData.phase} phase: ${upeeData.content}`,
+                    isCompleted: upeeData.completed || false,
+                    timestamp: upeeData.timestamp || new Date().toISOString(),
+                    importance: 'high'
+                  }]
+                }
+              }
+              console.log(`📤 Sending UPEE ${upeeData.phase} phase event`)
+            } catch {
+              // Fallback
+              sseData = {
+                type: 'thinking',
+                context: {
+                  thoughts: [{
+                    id: currentEvent.id || `upee_${Date.now()}`,
+                    content: `UPEE Phase: ${currentEvent.data}`,
+                    isCompleted: false,
+                    timestamp: new Date().toISOString(),
+                    importance: 'high'
+                  }]
+                }
+              }
+            }
           } else if (currentEvent.event === 'EventType.COMPLETE') {
             sseData = { type: 'complete' }
             console.log('📤 Sending completion signal')
@@ -151,6 +218,49 @@ export async function streamChatHandler(req: Request, res: Response) {
               type: 'error', 
               error: currentEvent.data || 'Unknown error occurred'
             }
+          } else if (currentEvent.event.includes('upee') || currentEvent.event.includes('phase')) {
+            // Handle various UPEE phase event formats
+            try {
+              const upeeData = JSON.parse(currentEvent.data)
+              const phase = upeeData.phase || 'unknown'
+              const phaseMap: Record<string, string> = {
+                'understand': '🔍 Understanding the request',
+                'plan': '📋 Planning the approach', 
+                'execute': '⚡ Executing the plan',
+                'evaluate': '🎯 Evaluating the results'
+              }
+              
+              sseData = {
+                type: 'thinking',
+                context: {
+                  thoughts: [{
+                    id: currentEvent.id || `upee_${phase}_${Date.now()}`,
+                    content: phaseMap[phase] || `${phase} phase: ${upeeData.content || 'Processing...'}`,
+                    isCompleted: upeeData.completed || false,
+                    timestamp: upeeData.timestamp || new Date().toISOString(),
+                    importance: 'high'
+                  }]
+                }
+              }
+              console.log(`📤 Sending UPEE ${phase} phase event`)
+            } catch {
+              // Fallback for non-JSON UPEE events
+              sseData = {
+                type: 'thinking',
+                context: {
+                  thoughts: [{
+                    id: currentEvent.id || `upee_${Date.now()}`,
+                    content: `UPEE Phase: ${currentEvent.data}`,
+                    isCompleted: false,
+                    timestamp: new Date().toISOString(),
+                    importance: 'high'
+                  }]
+                }
+              }
+            }
+          } else {
+            // Log unhandled event types for debugging
+            console.log(`🤔 Unhandled SSE event type: ${currentEvent.event}`, currentEvent.data)
           }
           
           // Send the transformed SSE data

@@ -36,6 +36,7 @@ export interface ThinkingStep {
   isCompleted: boolean
   timestamp: string
   importance: 'low' | 'medium' | 'high'
+  score?: number // Optional numerical score (e.g., evaluation score)
 }
 
 export interface FileReference {
@@ -93,7 +94,7 @@ export interface ChatUISettings {
   markdownEnabled: boolean
   codeHighlightEnabled: boolean
   autoScrollEnabled: boolean
-  maxTokensPerStream: number
+  // Removed maxTokensPerStream - using natural completion without limits
 }
 
 export interface TaskActivity {

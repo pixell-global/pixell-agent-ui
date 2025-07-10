@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const filePath = searchParams.get('path')
+    const format = searchParams.get('format') // 'base64' for binary files
     
     if (!filePath) {
       return NextResponse.json(
@@ -54,18 +55,28 @@ export async function GET(request: NextRequest) {
         )
       }
       
-      // Use cat command to read file content
-      const { stdout } = await execAsync(`cat "${fullPath}"`, {
-        cwd: workspacePath,
-        encoding: 'utf8',
-        maxBuffer: maxSize
-      })
+      let content: string
+      
+      if (format === 'base64') {
+        // Read binary file as base64
+        const buffer = await fs.readFile(fullPath)
+        content = buffer.toString('base64')
+      } else {
+        // Use cat command to read file content as text
+        const { stdout } = await execAsync(`cat "${fullPath}"`, {
+          cwd: workspacePath,
+          encoding: 'utf8',
+          maxBuffer: maxSize
+        })
+        content = stdout
+      }
       
       return NextResponse.json({
         success: true,
-        content: stdout,
+        content: content,
         path: filePath,
         size: stats.size,
+        format: format || 'text',
         lastModified: stats.mtime.toISOString()
       })
     } catch (error) {
