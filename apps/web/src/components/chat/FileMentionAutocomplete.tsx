@@ -29,32 +29,20 @@ export function FileMentionAutocomplete({
 
   // Use the enhanced file matching from mention processor
   const filteredFiles = React.useMemo(() => {
-    console.log('FileMentionAutocomplete: Computing filtered files', { 
-      searchTerm, 
-      fileTreeLength: fileTree.length, 
-      visible,
-      fileTreeSample: fileTree.slice(0, 3).map(f => ({ name: f.name, type: f.type, path: f.path }))
-    })
-    
     if (!searchTerm.trim()) {
       // Show recent/common files when no search term
-      const result = fileTree
+      return fileTree
         .filter(node => node.type === 'file' && isFileSupported(node.name))
         .slice(0, 8)
-      console.log('No search term, showing recent files:', result.length)
-      return result
     }
     
     // Validate search term
     if (!isValidMentionText(searchTerm)) {
-      console.log('Invalid mention text:', searchTerm)
       return []
     }
     
     // Use smart matching from mention processor
-    const result = findPartialMatches(searchTerm, fileTree, 10)
-    console.log('Search results for', searchTerm, ':', result.length, 'files')
-    return result
+    return findPartialMatches(searchTerm, fileTree, 10)
   }, [fileTree, searchTerm])
 
   useEffect(() => {
@@ -92,11 +80,8 @@ export function FileMentionAutocomplete({
   }, [visible, selectedIndex, filteredFiles, onSelect, onClose])
 
   if (!visible || filteredFiles.length === 0) {
-    console.log('FileMentionAutocomplete: Not rendering', { visible, filteredFilesLength: filteredFiles.length })
     return null
   }
-
-  console.log('FileMentionAutocomplete: Rendering with', filteredFiles.length, 'files')
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 B'
@@ -157,10 +142,12 @@ export function FileMentionAutocomplete({
   return (
     <div
       ref={listRef}
-      className="absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto min-w-72"
+      className="fixed z-[9999] bg-white border border-gray-200 rounded-lg shadow-xl max-h-64 overflow-y-auto min-w-72"
       style={{
         top: position.top,
         left: position.left,
+        backgroundColor: 'white',
+        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
       }}
     >
       <div className="p-2 border-b border-gray-100 bg-gray-50">

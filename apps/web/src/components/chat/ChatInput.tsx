@@ -111,31 +111,23 @@ export function ChatInput({
     const textUpToCursor = value.substring(0, cursorPosition)
     const lastAtIndex = textUpToCursor.lastIndexOf('@')
     
-    console.log('Input change:', { value, cursorPosition, textUpToCursor, lastAtIndex, fileTreeLength: fileTree.length })
-    
     if (lastAtIndex !== -1) {
       const textAfterAt = textUpToCursor.substring(lastAtIndex + 1)
       
-      console.log('Found @ symbol:', { textAfterAt, lastAtIndex })
-      
       // Check if it's a valid mention context (no spaces, reasonable length)
       if (textAfterAt.length <= 50 && !textAfterAt.includes(' ')) {
-        // Calculate position for autocomplete
+        // Calculate position for autocomplete (using fixed positioning)
         const textarea = textareaRef.current!
         const rect = textarea.getBoundingClientRect()
         
-        console.log('Setting mention autocomplete visible:', { 
-          searchTerm: textAfterAt, 
-          fileTreeLength: fileTree.length,
-          position: { top: rect.bottom + window.scrollY, left: rect.left + window.scrollX }
-        })
+
         
         setMentionAutocomplete({
           visible: true,
           searchTerm: textAfterAt,
           position: {
-            top: rect.bottom + window.scrollY,
-            left: rect.left + window.scrollX
+            top: rect.top - 270, // Show above textarea (270px is dropdown height)
+            left: rect.left
           },
           startIndex: lastAtIndex
         })
@@ -145,7 +137,6 @@ export function ChatInput({
     
     // Hide autocomplete if not in mention context
     if (mentionAutocomplete.visible) {
-      console.log('Hiding mention autocomplete')
       setMentionAutocomplete(prev => ({ ...prev, visible: false }))
     }
   }
