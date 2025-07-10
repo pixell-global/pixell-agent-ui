@@ -1,12 +1,12 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { File, Folder, Search, AlertTriangle, Clock, CheckCircle } from 'lucide-react'
+import { File, Folder, Search, AlertTriangle, CheckCircle } from 'lucide-react'
 import { FileNode } from '@/types'
 import { useWorkspaceStore } from '@/stores/workspace-store'
 import { cn } from '@/lib/utils'
 import { findPartialMatches, isValidMentionText } from '@/lib/mention-processor'
-import { isFileSupported, formatFileSize } from '@/lib/file-mention-loader'
+import { isFileSupported } from '@/lib/file-mention-loader'
 
 interface FileMentionAutocompleteProps {
   searchTerm: string
