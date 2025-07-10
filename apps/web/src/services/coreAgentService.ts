@@ -1,4 +1,4 @@
-import { ChatMessage, FileReference, StreamingResponse, ChatUISettings, AgentHealth, FileAttachment } from '@/types'
+import { ChatMessage, FileReference, StreamingResponse, ChatUISettings, AgentHealth, FileAttachment, FileMention } from '@/types'
 import { getPafCoreAgentUrl, getPafCoreAgentHealthUrl } from '@/lib/paf-core-agent-config'
 
 interface SendMessageRequest {
@@ -9,6 +9,7 @@ interface SendMessageRequest {
   }>
   fileReferences?: FileReference[]
   fileAttachments?: FileAttachment[]
+  fileMentions?: FileMention[]
   settings: ChatUISettings
 }
 
@@ -48,6 +49,21 @@ export class CoreAgentService {
               file_type: 'text/plain', // Default for @ mentions
               file_size: fileRef.size || fileRef.content.length,
               file_path: fileRef.path
+            })
+          }
+        }
+      }
+      
+      // Add file mentions with loaded content
+      if (request.fileMentions) {
+        for (const mention of request.fileMentions) {
+          if (mention.content && mention.loadingState === 'loaded') {
+            files.push({
+              file_name: mention.name,
+              content: mention.content,
+              file_type: mention.fileType || 'text/plain',
+              file_size: mention.fileSize || mention.content.length,
+              file_path: mention.path
             })
           }
         }

@@ -69,6 +69,13 @@ export interface FileMention {
   startIndex: number
   endIndex: number
   displayText: string // The text that was mentioned like "@filename.txt"
+  content?: string          // File content (text or base64)
+  fileType?: string         // MIME type
+  fileSize?: number         // File size in bytes
+  isBase64?: boolean        // Whether content is base64 encoded
+  loadingState?: 'loading' | 'loaded' | 'error'
+  error?: string           // Error message if loading failed
+  lastModified?: string    // File last modified timestamp
 }
 
 export interface StreamingResponse {

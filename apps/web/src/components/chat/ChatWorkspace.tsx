@@ -129,6 +129,7 @@ export function ChatWorkspace({ className = '' }: ChatWorkspaceProps) {
           history,
           fileReferences: allFileReferences,
           fileAttachments: attachments, // Pass attachments separately so service can handle them
+          fileMentions: mentions, // Pass file mentions with loaded content
           settings
         },
         // On streaming chunk

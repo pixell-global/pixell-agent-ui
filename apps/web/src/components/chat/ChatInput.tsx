@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { FileReference, AgentHealth, FileAttachment, FileMention, FileNode } from '@/types'
 import { useChatStore } from '@/stores/chat-store'
+import { useWorkspaceStore } from '@/stores/workspace-store'
 import { FileAttachmentPreview } from './FileAttachmentPreview'
 import { FileMentionAutocomplete } from './FileMentionAutocomplete'
+import { processMentions } from '@/lib/mention-processor'
 
 interface ChatInputProps {
   onSendMessage: (message: string, files: FileReference[], attachments: FileAttachment[], mentions: FileMention[]) => void
@@ -158,26 +160,12 @@ export function ChatInput({
     setMentionAutocomplete(prev => ({ ...prev, visible: false }))
   }
 
-  // Parse mentions from message
-  const parseMentions = (text: string): FileMention[] => {
-    const mentions: FileMention[] = []
-    const mentionRegex = /@([^\s@]+)/g
-    let match
-
-    while ((match = mentionRegex.exec(text)) !== null) {
-      mentions.push({
-        id: crypto.randomUUID(),
-        name: match[1],
-        path: match[1], // This would need to be resolved to actual file path
-        type: 'file', // This would need to be determined from the file system
-        startIndex: match.index,
-        endIndex: match.index + match[0].length,
-        displayText: match[0]
-      })
-    }
-
-    return mentions
-  }
+  // State for tracking mention processing
+  const [processingMentions, setProcessingMentions] = useState(false)
+  const [mentionErrors, setMentionErrors] = useState<string[]>([])
+  
+  // Get file tree from workspace store
+  const fileTree = useWorkspaceStore(state => state.fileTree)
 
   // Upload files to .temp folder
   const uploadAttachmentsToTemp = async (attachments: FileAttachment[]): Promise<FileAttachment[]> => {
@@ -252,21 +240,37 @@ export function ChatInput({
     
     if (!message.trim() || disabled || isLoading) return
 
-    // Parse mentions from message
-    const mentions = parseMentions(message)
+    setProcessingMentions(true)
+    setMentionErrors([])
     
-    // Upload attachments to .temp folder
-    const uploadedAttachments = await uploadAttachmentsToTemp(pendingAttachments)
-    
-    onSendMessage(message.trim(), selectedFiles, uploadedAttachments, mentions)
-    setMessage('')
-    clearFileReferences()
-    clearAttachments()
-    setFileReferences(new Map()) // Clear file references
-    
-    // Reset textarea height
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
+    try {
+      // Process mentions and load file content
+      const mentionResult = await processMentions(message, fileTree)
+      
+      if (mentionResult.errors.length > 0) {
+        setMentionErrors(mentionResult.errors)
+        // Still proceed with the message but show errors
+      }
+      
+      // Upload attachments to .temp folder
+      const uploadedAttachments = await uploadAttachmentsToTemp(pendingAttachments)
+      
+      onSendMessage(message.trim(), selectedFiles, uploadedAttachments, mentionResult.mentions)
+      setMessage('')
+      clearFileReferences()
+      clearAttachments()
+      setFileReferences(new Map()) // Clear file references
+      setMentionErrors([])
+      
+      // Reset textarea height
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto'
+      }
+    } catch (error) {
+      console.error('Error processing mentions:', error)
+      setMentionErrors(['Failed to process file mentions'])
+    } finally {
+      setProcessingMentions(false)
     }
   }
 
@@ -368,6 +372,33 @@ export function ChatInput({
                   <X size={12} />
                 </button>
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Mention Processing Feedback */}
+      {processingMentions && (
+        <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-center gap-2 text-sm text-yellow-800">
+            <Loader2 size={16} className="animate-spin" />
+            <span>Processing file mentions...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Mention Errors */}
+      {mentionErrors.length > 0 && (
+        <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-center gap-2 mb-1">
+            <AlertCircle size={16} className="text-red-500" />
+            <span className="text-sm font-medium text-red-900">
+              File Mention Issues
+            </span>
+          </div>
+          <div className="text-xs text-red-700 space-y-1">
+            {mentionErrors.map((error, index) => (
+              <div key={index}>{error}</div>
             ))}
           </div>
         </div>
