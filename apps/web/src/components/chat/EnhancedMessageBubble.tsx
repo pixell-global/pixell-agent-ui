@@ -19,12 +19,12 @@ export function EnhancedMessageBubble({
   isStreaming = false,
   className = '' 
 }: EnhancedMessageBubbleProps) {
+  const [copied, setCopied] = React.useState(false)
+  
   // Don't render empty messages at all
   if (!message.content.trim()) {
     return null;
   }
-  
-  const [copied, setCopied] = React.useState(false)
   
   // const settings = useChatStore(state => state.settings) // Unused for now
 
