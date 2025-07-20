@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useEffect, useRef } from 'react'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { ChatMessage, FileReference, FileAttachment, FileMention } from '@/types'
 import { EnhancedMessageBubble } from './EnhancedMessageBubble'
 import { ChatInput } from './ChatInput'
@@ -216,7 +215,7 @@ export function ChatWorkspace({ className = '' }: ChatWorkspaceProps) {
   return (
     <div className={`chat-workspace flex flex-col h-full bg-white ${className}`}>
       {/* Messages Area - Following Design Guide */}
-      <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 py-6">
+      <div ref={scrollAreaRef} className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6">
         {messages.length === 0 ? (
           renderWelcomeMessage()
         ) : (
@@ -230,7 +229,7 @@ export function ChatWorkspace({ className = '' }: ChatWorkspaceProps) {
             ))}
           </div>
         )}
-      </ScrollArea>
+      </div>
 
       {/* AI Status Indicator - Following Design Guide */}
       <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
