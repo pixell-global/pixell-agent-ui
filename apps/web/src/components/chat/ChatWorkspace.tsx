@@ -34,15 +34,29 @@ export function ChatWorkspace({ className = '' }: ChatWorkspaceProps) {
   const setLoading = useChatStore(state => state.setLoading)
   const setAgentHealth = useChatStore(state => state.setAgentHealth)
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom when new messages arrive or during streaming
   useEffect(() => {
     if (settings.autoScrollEnabled && scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight
-      }
+      // Use requestAnimationFrame to ensure the DOM has updated
+      requestAnimationFrame(() => {
+        if (scrollAreaRef.current) {
+          scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+        }
+      })
     }
-  }, [messages, settings.autoScrollEnabled])
+  }, [messages, streamingMessage, settings.autoScrollEnabled])
+
+  // Additional effect to handle streaming content updates
+  useEffect(() => {
+    if (streamingMessage && settings.autoScrollEnabled && scrollAreaRef.current) {
+      // Smooth scroll during streaming
+      requestAnimationFrame(() => {
+        if (scrollAreaRef.current) {
+          scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+        }
+      })
+    }
+  }, [streamingMessage, settings.autoScrollEnabled])
 
   // Check AI health on mount and clear temp folder
   useEffect(() => {
@@ -214,12 +228,29 @@ export function ChatWorkspace({ className = '' }: ChatWorkspaceProps) {
 
   return (
     <div className={`chat-workspace flex flex-col h-full bg-white ${className}`}>
+      <style>{`
+        .chat-workspace-scroll::-webkit-scrollbar {
+          height: 8px;
+          width: 8px;
+        }
+        .chat-workspace-scroll::-webkit-scrollbar-track {
+          background: #f1f5f9;
+          border-radius: 4px;
+        }
+        .chat-workspace-scroll::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 4px;
+        }
+        .chat-workspace-scroll::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+      `}</style>
       {/* Messages Area - Following Design Guide */}
-      <div ref={scrollAreaRef} className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-6">
+      <div ref={scrollAreaRef} className="flex-1 overflow-y-auto overflow-x-auto px-4 py-6 chat-workspace-scroll">
         {messages.length === 0 ? (
           renderWelcomeMessage()
         ) : (
-          <div className="space-y-4 mx-auto">
+          <div className="space-y-4 mx-auto max-w-4xl">
             {messages.map((message) => (
               <EnhancedMessageBubble
                 key={message.id}

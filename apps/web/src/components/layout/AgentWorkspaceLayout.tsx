@@ -32,22 +32,11 @@ export function AgentWorkspaceLayout() {
     <div className="h-screen bg-background flex flex-col">
       <header className="h-14 border-b bg-card px-4 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold">Pixell Agent Framework</h1>
-          <div className="flex items-center gap-2 px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            Phase 1 Testing
-          </div>
-          
-          <div className={cn(
-            "flex items-center gap-2 px-2 py-1 rounded text-xs",
-            isConnected ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-          )}>
-            <div className={cn(
-              "w-2 h-2 rounded-full",
-              isConnected ? "bg-green-500" : "bg-yellow-500"
-            )}></div>
-            {isConnected ? "Connected" : "Connecting..."}
-          </div>
+          <img 
+            src="/sungboon_logo.png" 
+            alt="Pixell Agent Framework" 
+            className="h-8 w-auto"
+          />
         </div>
         
         <div className="flex items-center gap-2">
