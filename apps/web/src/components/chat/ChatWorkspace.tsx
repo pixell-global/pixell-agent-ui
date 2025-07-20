@@ -220,7 +220,7 @@ export function ChatWorkspace({ className = '' }: ChatWorkspaceProps) {
         {messages.length === 0 ? (
           renderWelcomeMessage()
         ) : (
-          <div className="space-y-4 max-w-3xl mx-auto">
+          <div className="space-y-4 mx-auto">
             {messages.map((message) => (
               <EnhancedMessageBubble
                 key={message.id}

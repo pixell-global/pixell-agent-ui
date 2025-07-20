@@ -69,7 +69,7 @@ export function EnhancedMessageBubble({
 
   return (
     <div className={`group w-full text-gray-800 ${isUser ? 'bg-gray-50' : 'bg-white'} ${className}`}>
-      <div className="flex gap-4 max-w-4xl mx-auto p-4">
+      <div className="flex gap-4 mx-auto p-4">
         {/* Avatar */}
         <div className={`flex-shrink-0 w-8 h-8 rounded-sm flex items-center justify-center ${
           isUser ? 'bg-green-500' : isAlert ? 'bg-red-500' : 'bg-blue-500'
