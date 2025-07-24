@@ -1,4 +1,4 @@
-# Enhanced Pixell Setup Guide
+# Enhanced Pixell Agent Framework Setup Guide
 
 ## 🚀 One-Command Complete Setup
 
@@ -58,7 +58,20 @@ pixell-agent-framework/
 └── .env.local               # Updated with service URLs
 ```
 
-## 🛠️ New CLI Commands
+## 🛠️ PXUI CLI Commands
+
+The Pixell Agent Framework includes a comprehensive CLI tool called `pxui` for managing all aspects of your development environment:
+
+### Main Commands
+```bash
+pxui start                           # Start frontend + orchestrator
+pxui start core-agent                # Start PAF Core Agent separately
+pxui services status                 # Check all service health
+pxui svc up                          # Start all services
+pxui svc down                        # Stop all services
+pxui env                             # Manage environments
+pxui config ai                       # Configure AI providers
+```
 
 ### Complete Setup
 ```bash
@@ -75,9 +88,9 @@ npm run paf-core-agent:status        # Check status
 npm run paf-core-agent:remove        # Remove repository
 
 # Or use CLI directly:
-pixell paf clone                     # Clone PAF Core Agent
-pixell paf update                    # Update PAF Core Agent
-pixell paf status                    # Check status
+pxui paf clone                       # Clone PAF Core Agent
+pxui paf update                      # Update PAF Core Agent
+pxui paf status                      # Check status
 ```
 
 ### Service Management
@@ -89,11 +102,11 @@ npm run services:status              # Check service health
 npm run services:logs                # View service logs
 
 # Or use CLI directly:
-pixell services start                # Start all services
-pixell svc up                        # Shorthand for start
-pixell svc status                    # Check service health
-pixell svc logs --follow             # Follow logs
-pixell svc logs --service paf-core-agent # Specific service logs
+pxui services start                  # Start all services
+pxui svc up                          # Shorthand for start
+pxui svc status                      # Check service health
+pxui svc logs --follow               # Follow logs
+pxui svc logs --service paf-core-agent # Specific service logs
 ```
 
 ### Enhanced Docker Management
@@ -102,8 +115,8 @@ npm run docker:status                # Check Docker status
 npm run docker:start                 # Start Docker
 
 # Or use CLI directly:
-pixell docker status                 # Check Docker
-pixell d st                          # Shorthand status
+pxui docker status                   # Check Docker
+pxui d st                            # Shorthand status
 ```
 
 ## 🚦 Usage Workflow
@@ -118,10 +131,10 @@ npm run setup:complete
 ### 2. Daily Development
 ```bash
 # Check everything is healthy
-pixell services status
+pxui services status
 
-# Start main applications
-npm run dev
+# Start main applications  
+pxui start
 
 # Check PAF Core Agent API
 curl http://localhost:8000/api/health
@@ -131,16 +144,16 @@ open http://localhost:8000/docs
 ### 3. Service Management
 ```bash
 # Start specific services only
-pixell svc up --services paf-core-agent,supabase-db
+pxui svc up --services paf-core-agent,supabase-db
 
 # View logs in real-time
-pixell svc logs --follow
+pxui svc logs --follow
 
 # Scale PAF Core Agent
-pixell svc scale paf-core-agent 3
+pxui svc scale paf-core-agent 3
 
 # Stop everything
-pixell svc down
+pxui svc down
 ```
 
 ## 🔧 Configuration
@@ -171,7 +184,7 @@ The setup includes comprehensive health monitoring:
 
 ```bash
 # Check all services
-pixell services status
+pxui services status
 
 # Individual service health
 curl http://localhost:8000/api/health     # PAF Core Agent
@@ -185,9 +198,9 @@ open http://localhost:54323               # Supabase Studio
 ```bash
 # If setup fails, retry individual steps:
 npm run setup:install                # Dependencies only
-pixell paf clone                      # PAF Core Agent only
-pixell docker status                  # Docker check
-pixell env                           # Environment management
+pxui paf clone                        # PAF Core Agent only
+pxui docker status                    # Docker check
+pxui env                             # Environment management
 ```
 
 ### Service Issues
@@ -196,13 +209,13 @@ pixell env                           # Environment management
 docker-compose ps
 
 # View service logs
-pixell svc logs --service paf-core-agent
+pxui svc logs --service paf-core-agent
 
 # Restart problematic services
 docker-compose restart paf-core-agent
 
 # Nuclear option - full reset
-pixell svc down
+pxui svc down
 docker-compose down --volumes
 npm run setup:complete
 ```
