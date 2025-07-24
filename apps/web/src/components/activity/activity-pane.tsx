@@ -8,6 +8,7 @@ import { useWebSocket } from '@/lib/websocket-manager'
 import { useRealtimeKPI } from '@/hooks/use-realtime-kpi'
 import { useSupabase } from '@/hooks/use-supabase'
 import { KPIWidget, ActiveJobsKPI, SuccessRateKPI, AverageRuntimeKPI, QueuedJobsKPI } from '@/components/kpi/KPIWidget'
+import { A2ATableDemo } from '@/components/a2a_task/a2a_task'
 import { JobsTable } from '@/components/kpi/JobsTable'
 import { cn } from '@/lib/utils'
 
@@ -84,11 +85,8 @@ export function ActivityPane() {
         <div className="space-y-4">
           {/* KPI Widgets Grid */}
           {kpiMetrics && (
-            <div className="grid grid-cols-2 gap-3">
-              <ActiveJobsKPI value={kpiMetrics.activeJobs} />
-              <SuccessRateKPI value={kpiMetrics.successRate} />
-              <AverageRuntimeKPI value={kpiMetrics.averageRuntime} />
-              <QueuedJobsKPI value={kpiMetrics.queuedJobs} />
+            <div className="grid gap-3">
+              <A2ATableDemo />
             </div>
           )}
 
