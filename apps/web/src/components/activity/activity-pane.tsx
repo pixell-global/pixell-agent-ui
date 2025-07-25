@@ -1,8 +1,10 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Activity, CheckCircle, Clock, Zap, AlertCircle, Wifi, WifiOff } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Activity, CheckCircle, Clock, Zap, AlertCircle, Wifi, WifiOff, Wand2 } from 'lucide-react'
 import { useWorkspaceStore, selectKPIMetrics, selectRecentJobs } from '@/stores/workspace-store'
 import { useWebSocket } from '@/lib/websocket-manager'
 import { useRealtimeKPI } from '@/hooks/use-realtime-kpi'
@@ -11,6 +13,7 @@ import { KPIWidget, ActiveJobsKPI, SuccessRateKPI, AverageRuntimeKPI, QueuedJobs
 import { A2ATableDemo } from '@/components/a2a_task/a2a_task'
 import { JobsTable } from '@/components/kpi/JobsTable'
 import { cn } from '@/lib/utils'
+import { coreAgentService } from '@/services/coreAgentService'
 
 export function ActivityPane() {
   const { 
@@ -25,6 +28,14 @@ export function ActivityPane() {
   const { user } = useSupabase()
   const { connect } = useWebSocket()
   
+  // UI 생성 관련 상태
+  const [uiQuery, setUiQuery] = useState('')
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generatedUI, setGeneratedUI] = useState<{
+    title: string
+    html: string
+  } | null>(null)
+  
   // Use realtime KPI data
   const kpiData = useRealtimeKPI(user?.id || 'demo-user')
   const kpiMetrics = useWorkspaceStore(selectKPIMetrics)
@@ -34,6 +45,27 @@ export function ActivityPane() {
   useEffect(() => {
     connect()
   }, [connect])
+  
+  // UI 생성 함수
+  const handleGenerateUI = async () => {
+    if (!uiQuery.trim()) return
+    
+    setIsGenerating(true)
+    try {
+      const result = await coreAgentService.generateUI(uiQuery)
+      
+      if (result.payload) {
+        setGeneratedUI({
+          title: result.payload.title || 'Generated UI',
+          html: result.payload.html || ''
+        })
+      }
+    } catch (error) {
+      console.error('UI 생성 실패:', error)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
   
   // Update workspace store with KPI data
   useEffect(() => {
@@ -83,10 +115,54 @@ export function ActivityPane() {
 
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
+          {/* UI Generation */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Wand2 className="h-4 w-4" />
+                UI 생성
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="생성하고 싶은 UI를 설명해주세요..."
+                    value={uiQuery}
+                    onChange={(e) => setUiQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !isGenerating) {
+                        handleGenerateUI()
+                      }
+                    }}
+                    disabled={isGenerating}
+                  />
+                  <Button 
+                    onClick={handleGenerateUI}
+                    disabled={!uiQuery.trim() || isGenerating}
+                    size="sm"
+                  >
+                    {isGenerating ? '생성 중...' : '생성'}
+                  </Button>
+                </div>
+                
+                {/* 생성된 UI 표시 */}
+                {generatedUI && (
+                  <div className="border rounded-lg p-3 bg-muted/50">
+                    <div className="text-sm font-medium mb-2">{generatedUI.title}</div>
+                    <div 
+                      className="bg-white border rounded p-3 max-h-96 overflow-auto"
+                      dangerouslySetInnerHTML={{ __html: generatedUI.html }}
+                    />
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* KPI Widgets Grid */}
           {kpiMetrics && (
             <div className="grid gap-3">
-              <A2ATableDemo />
             </div>
           )}
 
