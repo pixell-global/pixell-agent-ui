@@ -143,36 +143,9 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
           {/* UI Generation */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Wand2 className="h-4 w-4" />
-                UI 생성
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="생성하고 싶은 UI를 설명해주세요..."
-                    value={uiQuery}
-                    onChange={(e) => setUiQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !isGenerating) {
-                        handleGenerateUI()
-                      }
-                    }}
-                    disabled={isGenerating}
-                  />
-                  <Button 
-                    onClick={() => handleGenerateUI()}
-                    disabled={!uiQuery.trim() || isGenerating}
-                    size="sm"
-                  >
-                    {isGenerating ? '생성 중...' : '생성'}
-                  </Button>
-                </div>
-                
+          <Card className="h-80">
+            <CardContent className="pt-0 h-full overflow-auto">
+              <div className="space-y-3">                
                 {/* 생성된 UI 표시 */}
                 {generatedUI && (
                   <div className="border rounded-lg p-3 bg-muted/50">
