@@ -2,7 +2,7 @@
 import { useUIStore } from '@/stores/ui-store'
 import { NavigatorPane } from '@/components/navigator/navigator-pane'
 import { ChatWorkspace } from '@/components/chat/ChatWorkspace'
-import { ActivityPane } from '@/components/activity/activity-pane'
+import { ActivityPane, ActivityPaneRef } from '@/components/activity/activity-pane'
 import { useWebSocket } from '@/lib/websocket-manager'
 import { useWorkspaceStore } from '@/stores/workspace-store'
 import { designTokens } from '@/lib/design-tokens'
@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { Button } from '@/components/ui/button'
 import { PanelLeft, PanelRight, Activity } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 export function AgentWorkspaceLayout() {
   const { 
@@ -22,6 +22,9 @@ export function AgentWorkspaceLayout() {
   
   const { connect } = useWebSocket()
   const { isConnected } = useWorkspaceStore()
+  
+  // ActivityPane의 ref 생성
+  const activityPaneRef = useRef<ActivityPaneRef>(null as any)
   
   // Connect to WebSocket on mount
   useEffect(() => {
@@ -88,7 +91,7 @@ export function AgentWorkspaceLayout() {
             minSize={30}
             className="min-w-0"
           >
-            <ChatWorkspace />
+            <ChatWorkspace activityPaneRef={activityPaneRef} />
           </Panel>
           
           {/* Right Panel - Activity Pane */}
@@ -102,7 +105,7 @@ export function AgentWorkspaceLayout() {
                 className="bg-muted/10 border-l"
               >
                 <div className="h-full overflow-y-auto">
-                  <ActivityPane />
+                  <ActivityPane ref={activityPaneRef} />
                 </div>
               </Panel>
             </>

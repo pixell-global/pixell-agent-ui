@@ -273,29 +273,28 @@ export class CoreAgentService {
   }
 
   /**
-   * UI 생성 요청을 Core Agent에 전송
+   * Acitivity 큐 가져오기
    */
-  async generateUI(query: string): Promise<{
+  async getActivity(): Promise<{
     message: string
     payload: any
   }> {
     try {
-      const response = await fetch(`http://localhost:8000/api/ui-generation/ui-generation`, {
-        method: 'POST',
+      const response = await fetch(`http://localhost:8000/api/activity-manager/`, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ query })
       })
 
       if (!response.ok) {
-        throw new Error(`UI generation API error: ${response.status} ${response.statusText}`)
+        throw new Error(`Activity API error: ${response.status} ${response.statusText}`)
       }
 
       const result = await response.json()
       return result
     } catch (error) {
-      console.error('UI Generation Error:', error)
+      console.error('Activity Error:', error)
       throw error
     }
   }

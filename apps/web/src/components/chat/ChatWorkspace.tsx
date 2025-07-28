@@ -6,12 +6,15 @@ import { EnhancedMessageBubble } from './EnhancedMessageBubble'
 import { ChatInput } from './ChatInput'
 import { useChatStore, selectMessages, selectIsLoading, selectStreamingMessage } from '@/stores/chat-store'
 import { coreAgentService } from '@/services/coreAgentService'
+import { ActivityPaneRef } from '@/components/activity/activity-pane'
+import { RefObject } from 'react'
 
 interface ChatWorkspaceProps {
   className?: string
+  activityPaneRef?: RefObject<ActivityPaneRef>
 }
 
-export function ChatWorkspace({ className = '' }: ChatWorkspaceProps) {
+export function ChatWorkspace({ className = '', activityPaneRef }: ChatWorkspaceProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   
   // Zustand store selectors
@@ -172,6 +175,24 @@ export function ChatWorkspace({ className = '' }: ChatWorkspaceProps) {
           setLoading(false)
         }
       )
+
+	  // Get Data for Generate UI
+	  const data = await coreAgentService.getActivity()
+	  console.log('🔍 getActivity 반환 데이터:', data)
+	  
+	  // API가 배열을 직접 반환하므로 마지막 항목을 가져옴
+	  let itemToPass = null
+	  
+	  if (Array.isArray(data) && data.length > 0) {
+	    itemToPass = data[data.length - 1]
+	  }
+	  
+	  console.log('🔍 전달할 아이템:', itemToPass)
+	  
+	  if (itemToPass && activityPaneRef?.current) {
+	    activityPaneRef.current.triggerUIGeneration(itemToPass)
+	  }
+
     } catch (error) {
       console.error('Failed to send message:', error)
       setStreamingMessage(null)
