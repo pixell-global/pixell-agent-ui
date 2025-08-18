@@ -36,9 +36,9 @@ export function AgentWorkspaceLayout() {
       <header className="h-14 border-b bg-card px-4 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
           <img 
-            src="/@Logo_Pixell_Linkedin.png?v=1" 
+            src="/sungboon_logo.png" 
             alt="Pixell Agent Framework" 
-            className="h-10 w-auto"
+            className="h-8 w-auto"
           />
         </div>
         
@@ -87,7 +87,7 @@ export function AgentWorkspaceLayout() {
           
           {/* Center Panel - Chat Workspace */}
           <Panel 
-            defaultSize={leftPanelVisible && rightPanelVisible ? 40 : leftPanelVisible || rightPanelVisible ? 60 : 100}
+            defaultSize={leftPanelVisible && rightPanelVisible ? 50 : leftPanelVisible || rightPanelVisible ? 70 : 100}
             minSize={30}
             className="min-w-0"
           >
@@ -99,9 +99,9 @@ export function AgentWorkspaceLayout() {
             <>
               <PanelResizeHandle className="w-px bg-border hover:bg-blue-500 hover:w-1 transition-all duration-200 active:bg-blue-600" />
               <Panel 
-                defaultSize={40} 
-                minSize={30} 
-                maxSize={55}
+                defaultSize={32} 
+                minSize={25} 
+                maxSize={45}
                 className="bg-muted/10 border-l"
               >
                 <div className="h-full overflow-y-auto">
