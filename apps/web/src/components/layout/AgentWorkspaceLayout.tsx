@@ -36,7 +36,7 @@ export function AgentWorkspaceLayout() {
       <header className="h-14 border-b bg-card px-4 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
           <img 
-            src="/sungboon_logo.png" 
+            src="/Logo_Pixell_Linkedin.png" 
             alt="Pixell Agent Framework" 
             className="h-8 w-auto"
           />
