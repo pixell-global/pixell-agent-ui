@@ -12,24 +12,25 @@ function isTestEnvironment(): boolean {
 }
 
 export function renderUISpec(container: HTMLElement, spec: UISpecEnvelope, options?: RenderOptions): { unmount: () => void } {
-	const root: Root = createRoot(container)
+	// Reuse a single root per container to avoid createRoot collisions
+	let root: Root | undefined = (container as any).__pafRoot as Root | undefined
 	const inTest = isTestEnvironment()
+	if (!root) {
+		root = createRoot(container)
+		;(container as any).__pafRoot = root
+	}
 	if (inTest && typeof act === 'function') {
 		act(() => {
-			root.render(<RenderEngine container={container} spec={spec} options={options || {}} />)
+			root!.render(<RenderEngine container={container} spec={spec} options={options || {}} />)
 		})
 	} else {
 		root.render(<RenderEngine container={container} spec={spec} options={options || {}} />)
 	}
 	const doUnmount = () => {
-		if (inTest && typeof act === 'function') {
-			act(() => { root.unmount() })
-		} else {
-			// Defer to avoid unmounting during a concurrent render phase
-			setTimeout(() => {
-				try { root.unmount() } catch {}
-			}, 0)
-		}
+		const r = (container as any).__pafRoot as Root | undefined
+		if (!r) return
+		try { r.unmount() } catch {}
+		delete (container as any).__pafRoot
 	}
 	return { unmount: doUnmount }
 }

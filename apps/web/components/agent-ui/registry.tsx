@@ -7,6 +7,8 @@ import { Unknown } from './renderer_components/Unknown'
 import { Link } from './renderer_components/Link'
 import type { RenderOptions } from './renderer/types'
 import { Table } from './renderer_components/Table'
+import { Textarea } from './renderer_components/Textarea'
+import { Switch } from './renderer_components/Switch'
 
 export const REGISTRY: Record<string, React.ComponentType<any>> = {
 	page: Page,
@@ -14,6 +16,8 @@ export const REGISTRY: Record<string, React.ComponentType<any>> = {
 	button: Button,
 	list: List,
 	link: Link,
+	textarea: Textarea,
+	switch: Switch,
 	table: Table,
 	unknown: Unknown,
 }

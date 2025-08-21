@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
       }
       
       let content: string
+      let detectedEncoding: 'utf8' | 'utf16le' = 'utf8'
       
       console.log('🔍 [API] 파일 읽기 시작:', { format, fileSize: stats.size })
       
@@ -82,11 +83,34 @@ export async function GET(request: NextRequest) {
         content = buffer.toString('base64')
         console.log('✅ [API] Base64 읽기 완료:', { contentLength: content.length })
       } else {
-        console.log('🔍 [API] 텍스트로 파일 읽기 - fs.readFile 사용')
-        // Use fs.readFile instead of cat command for better Windows compatibility
-        const buffer = await fs.readFile(fullPath, 'utf8')
-        content = buffer
-        console.log('✅ [API] 텍스트 읽기 완료:', { contentLength: content.length })
+        console.log('🔍 [API] 텍스트로 파일 읽기 - 인코딩 자동 감지')
+        // Read as raw buffer first to detect BOM/encoding
+        const raw = await fs.readFile(fullPath)
+        // UTF-8 BOM
+        if (raw.length >= 3 && raw[0] === 0xef && raw[1] === 0xbb && raw[2] === 0xbf) {
+          content = raw.slice(3).toString('utf8')
+          detectedEncoding = 'utf8'
+        } else if (raw.length >= 2 && raw[0] === 0xff && raw[1] === 0xfe) {
+          // UTF-16 LE BOM
+          content = raw.slice(2).toString('utf16le')
+          detectedEncoding = 'utf16le'
+        } else if (raw.length >= 2 && raw[0] === 0xfe && raw[1] === 0xff) {
+          // UTF-16 BE BOM → convert to LE by swapping bytes
+          const le = Buffer.allocUnsafe(raw.length - 2)
+          for (let i = 2; i < raw.length; i += 2) {
+            const a = raw[i]
+            const b = raw[i + 1]
+            le[i - 2] = b
+            le[i - 1] = a
+          }
+          content = le.toString('utf16le')
+          detectedEncoding = 'utf16le'
+        } else {
+          // Default to UTF‑8
+          content = raw.toString('utf8')
+          detectedEncoding = 'utf8'
+        }
+        console.log('✅ [API] 텍스트 읽기 완료:', { contentLength: content.length, detectedEncoding })
       }
       
       return NextResponse.json({
@@ -95,6 +119,7 @@ export async function GET(request: NextRequest) {
         path: filePath,
         size: stats.size,
         format: format || 'text',
+        encoding: detectedEncoding,
         lastModified: stats.mtime.toISOString()
       })
     } catch (error) {

@@ -65,6 +65,22 @@ export function buildActionHandler(spec: UISpecEnvelope, options: RenderOptions,
 			},
 		}
 	}
+	if (kind === 'js') {
+		const code = String((action as AnyRecord).code || '')
+		return {
+			handler: async () => {
+				// Minimal JS action runner; pass basic helpers
+				const ctx = {
+					data: spec.data,
+					http: options.onHttp,
+					openUrl: options.onOpenUrl,
+				}
+				// eslint-disable-next-line no-new-func
+				const fn = new Function('ctx', code)
+				await Promise.resolve(fn(ctx))
+			},
+		}
+	}
 	if (kind === 'state.set') {
 		const operations = (action.operations || []) as { path: string; value: any }[]
 		return {

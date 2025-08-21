@@ -80,6 +80,9 @@ function TruncatingCell({ children, maxWidthPx = 240, modalTitle }: { children: 
 export const Table: React.FC<TableProps> = ({ data, columns = [], renderCell, className = '' }) => {
 	const rows = Array.isArray(data) ? data : []
 	const cols = Array.isArray(columns) ? columns : []
+	
+	console.log('[Table] Rendering with data:', rows)
+	console.log('[Table] Columns:', cols)
 
 	if (rows.length === 0 || cols.length === 0) {
 		return <div role="table" aria-label="empty-table">No data</div>
@@ -101,13 +104,22 @@ export const Table: React.FC<TableProps> = ({ data, columns = [], renderCell, cl
 					<tbody className="bg-white divide-y divide-gray-100">
 						{rows.map((row, rIdx) => (
 							<tr key={rIdx} className="hover:bg-gray-50">
-								{cols.map((c, cIdx) => (
-									<td key={cIdx} className="px-4 py-2 text-sm text-gray-800 align-top">
-										<TruncatingCell modalTitle={c.header}>
-											{renderCell ? renderCell(c.cell, row, rIdx, cIdx) : null}
-										</TruncatingCell>
-									</td>
-								))}
+								{cols.map((c, cIdx) => {
+									const cellSpec: any = c.cell || {}
+									const cellType = String(cellSpec.type || '').toLowerCase()
+									const isInteractive = cellType === 'button' || cellType === 'textarea' || cellType === 'input' || cellType === 'select'
+									return (
+										<td key={cIdx} className="px-4 py-2 text-sm text-gray-800 align-top">
+											{isInteractive ? (
+												renderCell ? renderCell(cellSpec, row, rIdx, cIdx) : null
+											) : (
+												<TruncatingCell modalTitle={c.header}>
+													{renderCell ? renderCell(cellSpec, row, rIdx, cIdx) : null}
+												</TruncatingCell>
+											)}
+										</td>
+									)
+								})}
 							</tr>
 						))}
 					</tbody>

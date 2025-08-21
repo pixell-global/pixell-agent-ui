@@ -34,4 +34,8 @@ export interface RenderOptions {
 	onHttp?: (req: { method: string; url: string; body?: unknown; headers?: Record<string, string>; stream?: boolean }) => Promise<unknown>
 	capabilitySet?: { components?: string[]; features?: string[] }
 	debug?: boolean
+	/** Optional seed for renderer local state; if provided, overrides spec.data at mount */
+	initialData?: Record<string, any>
+	/** Called whenever renderer local data mutates (state.set, http.result, js setData) */
+	onDataChange?: (data: Record<string, any>) => void
 } 

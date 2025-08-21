@@ -180,11 +180,16 @@ export function ChatWorkspace({ className = '', activityPaneRef }: ChatWorkspace
 	  const data = await coreAgentService.getActivity()
 	  console.log('🔍 getActivity 반환 데이터:', data)
 	  
-	  // API가 배열을 직접 반환하므로 마지막 항목을 가져옴
-	  let itemToPass = null
-	  
+	  // Pick most recent entry that contains a dynamic UI spec (contents.ui or contents.view)
+	  let itemToPass: any = null
 	  if (Array.isArray(data) && data.length > 0) {
-	    itemToPass = data[data.length - 1]
+	    for (let i = data.length - 1; i >= 0; i--) {
+	      const item = data[i]
+	      const contents = item?.contents || item
+	      const hasUI = Boolean(contents?.view || contents?.ui || contents?.data?.ui)
+	      if (hasUI) { itemToPass = item; break }
+	    }
+	    if (!itemToPass) itemToPass = data[data.length - 1]
 	  }
 	  
 	  console.log('🔍 전달할 아이템:', itemToPass)

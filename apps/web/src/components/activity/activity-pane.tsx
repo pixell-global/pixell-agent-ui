@@ -41,6 +41,7 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
     html: string
   } | null>(null)
   const [uiSpec, setUiSpec] = useState<any | null>(null)
+  const [uiData, setUiData] = useState<any | null>(null)
   const rendererContainerRef = useRef<HTMLDivElement>(null)
   const rendererUnmountRef = useRef<null | (() => void)>(null)
   
@@ -49,28 +50,88 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
   const kpiMetrics = useWorkspaceStore(selectKPIMetrics)
   const recentJobs = useWorkspaceStore(selectRecentJobs)
 
-  // Mount/unmount Dynamic UI renderer when uiSpec changes
+  // Mount Dynamic UI renderer; only remount when structural spec changes (view/actions/manifest/theme)
+  const prevKeyRef = useRef<string | null>(null)
+  const dataRef = useRef<any>(null)
+  
   useEffect(() => {
-    if (!rendererContainerRef.current) return
-    if (rendererUnmountRef.current) {
-      rendererUnmountRef.current()
-      rendererUnmountRef.current = null
-    }
-    if (uiSpec) {
+    const container = rendererContainerRef.current
+    if (!container || !uiSpec) return
+    
+    const mountKey = JSON.stringify({ view: uiSpec.view, actions: uiSpec.actions, manifest: uiSpec.manifest, theme: uiSpec.theme })
+    const needRemount = !rendererUnmountRef.current || prevKeyRef.current !== mountKey
+    
+    if (needRemount) {
+      // Only unmount if we need to remount (structure changed)
+      if (rendererUnmountRef.current) {
+        rendererUnmountRef.current()
+        rendererUnmountRef.current = null
+      }
+      
       console.debug('[ActivityPane] Mounting UI spec', uiSpec)
-      const { unmount } = renderUISpec(rendererContainerRef.current, uiSpec, {
+      console.log('[ActivityPane] Initial data:', uiData || uiSpec.data)
+      
+      // Store initial data in ref
+      dataRef.current = uiData || uiSpec.data
+      
+      const { unmount } = renderUISpec(container, { ...uiSpec, data: dataRef.current }, {
         capabilitySet: { components: Array.isArray(uiSpec?.manifest?.capabilities) ? uiSpec.manifest.capabilities : undefined },
         debug: true,
+        initialData: dataRef.current,
+        onDataChange: (data) => {
+          // Update ref and state
+          console.log('[ActivityPane] onDataChange called with:', data)
+          dataRef.current = data
+          setUiData(data)
+        },
+        onOpenUrl: (url) => {
+          try { window.open(url, '_blank', 'noopener,noreferrer') } catch {}
+        },
+        onHttp: async ({ method, url, body, headers, stream }) => {
+          if (stream) {
+            // basic event-stream handling via fetch
+            const resp = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...(headers || {}) }, body: body ? JSON.stringify(body) : undefined })
+            if (!resp.body) return
+            const reader = resp.body.getReader()
+            const decoder = new TextDecoder()
+            while (true) {
+              const { value, done } = await reader.read()
+              if (done) break
+              decoder.decode(value)
+            }
+            return
+          }
+          console.log('[ActivityPane] Making HTTP request to:', url, 'with body:', body)
+          try {
+            const resp = await fetch(url, { 
+              method, 
+              headers: { 'Content-Type': 'application/json', ...(headers || {}) }, 
+              body: body ? JSON.stringify(body) : undefined,
+              signal: AbortSignal.timeout(30000) // 30 second timeout
+            })
+            console.log('[ActivityPane] HTTP response status:', resp.status)
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+            const result = await resp.json()
+            console.log('[ActivityPane] HTTP response data:', result)
+            return result
+          } catch (error) {
+            console.error('[ActivityPane] HTTP request failed:', error)
+            throw error
+          }
+        },
       })
+      
       rendererUnmountRef.current = unmount
+      prevKeyRef.current = mountKey
     }
+    
     return () => {
       if (rendererUnmountRef.current) {
         rendererUnmountRef.current()
         rendererUnmountRef.current = null
       }
     }
-  }, [uiSpec])
+  }, [uiSpec?.view, uiSpec?.actions, uiSpec?.manifest, uiSpec?.theme])
   
   // Connect to WebSocket on mount
   useEffect(() => {
@@ -95,7 +156,18 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
         console.log('🔍 API에서 받은 데이터:', apiResult)
         
         if (Array.isArray(apiResult) && apiResult.length > 0) {
-          result = apiResult[apiResult.length - 1]
+          // Pick the most recent entry that contains a dynamic UI spec
+          let selected: any | null = null
+          for (let i = apiResult.length - 1; i >= 0; i--) {
+            const item = apiResult[i]
+            const contents = item?.contents || item
+            const dataObj = contents?.data || {}
+            if (dataObj?.ui || contents?.ui || contents?.view) {
+              selected = item
+              break
+            }
+          }
+          result = selected || apiResult[apiResult.length - 1]
         }
       }
       
@@ -103,22 +175,26 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
       
       setGeneratedUI(null)
       setUiSpec(null)
+      setUiData(null)
 
       const contents = result?.contents || result
       const dataObj = contents?.data || {}
 
+      // UI payload may be in contents.ui (nested) OR directly on contents (view/actions/manifest)
       const candidateUI = dataObj?.ui || contents?.ui || null
-      if (candidateUI) {
-        console.log('🟦 Raw UI payload from agent app:', JSON.stringify(candidateUI, null, 2))
+      const directEnvelope = contents?.view ? contents : null
+      if (candidateUI || directEnvelope) {
+        console.log('🟦 Raw UI payload from agent app:', JSON.stringify(candidateUI || directEnvelope, null, 2))
       } else {
-        console.log('🟨 No candidateUI field found. contents keys:', Object.keys(contents || {}), 'data keys:', Object.keys(dataObj || {}))
+        console.log('🟨 No UI envelope found. contents keys:', Object.keys(contents || {}), 'data keys:', Object.keys(dataObj || {}))
       }
-      const envelope: any = candidateUI ? {
-        manifest: candidateUI.manifest || contents?.manifest || result?.manifest || { id: 'app.v1', name: 'App', version: '1.0.0', capabilities: [] },
-        data: candidateUI.data || dataObj || {},
-        actions: candidateUI.actions || contents?.actions || {},
-        view: candidateUI.view || contents?.view || result?.view,
-        theme: candidateUI.theme || contents?.theme || result?.theme || undefined,
+      const src = candidateUI || directEnvelope
+      const envelope: any = src ? {
+        manifest: src.manifest || contents?.manifest || result?.manifest || { id: 'app.v1', name: 'App', version: '1.0.0', capabilities: [] },
+        data: src.data || dataObj || {},
+        actions: src.actions || contents?.actions || {},
+        view: src.view || result?.view,
+        theme: src.theme || contents?.theme || result?.theme || undefined,
       } : null
 
       if (envelope && envelope.view) {
@@ -131,6 +207,7 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
         }, null, 2))
         console.log('✅ Dynamic UI spec detected. Rendering via renderer.')
         setUiSpec(envelope)
+        setUiData(envelope.data)
       } else if (typeof dataObj?.html === 'string' || typeof contents?.html === 'string') {
         console.log('✅ Raw HTML detected. Rendering in iframe.')
         setGeneratedUI({
