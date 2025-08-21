@@ -317,8 +317,8 @@ docker ps
 docker-compose restart supabase-db supabase-rest
 
 # Reset and reinitialize
-pixell supabase reset
-pixell supabase init
+pxui supabase reset
+pxui supabase init
 ```
 
 ### Manual Setup (If Automatic Setup Fails)
@@ -368,13 +368,13 @@ cp .env.example .env
 #### **4. Environment Configuration**
 ```bash
 # Create environments
-pixell env
+pxui env
 
 # Initialize Supabase  
-pixell supabase init
+pxui supabase init
 
 # Configure AI
-pixell config ai
+pxui config ai
 ```
 
 #### **5. Start Services**
@@ -383,7 +383,7 @@ pixell config ai
 docker-compose up -d
 
 # Check health
-pixell services status
+pxui services status
 
 # Start main applications  
 npm run dev
@@ -394,18 +394,18 @@ npm run dev
 ```bash
 # Check system dependencies
 npm run check-deps
-pixell check-deps
+pxui check-deps
 
 # Check individual components
-pixell docker status        # Docker installation and status
-pixell paf status          # PAF Core Agent repository and Python env
-pixell services status     # All Docker services health
-pixell supabase status     # Database status
+pxui docker status        # Docker installation and status
+pxui paf status          # PAF Core Agent repository and Python env
+pxui services status     # All Docker services health
+pxui supabase status     # Database status
 
 # View logs
 docker-compose logs -f                    # All services
 docker-compose logs -f paf-core-agent    # Specific service  
-pixell services logs --follow            # Via CLI
+pxui services logs --follow            # Via CLI
 
 # Reset everything
 docker-compose down --volumes   # Stop and remove all data
@@ -419,19 +419,19 @@ npm run setup:complete         # Start fresh
 
 ```bash
 # Check everything is healthy
-pixell services status
+pxui services status
 
 # Start services based on your development needs:
 
 # Frontend/UI Development (most common)
-pixell start
+pxui start
 
 # AI/Backend Development
-pixell start core-agent
+pxui start core-agent
 
 # Full-stack development (run in separate terminals)
-pixell start             # Terminal 1: Frontend & API
-pixell start core-agent  # Terminal 2: AI Agent
+pxui start             # Terminal 1: Frontend & API
+pxui start core-agent  # Terminal 2: AI Agent
 
 # Access services
 open http://localhost:3003       # Web interface
@@ -444,16 +444,16 @@ open http://localhost:54323      # Database admin
 
 ```bash
 # Configure AI providers interactively
-pixell config ai
+pxui config ai
 
 # Quick OpenAI setup
-echo -e "quick\nyour-api-key\ngpt-4o" | pixell config ai
+echo -e "quick\nyour-api-key\ngpt-4o" | pxui config ai
 
 # Check current configuration
-pixell config show
+pxui config show
 
 # Update API keys in existing setup
-pixell config ai  # Choose "Manage Existing Providers"
+pxui config ai  # Choose "Manage Existing Providers"
 
 # Verify Docker can read API keys
 docker compose config | grep API_KEY
@@ -463,10 +463,10 @@ docker compose config | grep API_KEY
 
 ```bash
 # Update PAF Core Agent
-pixell paf update
+pxui paf update
 
 # Check Python environment
-pixell paf status
+pxui paf status
 
 # Activate Python environment manually
 cd paf-core-agent
@@ -486,26 +486,26 @@ docker-compose up -d paf-core-agent supabase-db
 docker-compose stop paf-core-agent
 
 # Scale services
-pixell services scale paf-core-agent 3
+pxui services scale paf-core-agent 3
 
 # View real-time logs
-pixell services logs --follow --service paf-core-agent
+pxui services logs --follow --service paf-core-agent
 
 # Restart all services
-pixell services restart
+pxui services restart
 ```
 
 ### Environment Management
 
 ```bash
 # Switch environments
-pixell env
+pxui env
 
 # Check current environment
-pixell config show
+pxui config show
 
 # Start with specific environment
-pixell start --env development
+pxui start --env development
 ```
 
 ## 📊 Service Architecture Details
