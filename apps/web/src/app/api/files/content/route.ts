@@ -17,6 +17,8 @@ export async function GET(request: NextRequest) {
     const filePath = searchParams.get('path')
     const format = searchParams.get('format') // 'base64' for binary files
     
+    console.log('🔍 [API] files/content 요청:', { filePath, format })
+    
     if (!filePath) {
       return NextResponse.json(
         { success: false, error: 'Path is required' },
@@ -25,10 +27,23 @@ export async function GET(request: NextRequest) {
     }
     
     const workspacePath = getWorkspacePath()
-    const fullPath = path.join(workspacePath, filePath)
+    
+    // Remove leading slash for proper path joining on Windows
+    const normalizedFilePath = filePath.startsWith('/') ? filePath.substring(1) : filePath
+    const fullPath = path.join(workspacePath, normalizedFilePath)
+    
+    console.log('🔍 [API] 경로 정보:', { 
+      workspacePath, 
+      originalFilePath: filePath, 
+      normalizedFilePath, 
+      fullPath,
+      workspaceExists: await fs.pathExists(workspacePath),
+      fileExists: await fs.pathExists(fullPath)
+    })
     
     // Ensure the path is within workspace (security check)
     if (!fullPath.startsWith(workspacePath)) {
+      console.log('❌ [API] 보안 검사 실패:', { fullPath, workspacePath })
       return NextResponse.json(
         { success: false, error: 'Invalid path' },
         { status: 400 }
@@ -37,6 +52,7 @@ export async function GET(request: NextRequest) {
     
     try {
       // Check if file exists and get stats
+      console.log('🔍 [API] 파일 상태 확인 중:', fullPath)
       const stats = await fs.stat(fullPath)
       
       if (stats.isDirectory()) {
@@ -56,19 +72,45 @@ export async function GET(request: NextRequest) {
       }
       
       let content: string
+      let detectedEncoding: 'utf8' | 'utf16le' = 'utf8'
+      
+      console.log('🔍 [API] 파일 읽기 시작:', { format, fileSize: stats.size })
       
       if (format === 'base64') {
+        console.log('🔍 [API] Base64로 파일 읽기')
         // Read binary file as base64
         const buffer = await fs.readFile(fullPath)
         content = buffer.toString('base64')
+        console.log('✅ [API] Base64 읽기 완료:', { contentLength: content.length })
       } else {
-        // Use cat command to read file content as text
-        const { stdout } = await execAsync(`cat "${fullPath}"`, {
-          cwd: workspacePath,
-          encoding: 'utf8',
-          maxBuffer: maxSize
-        })
-        content = stdout
+        console.log('🔍 [API] 텍스트로 파일 읽기 - 인코딩 자동 감지')
+        // Read as raw buffer first to detect BOM/encoding
+        const raw = await fs.readFile(fullPath)
+        // UTF-8 BOM
+        if (raw.length >= 3 && raw[0] === 0xef && raw[1] === 0xbb && raw[2] === 0xbf) {
+          content = raw.slice(3).toString('utf8')
+          detectedEncoding = 'utf8'
+        } else if (raw.length >= 2 && raw[0] === 0xff && raw[1] === 0xfe) {
+          // UTF-16 LE BOM
+          content = raw.slice(2).toString('utf16le')
+          detectedEncoding = 'utf16le'
+        } else if (raw.length >= 2 && raw[0] === 0xfe && raw[1] === 0xff) {
+          // UTF-16 BE BOM → convert to LE by swapping bytes
+          const le = Buffer.allocUnsafe(raw.length - 2)
+          for (let i = 2; i < raw.length; i += 2) {
+            const a = raw[i]
+            const b = raw[i + 1]
+            le[i - 2] = b
+            le[i - 1] = a
+          }
+          content = le.toString('utf16le')
+          detectedEncoding = 'utf16le'
+        } else {
+          // Default to UTF‑8
+          content = raw.toString('utf8')
+          detectedEncoding = 'utf8'
+        }
+        console.log('✅ [API] 텍스트 읽기 완료:', { contentLength: content.length, detectedEncoding })
       }
       
       return NextResponse.json({
@@ -77,24 +119,28 @@ export async function GET(request: NextRequest) {
         path: filePath,
         size: stats.size,
         format: format || 'text',
+        encoding: detectedEncoding,
         lastModified: stats.mtime.toISOString()
       })
     } catch (error) {
+      console.error('❌ [API] 파일 읽기 에러:', error)
+      
       if (error instanceof Error && error.message.includes('ENOENT')) {
+        console.error('❌ [API] 파일 없음:', fullPath)
         return NextResponse.json(
           { success: false, error: 'File not found' },
           { status: 404 }
         )
       }
       
-      console.error('Error reading file:', error)
+      console.error('❌ [API] 일반적인 파일 읽기 에러:', error)
       return NextResponse.json(
         { success: false, error: `Failed to read file: ${error instanceof Error ? error.message : 'Unknown error'}` },
         { status: 500 }
       )
     }
   } catch (error) {
-    console.error('Error processing request:', error)
+    console.error('❌ [API] 요청 처리 에러:', error)
     return NextResponse.json(
       { success: false, error: 'Invalid request' },
       { status: 400 }

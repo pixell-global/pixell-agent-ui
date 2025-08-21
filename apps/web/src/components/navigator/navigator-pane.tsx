@@ -333,14 +333,22 @@ export const NavigatorPane: React.FC<NavigatorPaneProps> = ({ className }) => {
                 onFileSelect={(file) => {
                   if (file.type === 'folder') {
                     setSelectedFolder(selectedFolder === file.name ? null : file.name)
+                  } else {
+                    const ext = file.name.split('.').pop()?.toLowerCase() || ''
+                    const textLike = ['txt','csv','rtf','md','json','ts','js','yml','yaml']
+                    if (textLike.includes(ext)) {
+                      // Open as editor tab
+                      import('@/stores/tab-store').then(({ useTabStore }) => {
+                        useTabStore.getState().openEditorTab({ path: file.path, title: file.name })
+                      })
+                    }
                   }
-                  console.log('File selected:', file)
                 }}
                 onFolderToggle={(folder) => {
                   console.log('Folder toggled:', folder)
                 }}
                 onFilesDownload={(files) => {
-                  console.log(`Downloaded ${files.length} file(s):`, files.map(f => f.name))
+                  // Keep download logging for non-text files only
                 }}
                 searchTerm={searchTerm}
               />

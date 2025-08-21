@@ -92,7 +92,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
     return allFiles
   }
 
-  // Download files
+  // Download files (explicit action via context menu). Single-click opens editor for text files.
   const downloadFiles = async (files: FileNode[]) => {
     if (files.length === 0) return
 
@@ -263,13 +263,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
     setSelectedFiles(newSelectedFiles)
     setLastSelectedFile(file.path)
     
-    // Get selected file objects for download
+    // Get selected file objects
     const selectedFileObjects = getAllFilesInOrder().filter(f => newSelectedFiles.has(f.path))
-    
-    // Download selected files
-    if (selectedFileObjects.length > 0) {
-      await downloadFiles(selectedFileObjects)
-    }
     
     // Add to file references for chat context (for single selection)
     if (selectedFileObjects.length === 1) {
