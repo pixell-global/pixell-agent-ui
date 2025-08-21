@@ -1,17 +1,26 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState, forwardRef, useImperativeHandle, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Activity, CheckCircle, Clock, Zap, AlertCircle, Wifi, WifiOff } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Activity, CheckCircle, Clock, Zap, AlertCircle, Wifi, WifiOff, Wand2 } from 'lucide-react'
 import { useWorkspaceStore, selectKPIMetrics, selectRecentJobs } from '@/stores/workspace-store'
 import { useWebSocket } from '@/lib/websocket-manager'
 import { useRealtimeKPI } from '@/hooks/use-realtime-kpi'
 import { useSupabase } from '@/hooks/use-supabase'
 import { KPIWidget, ActiveJobsKPI, SuccessRateKPI, AverageRuntimeKPI, QueuedJobsKPI } from '@/components/kpi/KPIWidget'
+import { A2ATableDemo } from '@/components/a2a_task/a2a_task'
 import { JobsTable } from '@/components/kpi/JobsTable'
 import { cn } from '@/lib/utils'
+import { coreAgentService } from '@/services/coreAgentService'
+import { renderUISpec } from '../../../components/agent-ui/renderer'
 
-export function ActivityPane() {
+export interface ActivityPaneRef {
+  triggerUIGeneration: (data: any) => void
+}
+
+export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
   const { 
     liveMetrics, 
     tasks, 
@@ -24,15 +33,197 @@ export function ActivityPane() {
   const { user } = useSupabase()
   const { connect } = useWebSocket()
   
+  // UI 생성 관련 상태
+  const [uiQuery, setUiQuery] = useState('')
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generatedUI, setGeneratedUI] = useState<{
+    title: string
+    html: string
+  } | null>(null)
+  const [uiSpec, setUiSpec] = useState<any | null>(null)
+  const [uiData, setUiData] = useState<any | null>(null)
+  const rendererContainerRef = useRef<HTMLDivElement>(null)
+  const rendererUnmountRef = useRef<null | (() => void)>(null)
+  
   // Use realtime KPI data
   const kpiData = useRealtimeKPI(user?.id || 'demo-user')
   const kpiMetrics = useWorkspaceStore(selectKPIMetrics)
   const recentJobs = useWorkspaceStore(selectRecentJobs)
 
+  // Mount Dynamic UI renderer; only remount when structural spec changes (view/actions/manifest/theme)
+  const prevKeyRef = useRef<string | null>(null)
+  const dataRef = useRef<any>(null)
+  
+  useEffect(() => {
+    const container = rendererContainerRef.current
+    if (!container || !uiSpec) return
+    
+    const mountKey = JSON.stringify({ view: uiSpec.view, actions: uiSpec.actions, manifest: uiSpec.manifest, theme: uiSpec.theme })
+    const needRemount = !rendererUnmountRef.current || prevKeyRef.current !== mountKey
+    
+    if (needRemount) {
+      // Only unmount if we need to remount (structure changed)
+      if (rendererUnmountRef.current) {
+        rendererUnmountRef.current()
+        rendererUnmountRef.current = null
+      }
+      
+      console.debug('[ActivityPane] Mounting UI spec', uiSpec)
+      console.log('[ActivityPane] Initial data:', uiData || uiSpec.data)
+      
+      // Store initial data in ref
+      dataRef.current = uiData || uiSpec.data
+      
+      const { unmount } = renderUISpec(container, { ...uiSpec, data: dataRef.current }, {
+        capabilitySet: { components: Array.isArray(uiSpec?.manifest?.capabilities) ? uiSpec.manifest.capabilities : undefined },
+        debug: true,
+        initialData: dataRef.current,
+        onDataChange: (data) => {
+          // Update ref and state
+          console.log('[ActivityPane] onDataChange called with:', data)
+          dataRef.current = data
+          setUiData(data)
+        },
+        onOpenUrl: (url) => {
+          try { window.open(url, '_blank', 'noopener,noreferrer') } catch {}
+        },
+        onHttp: async ({ method, url, body, headers, stream }) => {
+          if (stream) {
+            // basic event-stream handling via fetch
+            const resp = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...(headers || {}) }, body: body ? JSON.stringify(body) : undefined })
+            if (!resp.body) return
+            const reader = resp.body.getReader()
+            const decoder = new TextDecoder()
+            while (true) {
+              const { value, done } = await reader.read()
+              if (done) break
+              decoder.decode(value)
+            }
+            return
+          }
+          console.log('[ActivityPane] Making HTTP request to:', url, 'with body:', body)
+          try {
+            const resp = await fetch(url, { 
+              method, 
+              headers: { 'Content-Type': 'application/json', ...(headers || {}) }, 
+              body: body ? JSON.stringify(body) : undefined,
+              signal: AbortSignal.timeout(30000) // 30 second timeout
+            })
+            console.log('[ActivityPane] HTTP response status:', resp.status)
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+            const result = await resp.json()
+            console.log('[ActivityPane] HTTP response data:', result)
+            return result
+          } catch (error) {
+            console.error('[ActivityPane] HTTP request failed:', error)
+            throw error
+          }
+        },
+      })
+      
+      rendererUnmountRef.current = unmount
+      prevKeyRef.current = mountKey
+    }
+    
+    return () => {
+      if (rendererUnmountRef.current) {
+        rendererUnmountRef.current()
+        rendererUnmountRef.current = null
+      }
+    }
+  }, [uiSpec?.view, uiSpec?.actions, uiSpec?.manifest, uiSpec?.theme])
+  
   // Connect to WebSocket on mount
   useEffect(() => {
     connect()
   }, [connect])
+  
+  // ref를 통해 외부에서 호출할 수 있는 함수들 노출
+  useImperativeHandle(ref, () => ({
+    triggerUIGeneration: handleGenerateUI
+  }))
+  
+  // UI 생성 함수
+  const handleGenerateUI = async (data?: any) => {
+    if (!data && !uiQuery.trim()) return
+    
+    setIsGenerating(true)
+    try {
+      let result = data
+      
+      if (!result) {
+        const apiResult = await coreAgentService.getActivity()
+        console.log('🔍 API에서 받은 데이터:', apiResult)
+        
+        if (Array.isArray(apiResult) && apiResult.length > 0) {
+          // Pick the most recent entry that contains a dynamic UI spec
+          let selected: any | null = null
+          for (let i = apiResult.length - 1; i >= 0; i--) {
+            const item = apiResult[i]
+            const contents = item?.contents || item
+            const dataObj = contents?.data || {}
+            if (dataObj?.ui || contents?.ui || contents?.view) {
+              selected = item
+              break
+            }
+          }
+          result = selected || apiResult[apiResult.length - 1]
+        }
+      }
+      
+      console.log('🔍 ActivityPane에서 처리할 result:', result)
+      
+      setGeneratedUI(null)
+      setUiSpec(null)
+      setUiData(null)
+
+      const contents = result?.contents || result
+      const dataObj = contents?.data || {}
+
+      // UI payload may be in contents.ui (nested) OR directly on contents (view/actions/manifest)
+      const candidateUI = dataObj?.ui || contents?.ui || null
+      const directEnvelope = contents?.view ? contents : null
+      if (candidateUI || directEnvelope) {
+        console.log('🟦 Raw UI payload from agent app:', JSON.stringify(candidateUI || directEnvelope, null, 2))
+      } else {
+        console.log('🟨 No UI envelope found. contents keys:', Object.keys(contents || {}), 'data keys:', Object.keys(dataObj || {}))
+      }
+      const src = candidateUI || directEnvelope
+      const envelope: any = src ? {
+        manifest: src.manifest || contents?.manifest || result?.manifest || { id: 'app.v1', name: 'App', version: '1.0.0', capabilities: [] },
+        data: src.data || dataObj || {},
+        actions: src.actions || contents?.actions || {},
+        view: src.view || result?.view,
+        theme: src.theme || contents?.theme || result?.theme || undefined,
+      } : null
+
+      if (envelope && envelope.view) {
+        console.log('🟩 Normalized UI envelope passed to renderer:', JSON.stringify({
+          manifest: envelope.manifest,
+          view: envelope.view,
+          data: Array.isArray(envelope.data) ? `array(length=${envelope.data.length})` : typeof envelope.data,
+          actions: Object.keys(envelope.actions || {}),
+          theme: envelope.theme ? 'present' : 'none'
+        }, null, 2))
+        console.log('✅ Dynamic UI spec detected. Rendering via renderer.')
+        setUiSpec(envelope)
+        setUiData(envelope.data)
+      } else if (typeof dataObj?.html === 'string' || typeof contents?.html === 'string') {
+        console.log('✅ Raw HTML detected. Rendering in iframe.')
+        setGeneratedUI({
+          title: dataObj?.title || contents?.title || 'Generated UI',
+          html: (dataObj?.html as string) || (contents?.html as string) || ''
+        })
+      } else {
+        console.log('❌ UI 데이터 파싱 실패 - 예상 구조와 다름')
+        console.log('실제 구조:', result)
+      }
+    } catch (error) {
+      console.error('UI 생성 실패:', error)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
   
   // Update workspace store with KPI data
   useEffect(() => {
@@ -80,159 +271,36 @@ export function ActivityPane() {
         )}
       </div>
 
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
-          {/* KPI Widgets Grid */}
-          {kpiMetrics && (
-            <div className="grid grid-cols-2 gap-3">
-              <ActiveJobsKPI value={kpiMetrics.activeJobs} />
-              <SuccessRateKPI value={kpiMetrics.successRate} />
-              <AverageRuntimeKPI value={kpiMetrics.averageRuntime} />
-              <QueuedJobsKPI value={kpiMetrics.queuedJobs} />
+      <div className="flex-1 p-4">
+        {/* UI Generation */}
+        <Card className="h-full">
+          <CardContent className="pt-0 h-full overflow-auto">
+            <div className="h-full">                
+              {/* 생성된 UI 표시 */}
+              {uiSpec ? (
+                <div className="h-full flex flex-col">
+                  <div className="bg-white border rounded p-3 flex-1 overflow-auto">
+                    <div ref={rendererContainerRef} className="w-full h-full" />
+                  </div>
+                </div>
+              ) : generatedUI ? (
+                <div className="h-full flex flex-col">
+                  <div className="bg-white border rounded p-3 flex-1 overflow-hidden">
+                    <iframe 
+                      srcDoc={generatedUI.html}
+                      className="w-full h-full border-0"
+                      sandbox="allow-scripts allow-same-origin"
+                      title={generatedUI.title}
+                    />
+                  </div>
+                </div>
+              ) : null}
             </div>
-          )}
-
-          {/* Jobs Table */}
-          {recentJobs.length > 0 && (
-            <JobsTable 
-              jobs={recentJobs}
-              maxHeight="300px"
-              onJobAction={(action, jobId) => {
-                console.log(`Job action: ${action} on ${jobId}`)
-                // Handle job actions here
-              }}
-            />
-          )}
-
-          {/* Legacy Live Metrics (fallback) */}
-          {liveMetrics && !kpiMetrics && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">System Status</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex items-center gap-2">
-                    <Activity className="h-4 w-4 text-green-500" />
-                    <div>
-                      <div className="text-lg font-semibold">{liveMetrics.activeAgents}</div>
-                      <div className="text-xs text-muted-foreground">Active Agents</div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-blue-500" />
-                    <div>
-                      <div className="text-lg font-semibold">{liveMetrics.tasksCompleted}</div>
-                      <div className="text-xs text-muted-foreground">Completed</div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-yellow-500" />
-                    <div>
-                      <div className="text-lg font-semibold">{liveMetrics.tasksRunning}</div>
-                      <div className="text-xs text-muted-foreground">Running</div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-purple-500" />
-                    <div>
-                      <div className="text-lg font-semibold">{liveMetrics.tasksQueued}</div>
-                      <div className="text-xs text-muted-foreground">Queued</div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mt-3 pt-3 border-t">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">System Health</span>
-                    <span className={cn("text-xs font-medium", getHealthColor(liveMetrics.systemHealth))}>
-                      {liveMetrics.systemHealth.toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-xs text-muted-foreground">Uptime</span>
-                    <span className="text-xs">{liveMetrics.uptime}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Active Tasks */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Recent Tasks</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-2">
-                {tasks.length > 0 ? (
-                  tasks.slice(0, 10).map((task) => (
-                    <div key={task.id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
-                      <div className={cn("w-2 h-2 rounded-full", getStatusColor(task.status))} />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{task.name}</div>
-                        <div className="text-xs text-muted-foreground truncate">
-                          {task.agentName} • {task.status}
-                        </div>
-                        {task.status === 'running' && task.progress > 0 && (
-                          <div className="mt-1">
-                            <div className="w-full bg-muted rounded-full h-1">
-                              <div 
-                                className="bg-primary h-1 rounded-full transition-all duration-300" 
-                                style={{ width: `${task.progress}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        {task.status}
-                      </Badge>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-sm text-muted-foreground text-center py-4">
-                    No recent tasks
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Agents Status */}
-          {agents.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Agents</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="space-y-2">
-                  {agents.map((agent) => (
-                    <div key={agent.id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
-                      <div className={cn(
-                        "w-2 h-2 rounded-full",
-                        agent.status === 'running' ? 'bg-green-500' :
-                        agent.status === 'idle' ? 'bg-blue-500' :
-                        agent.status === 'error' ? 'bg-red-500' : 'bg-gray-500'
-                      )} />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{agent.name}</div>
-                        <div className="text-xs text-muted-foreground">{agent.type}</div>
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        {agent.status}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </ScrollArea>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
-} 
+})
+
+ActivityPane.displayName = 'ActivityPane' 

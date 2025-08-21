@@ -14,7 +14,7 @@
     "lint": "turbo lint",
     "test": "turbo test",
     "cli": "npm run build --workspace=@pixell/cli && node packages/cli/dist/index.js",
-    "pixell": "npm run cli --",
+    "pxui": "npm run cli --",
     "env": "npm run cli -- env",
     "environments": "npm run cli -- env",
     "supabase:init": "npm run cli -- supabase init",
@@ -36,7 +36,7 @@
     "setup:fresh": "npm ci && npm run build && cd packages/cli && npm link",
     "setup:packages": "turbo build --filter=!web && cd packages/cli && npm link",
     "start": "npm run dev",
-    "pixell:start": "npm run cli -- start",
+    "pxui:start": "npm run cli -- start",
     "paf-core-agent:clone": "npm run cli -- paf-core-agent:clone",
     "paf-core-agent:update": "npm run cli -- paf-core-agent:update",
     "paf-core-agent:status": "npm run cli -- paf-core-agent:status",
@@ -54,16 +54,28 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.7.0",
+    "@testing-library/react": "^16.3.0",
     "@types/fs-extra": "^11.0.4",
     "@types/inquirer": "^9.0.8",
     "@types/mustache": "^4.2.6",
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^30.0.5",
+    "jest-environment-jsdom": "^30.0.5",
     "supabase": "^2.26.9",
+    "ts-jest": "^29.4.1",
+    "ts-node": "^10.9.2",
     "turbo": "^2.5.4"
   },
   "packageManager": "npm@10.8.2",
   "dependencies": {
+    "@pixell/agent-ui": "^0.1.2",
+    "build": "^0.1.4",
     "mustache": "^4.2.0",
     "zod": "^3.25.75",
     "zustand": "^5.0.6"
+  },
+  "overrides": {
+    "prismjs": "^1.30.0"
   }
 }
