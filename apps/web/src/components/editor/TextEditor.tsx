@@ -21,7 +21,7 @@ export const TextEditor: React.FC<Props> = ({ bufferId }) => {
 
 	useEffect(() => {
 		if (!buffer) return
-		markDirty(bufferId, value !== buffer.lastSavedVersion ? value !== buffer.content : value !== buffer.content)
+		markDirty(bufferId, value !== buffer.content)
 	}, [value, buffer, bufferId, markDirty])
 
 	if (!buffer) return <div className="p-3 text-sm text-muted-foreground">Loading…</div>

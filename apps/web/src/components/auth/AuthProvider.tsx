@@ -1,113 +1,87 @@
-'use client'
+'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
-import type { User, SupabaseClient, Session } from '@supabase/supabase-js'
-import { useUserStore } from '@/stores/user-store'
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { getAuth, onAuthStateChanged, User, Auth } from 'firebase/auth';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { firebaseConfig } from '@/lib/firebase';
+import { AuthContext, useAuth as useCoreAuth } from '@pixell/auth-core';
+import { 
+  sendSignInLink as firebaseSignIn, 
+  isSignInLink, 
+  completeSignIn 
+} from '@pixell/auth-firebase/client';
 
-interface AuthContextType {
-  user: User | null
-  session: Session | null
-  loading: boolean
-  signOut: () => Promise<void>
-  supabase: SupabaseClient
-}
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
-}
-
-interface AuthProviderProps {
-  children: React.ReactNode
-  initialSession?: Session | null
-}
-
-export const AuthProvider: React.FC<AuthProviderProps> = ({ 
-  children, 
-  initialSession 
-}) => {
-  const [supabase] = useState(() => 
-    createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-  )
-  
-  const [session, setSession] = useState<Session | null>(initialSession || null)
-  const [user, setUser] = useState<User | null>(initialSession?.user || null)
-  const [loading, setLoading] = useState(!initialSession)
-  
-  // Use user store
-  const { setUser: setStoreUser, setLoading: setStoreLoading, clearUser } = useUserStore()
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [auth, setAuth] = useState<Auth | null>(null); // Use useState for auth
 
   useEffect(() => {
-    // Get initial session if not provided
-    if (!initialSession) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        setSession(session)
-        setUser(session?.user || null)
-        setLoading(false)
-      })
+    const firebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    const firebaseAuth = getAuth(firebaseApp);
+    setAuth(firebaseAuth); // Set auth instance
+    const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
+      setUser(user);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const signIn = async (email: string) => {
+    const actionCodeSettings = {
+      url: window.location.href, // URL to redirect back to
+      handleCodeInApp: true,
+    };
+    if (auth) { // Check if auth is initialized
+      await firebaseSignIn(email, actionCodeSettings);
+      window.localStorage.setItem('emailForSignIn', email);
     }
+  };
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email)
-        setSession(session)
-        setUser(session?.user || null)
-        setLoading(false)
-        
-        // Update user store
-        setStoreUser(session?.user || null)
-        setStoreLoading(false)
-
-        // Handle sign in redirect
-        if (event === 'SIGNED_IN' && session) {
-          const redirectTo = process.env.NEXT_PUBLIC_AUTH_REDIRECT || '/dashboard'
-          window.location.href = redirectTo
-        }
-        
-        // Clear store on sign out
-        if (event === 'SIGNED_OUT') {
-          clearUser()
-        }
+  const handleSignInLink = async (url: string) => {
+    if (isSignInLink(url)) {
+      const idToken = await completeSignIn(url);
+      if (idToken) {
+        await fetch('/api/auth/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken }),
+        });
+        // router.push('/'); you might want to redirect here
       }
-    )
-
-    return () => subscription.unsubscribe()
-  }, [supabase, initialSession])
+    }
+  };
 
   const signOut = async () => {
-    try {
-      setLoading(true)
-      await supabase.auth.signOut()
-      // Redirect to sign in page
-      window.location.href = '/signin'
-    } catch (error) {
-      console.error('Error signing out:', error)
-    } finally {
-      setLoading(false)
+    if (auth) { // Check if auth is initialized
+      await auth.signOut();
+      await fetch('/api/auth/session', { method: 'DELETE' });
     }
-  }
+  };
 
-  const value = {
-    user,
-    session,
-    loading,
-    signOut,
-    supabase
-  }
+  const getIdToken = async () => {
+    return auth?.currentUser ? auth.currentUser.getIdToken() : null;
+  };
+
+  useEffect(() => {
+    handleSignInLink(window.location.href);
+  }, []);
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider
+      value={{
+        user: user ? { id: user.uid, email: user.email || '', displayName: user.displayName || '' } : null,
+        status: loading ? 'loading' : user ? 'authenticated' : 'unauthenticated',
+        signIn,
+        signOut,
+        getIdToken,
+      }}
+    >
       {children}
     </AuthContext.Provider>
-  )
-}
+  );
+};
+
+export const useAuth = useCoreAuth;
