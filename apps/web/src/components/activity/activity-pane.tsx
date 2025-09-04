@@ -37,7 +37,7 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedUI, setGeneratedUI] = useState<{
     title: string
-    html: string
+    url: string
   } | null>(null)
   
   // Use realtime KPI data
@@ -80,11 +80,11 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
         console.log('✅ UI 데이터 파싱 성공')
         setGeneratedUI({
           title: result.contents.data.title || 'Generated UI',
-          html: result.contents.data.html || ''
+          url: result.contents.data.url || ''
         })
       } else {
         console.log('❌ UI 데이터 파싱 실패 - 예상 구조와 다름')
-        console.log('기대하는 구조: result.contents.data.{html, title}')
+        console.log('기대하는 구조: result.contents.data.{url, title}')
         console.log('실제 구조:', result)
       }
     } catch (error) {
@@ -151,9 +151,9 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
                   <div className="text-sm font-medium mb-2 flex-shrink-0">{generatedUI.title}</div>
                   <div className="bg-white border rounded p-3 flex-1 overflow-hidden">
                     <iframe 
-                      srcDoc={generatedUI.html}
+                      src={generatedUI.url}
                       className="w-full h-full border-0"
-                      sandbox="allow-scripts allow-same-origin"
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation allow-popups-to-escape-sandbox"
                       title={generatedUI.title}
                     />
                   </div>
