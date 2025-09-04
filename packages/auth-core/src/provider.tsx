@@ -6,7 +6,8 @@ type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'unauthenticated' | 'er
 interface AuthContextType {
   user: AuthUser | null;
   status: AuthStatus;
-  signIn: (email: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, displayName?: string) => Promise<void>;
   signOut: () => Promise<void>;
   getIdToken: () => Promise<string | null>;
 }
@@ -17,9 +18,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [status, setStatus] = useState<AuthStatus>('idle');
 
-  const signIn = async (email: string) => {
+  const signIn = async (email: string, password: string) => {
     // To be implemented by the provider
     console.log('signIn', email);
+    setStatus('loading');
+  };
+
+  const signUp = async (email: string, password: string, displayName?: string) => {
+    // To be implemented by the provider
+    console.log('signUp', email);
     setStatus('loading');
   };
 
@@ -35,7 +42,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return null;
   };
 
-  const value = { user, status, signIn, signOut, getIdToken };
+  const value = { user, status, signIn, signUp, signOut, getIdToken };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

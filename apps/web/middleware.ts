@@ -1,38 +1,29 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifySessionCookie } from '@pixell/auth-firebase/server';
 
-const PROTECTED_ROUTES = ['/dashboard', '/team', '/settings']; // Add your protected routes here
-const PUBLIC_ROUTES = ['/signin', '/signup', '/'];
+// Only these routes are public; everything else requires auth
+const PUBLIC_ROUTES = ['/signin', '/signup'];
 
 export async function middleware(req: NextRequest) {
-  const sessionCookie = req.cookies.get('session')?.value;
+  const sessionCookieName = process.env.SESSION_COOKIE_NAME || 'session';
+  const sessionCookie = req.cookies.get(sessionCookieName)?.value;
   const { pathname } = req.nextUrl;
 
-  const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname.startsWith(route));
+  const isPublic = PUBLIC_ROUTES.includes(pathname);
 
-  if (!sessionCookie && isProtectedRoute) {
-    return NextResponse.redirect(new URL('/signin', req.url));
-  }
-
-  if (sessionCookie) {
-    try {
-      await verifySessionCookie(sessionCookie);
-      // User is authenticated
-      if (PUBLIC_ROUTES.includes(pathname)) {
-        // Redirect to dashboard if user is on a public page like signin/signup
-        // return NextResponse.redirect(new URL('/dashboard', req.url));
-      }
-    } catch (error) {
-      // Session is invalid
-      if (isProtectedRoute) {
-        const response = NextResponse.redirect(new URL('/signin', req.url));
-        response.cookies.set('session', '', { expires: new Date(0), path: '/' });
-        return response;
-      }
+  // Edge-safe check: do not use Node APIs here. Treat presence of session cookie as authenticated.
+  if (!sessionCookie) {
+    // No session: gate non-public routes
+    if (!isPublic) {
+      return NextResponse.redirect(new URL('/signin', req.url));
     }
+    return NextResponse.next();
   }
 
+  // Has a session cookie: if visiting a public page, redirect to app root
+  if (isPublic) {
+    return NextResponse.redirect(new URL('/', req.url));
+  }
   return NextResponse.next();
 }
 
