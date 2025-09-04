@@ -19,7 +19,11 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@pixell/auth-core/*": ["../../packages/auth-core/src/*"],
+      "@pixell/auth-core": ["../../packages/auth-core/src"],
+      "@pixell/auth-firebase/*": ["../../packages/auth-firebase/src/*"],
+      "@pixell/auth-firebase": ["../../packages/auth-firebase/src"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

@@ -1,30 +1,27 @@
-'use client'
-import { useSupabase } from '@/hooks/use-supabase'
-import { useRealtimeAgents } from '@/hooks/use-realtime-agents'
-import { useRealtimeTasks } from '@/hooks/use-realtime-tasks'
+import { cookies as nextCookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { AgentWorkspaceLayout } from '@/components/layout/AgentWorkspaceLayout'
 
-export default function HomePage() {
-  const { user, loading } = useSupabase()
-  
-  // Initialize real-time subscriptions (demo mode with placeholder user ID)
-  useRealtimeAgents(user?.id || 'demo-user')
-  useRealtimeTasks(user?.id || 'demo-user')
+export default async function HomePage() {
+  const cookieName = process.env.SESSION_COOKIE_NAME || 'session'
+  const cookieStore = await nextCookies()
+  const session = cookieStore.get(cookieName)?.value
 
-  if (loading) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-          <p className="mt-4 text-muted-foreground">Loading Pixell Agent Framework...</p>
-          <div className="mt-2 text-sm text-green-600 font-medium">
-            🎉 Phase 2: Multi-Agent Orchestration
-          </div>
-        </div>
-      </div>
-    )
+  if (!session) {
+    redirect('/signin')
   }
 
-  // Phase 2 demo runs with multi-agent orchestration
+  // With a valid session cookie present, consult onboarding status to route correctly
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || ''}/api/onboarding/status`, { cache: 'no-store', headers: { cookie: `${cookieName}=${session}` } })
+    if (res.ok) {
+      const { step, orgId } = await res.json()
+      if (step === 'need_org') redirect('/onboarding')
+      if (step === 'need_brand') redirect(`/onboarding/brand${orgId ? `?orgId=${orgId}` : ''}`)
+      if (step === 'need_subscription') redirect(`/billing${orgId ? `?orgId=${orgId}` : ''}`)
+    }
+  } catch {}
+
+  // Auth OK → render app at root
   return <AgentWorkspaceLayout />
 }

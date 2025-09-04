@@ -23,9 +23,9 @@ import {
 } from 'lucide-react'
 
 export const UserMenu: React.FC = () => {
-  const { user, signOut, loading } = useAuth()
+  const { user, signOut, status } = useAuth()
 
-  if (loading || !user) {
+  if (status === 'loading' || !user) {
     return (
       <Button variant="ghost" size="sm" disabled>
         <User className="h-4 w-4" />
@@ -33,23 +33,10 @@ export const UserMenu: React.FC = () => {
     )
   }
 
-  // Get user role from metadata or default to 'developer'
-  const userRole = user.user_metadata?.role || 'developer'
-  const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
-  const avatarUrl = user.user_metadata?.avatar_url
+  const displayName = user.displayName || user.email?.split('@')[0] || 'User'
+  const avatarUrl = null
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return 'bg-red-100 text-red-800'
-      case 'developer':
-        return 'bg-blue-100 text-blue-800'
-      case 'viewer':
-        return 'bg-gray-100 text-gray-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
-    }
-  }
+  
 
   return (
     <DropdownMenu>
@@ -64,10 +51,7 @@ export const UserMenu: React.FC = () => {
               </div>
             )}
           </Avatar>
-          <div className="ml-2 hidden md:block text-left">
-            <div className="text-sm font-medium">{displayName}</div>
-            <div className="text-xs text-muted-foreground">{user.email}</div>
-          </div>
+          
         </Button>
       </DropdownMenuTrigger>
       
@@ -89,12 +73,7 @@ export const UserMenu: React.FC = () => {
                 <p className="text-xs text-muted-foreground">{user.email}</p>
               </div>
             </div>
-            <Badge 
-              variant="outline" 
-              className={`text-xs w-fit ${getRoleColor(userRole)}`}
-            >
-              {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
-            </Badge>
+            
           </div>
         </DropdownMenuLabel>
         
@@ -115,15 +94,7 @@ export const UserMenu: React.FC = () => {
           Notifications
         </DropdownMenuItem>
         
-        {userRole === 'admin' && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <Shield className="mr-2 h-4 w-4" />
-              Admin Panel
-            </DropdownMenuItem>
-          </>
-        )}
+        
         
         <DropdownMenuSeparator />
         

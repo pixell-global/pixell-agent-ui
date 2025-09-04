@@ -1,7 +1,8 @@
 'use client'
 import { useUIStore } from '@/stores/ui-store'
 import { NavigatorPane } from '@/components/navigator/navigator-pane'
-import { ChatWorkspace } from '@/components/chat/ChatWorkspace'
+import { WorkspaceTabs } from '@/components/workspace/WorkspaceTabs'
+import { WorkspaceContainer } from '@/components/workspace/WorkspaceContainer'
 import { ActivityPane, ActivityPaneRef } from '@/components/activity/activity-pane'
 import { useWebSocket } from '@/lib/websocket-manager'
 import { useWorkspaceStore } from '@/stores/workspace-store'
@@ -69,6 +70,7 @@ export function AgentWorkspaceLayout() {
       </header>
       
       <div className="flex-1 overflow-hidden">
+        <WorkspaceTabs />
         <PanelGroup direction="horizontal">
           {/* Left Panel - Navigator */}
           {leftPanelVisible && (
@@ -85,13 +87,13 @@ export function AgentWorkspaceLayout() {
             </>
           )}
           
-          {/* Center Panel - Chat Workspace */}
+          {/* Center Panel - Active Workspace (Chat or Editor) */}
           <Panel 
             defaultSize={leftPanelVisible && rightPanelVisible ? 50 : leftPanelVisible || rightPanelVisible ? 70 : 100}
             minSize={30}
             className="min-w-0"
           >
-            <ChatWorkspace activityPaneRef={activityPaneRef} />
+            <WorkspaceContainer activityPaneRef={activityPaneRef} />
           </Panel>
           
           {/* Right Panel - Activity Pane */}

@@ -1,0 +1,33 @@
+{
+  "name": "@pixell/auth-firebase",
+  "version": "0.1.0",
+  "description": "Firebase implementation for Pixell Auth",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@pixell/auth-core": "../auth-core",
+    "firebase": "^10.12.2",
+    "firebase-admin": "^12.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.8",
+    "react": "^19.1.0",
+    "typescript": "^5.7.3"
+  },
+  "peerDependencies": {
+    "react": "^19.1.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pixell/pixell-agent-framework"
+  },
+  "license": "MIT"
+}
