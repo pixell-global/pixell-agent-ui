@@ -19,11 +19,20 @@ import {
   LogOut, 
   Shield, 
   Bell,
-  HelpCircle 
+  HelpCircle,
+  Building2
 } from 'lucide-react'
+import dynamic from 'next/dynamic'
+import { useUIStore } from '@/stores/ui-store'
 
 export const UserMenu: React.FC = () => {
   const { user, signOut, status } = useAuth()
+  const BrandSelector = dynamic(async () => (await import('../brands/BrandSelector')).BrandSelector, { ssr: false })
+  const leftPanelVisible = useUIStore(state => state.leftPanelVisible)
+  const leftPanelCollapsed = useUIStore(state => state.leftPanelCollapsed)
+  const rightPanelVisible = useUIStore(state => state.rightPanelVisible)
+  const toggleLeftPanelCollapsed = useUIStore(state => state.toggleLeftPanelCollapsed)
+  const toggleRightPanel = useUIStore(state => state.toggleRightPanel)
 
   if (status === 'loading' || !user) {
     return (
@@ -76,6 +85,27 @@ export const UserMenu: React.FC = () => {
             
           </div>
         </DropdownMenuLabel>
+        
+        <DropdownMenuSeparator />
+
+        {/* Brand selection inside user menu */}
+        <div className="px-2 py-1.5">
+          <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
+            <Building2 className="h-4 w-4" />
+            <span>Brand</span>
+          </div>
+          <BrandSelector />
+        </div>
+        
+        <DropdownMenuSeparator />
+        
+        {/* Pane visibility controls */}
+        <DropdownMenuItem onClick={toggleLeftPanelCollapsed}>
+          {leftPanelCollapsed ? 'Show Navigator' : 'Hide Navigator'}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => { if (!rightPanelVisible) toggleRightPanel(); else toggleRightPanel(); }}>
+          {rightPanelVisible ? 'Hide Activity' : 'Show Activity'}
+        </DropdownMenuItem>
         
         <DropdownMenuSeparator />
         

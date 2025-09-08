@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast-provider'
+import { apiFetch } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 export default function OnboardingBrandPage() {
@@ -23,9 +24,9 @@ export default function OnboardingBrandPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/brands', {
+      const res = await apiFetch('/api/brands', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-org-id': orgId || '' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, metadata: { accessMode } }),
       })
       if (!res.ok) throw new Error((await res.json()).error || 'Failed to create brand')
@@ -68,7 +69,7 @@ export default function OnboardingBrandPage() {
                 </SelectContent>
               </Select>
               {error && <p className="text-red-600 text-sm font-inter">{error}</p>}
-              <Button type="submit" className="w-full h-12 btn-lime font-inter" disabled={loading || !orgId}>
+              <Button type="submit" className="w-full h-12 btn-lime font-inter" disabled={loading}>
                 {loading ? 'Creating...' : 'Finish'}
               </Button>
             </form>

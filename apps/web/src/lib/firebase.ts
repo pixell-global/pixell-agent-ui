@@ -6,3 +6,14 @@ export const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
+
+// Basic validation to help catch invalid-credential root causes in dev
+if (typeof window !== 'undefined') {
+  const missing = Object.entries(firebaseConfig)
+    .filter(([, v]) => !v)
+    .map(([k]) => k);
+  if (missing.length) {
+    // eslint-disable-next-line no-console
+    console.warn('[Firebase] Missing client config keys:', missing.join(', '));
+  }
+}

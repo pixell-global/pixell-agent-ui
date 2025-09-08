@@ -305,35 +305,11 @@ export function ChatInput({
     }
   }
 
-  const getHealthStatusText = () => {
-    if (!agentHealth) return 'Checking AI status...'
-    
-    switch (agentHealth.status) {
-      case 'connected':
-        return `AI Ready (${agentHealth.runtime}${agentHealth.model ? ` - ${agentHealth.model}` : ''})`
-      case 'disconnected':
-        return 'AI Disconnected - Run "pixell config-ai" to setup'
-      case 'error':
-        return 'AI Error - Check configuration'
-      default:
-        return 'AI Status Unknown'
-    }
-  }
+  const getHealthStatusText = () => ''
 
   return (
     <div className={`chat-input ${className}`}>
-      {/* AI Health Status */}
-      <div className="flex items-center gap-2 mb-2 px-1">
-        {getHealthStatusIcon()}
-        <span className="text-xs text-gray-600">
-          {getHealthStatusText()}
-        </span>
-        {agentHealth?.status === 'disconnected' && (
-          <span className="text-xs text-blue-600 underline cursor-pointer">
-            Setup Guide
-          </span>
-        )}
-      </div>
+      {/* Removed AI Health Status per UX request */}
 
       {/* File Attachments Preview */}
       {pendingAttachments.length > 0 && (

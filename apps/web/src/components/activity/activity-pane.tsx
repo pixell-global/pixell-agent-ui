@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Activity, CheckCircle, Clock, Zap, AlertCircle, Wifi, WifiOff, Wand2 } from 'lucide-react'
+import { Activity, CheckCircle, Clock, Zap, AlertCircle, Wifi, WifiOff, Wand2, ChevronRight } from 'lucide-react'
+import { useUIStore } from '@/stores/ui-store'
 import { useWorkspaceStore, selectKPIMetrics, selectRecentJobs } from '@/stores/workspace-store'
 import { useWebSocket } from '@/lib/websocket-manager'
 import { useRealtimeKPI } from '@/hooks/use-realtime-kpi'
@@ -21,6 +22,7 @@ export interface ActivityPaneRef {
 }
 
 export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
+  const toggleRightPanel = useUIStore(state => state.toggleRightPanel)
   const { 
     liveMetrics, 
     tasks, 
@@ -101,23 +103,9 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
             }
             return
           }
-          console.log('[ActivityPane] Making HTTP request to:', url, 'with body:', body)
-          try {
-            const resp = await fetch(url, { 
-              method, 
-              headers: { 'Content-Type': 'application/json', ...(headers || {}) }, 
-              body: body ? JSON.stringify(body) : undefined,
-              signal: AbortSignal.timeout(30000) // 30 second timeout
-            })
-            console.log('[ActivityPane] HTTP response status:', resp.status)
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-            const result = await resp.json()
-            console.log('[ActivityPane] HTTP response data:', result)
-            return result
-          } catch (error) {
-            console.error('[ActivityPane] HTTP request failed:', error)
-            throw error
-          }
+          const resp = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...(headers || {}) }, body: body ? JSON.stringify(body) : undefined })
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+          try { return await resp.json() } catch { return await resp.text() }
         },
       })
       
@@ -256,8 +244,9 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Connection Status */}
-      <div className="flex items-center gap-2 p-3 border-b">
+      {/* Pane header with collapse + Connection Status */}
+      <div className="flex items-center justify-between p-3 border-b">
+        <div className="flex items-center gap-2">
         {isConnected ? (
           <>
             <Wifi className="h-4 w-4 text-green-500" />
@@ -269,6 +258,15 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
             <span className="text-sm text-red-600">Disconnected</span>
           </>
         )}
+        </div>
+        <button
+          onClick={toggleRightPanel}
+          title="Collapse activity"
+          aria-label="Collapse activity"
+          className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
       </div>
 
       <div className="flex-1 p-4">

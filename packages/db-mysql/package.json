@@ -1,0 +1,33 @@
+{
+  "name": "@pixell/db-mysql",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "gen": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate",
+    "link:brand": "node dist/scripts/linkBrandAccess.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "drizzle-orm": "^0.36.2",
+    "mysql2": "^3.9.7",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "drizzle-kit": "^0.31.4",
+    "typescript": "^5.4.5"
+  }
+}

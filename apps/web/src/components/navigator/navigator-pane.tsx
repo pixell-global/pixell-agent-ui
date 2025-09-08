@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Search, Folder, Plus, History, Files, RefreshCw, FileText, FolderPlus, Upload, HardDrive, X, RotateCcw } from 'lucide-react'
+import { Search, Folder, Plus, History, Files, RefreshCw, FileText, FolderPlus, Upload, HardDrive, X, RotateCcw, ChevronLeft } from 'lucide-react'
 import { useWorkspaceStore, FileNode } from '@/stores/workspace-store'
 import { FileTree } from './file-tree'
 import { HistoryPane } from './history-pane'
@@ -8,12 +8,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
+import { useUIStore } from '@/stores/ui-store'
 
 interface NavigatorPaneProps {
   className?: string
 }
 
 export const NavigatorPane: React.FC<NavigatorPaneProps> = ({ className }) => {
+  const toggleLeftPanelCollapsed = useUIStore(state => state.toggleLeftPanelCollapsed)
   const [showCreateFolder, setShowCreateFolder] = useState(false)
   const [activeTab, setActiveTab] = useState('files')
   const [isLoading, setIsLoading] = useState(false)
@@ -238,7 +240,20 @@ export const NavigatorPane: React.FC<NavigatorPaneProps> = ({ className }) => {
 
   return (
     <div className={cn("flex flex-col h-full bg-background border-r", className)}>
-
+      {/* Pane header with collapse */}
+      <div className="flex items-center justify-between px-2 py-2 border-b">
+        <span className="text-xs font-medium text-muted-foreground">Navigator</span>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="h-7 w-7 p-0" 
+          onClick={toggleLeftPanelCollapsed}
+          title="Collapse navigator"
+          aria-label="Collapse navigator"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+      </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">

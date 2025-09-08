@@ -1,39 +1,15 @@
 import * as React from "react"
-import { ChevronDown } from "lucide-react"
+import { Check, ChevronDown } from "lucide-react"
+import * as RadixSelect from "@radix-ui/react-select"
 import { cn } from "@/lib/utils"
 
-const Select = React.forwardRef<
-  HTMLSelectElement,
-  React.SelectHTMLAttributes<HTMLSelectElement> & {
-    value?: string
-    onValueChange?: (value: string) => void
-  }
->(({ className, children, value, onValueChange, onChange, ...props }, ref) => (
-  <select
-    ref={ref}
-    className={cn(
-      "flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
-      className
-    )}
-    value={value}
-    onChange={(e) => {
-      onChange?.(e)
-      onValueChange?.(e.target.value)
-    }}
-    {...props}
-  >
-    {children}
-  </select>
-))
-Select.displayName = "Select"
+const Select = RadixSelect.Root
 
 const SelectTrigger = React.forwardRef<
-  HTMLButtonElement,
-  React.ButtonHTMLAttributes<HTMLButtonElement> & {
-    children?: React.ReactNode
-  }
+  React.ElementRef<typeof RadixSelect.Trigger>,
+  React.ComponentPropsWithoutRef<typeof RadixSelect.Trigger>
 >(({ className, children, ...props }, ref) => (
-  <button
+  <RadixSelect.Trigger
     ref={ref}
     className={cn(
       "flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
@@ -42,60 +18,58 @@ const SelectTrigger = React.forwardRef<
     {...props}
   >
     {children}
-    <ChevronDown className="h-4 w-4 opacity-50" />
-  </button>
+    <RadixSelect.Icon>
+      <ChevronDown className="h-4 w-4 opacity-50" />
+    </RadixSelect.Icon>
+  </RadixSelect.Trigger>
 ))
-SelectTrigger.displayName = "SelectTrigger"
+SelectTrigger.displayName = RadixSelect.Trigger.displayName
 
-const SelectValue = React.forwardRef<
-  HTMLSpanElement,
-  React.HTMLAttributes<HTMLSpanElement> & {
-    placeholder?: string
-  }
->(({ className, placeholder, children, ...props }, ref) => (
-  <span
-    ref={ref}
-    className={cn("block truncate", className)}
-    {...props}
-  >
-    {children || placeholder}
-  </span>
-))
-SelectValue.displayName = "SelectValue"
+const SelectValue = RadixSelect.Value
 
 const SelectContent = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
+  React.ElementRef<typeof RadixSelect.Content>,
+  React.ComponentPropsWithoutRef<typeof RadixSelect.Content>
 >(({ className, children, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn(
-      "relative z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md",
-      className
-    )}
-    {...props}
-  >
-    {children}
-  </div>
+  <RadixSelect.Portal>
+    <RadixSelect.Content
+      ref={ref}
+      className={cn(
+        "relative z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md",
+        className
+      )}
+      position="popper"
+      {...props}
+    >
+      <RadixSelect.Viewport className="p-1">
+        {children}
+      </RadixSelect.Viewport>
+    </RadixSelect.Content>
+  </RadixSelect.Portal>
 ))
-SelectContent.displayName = "SelectContent"
+SelectContent.displayName = RadixSelect.Content.displayName
 
 const SelectItem = React.forwardRef<
-  HTMLOptionElement,
-  React.OptionHTMLAttributes<HTMLOptionElement>
+  React.ElementRef<typeof RadixSelect.Item>,
+  React.ComponentPropsWithoutRef<typeof RadixSelect.Item>
 >(({ className, children, ...props }, ref) => (
-  <option
+  <RadixSelect.Item
     ref={ref}
     className={cn(
-      "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-8 text-sm outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className
     )}
     {...props}
   >
-    {children}
-  </option>
+    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+      <RadixSelect.ItemIndicator>
+        <Check className="h-4 w-4" />
+      </RadixSelect.ItemIndicator>
+    </span>
+    <RadixSelect.ItemText>{children}</RadixSelect.ItemText>
+  </RadixSelect.Item>
 ))
-SelectItem.displayName = "SelectItem"
+SelectItem.displayName = RadixSelect.Item.displayName
 
 export {
   Select,

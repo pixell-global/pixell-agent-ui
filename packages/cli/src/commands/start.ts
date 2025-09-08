@@ -40,6 +40,12 @@ export async function startProject(options: { env?: string }) {
   console.log(chalk.gray(`Starting with environment: ${envName}`))
   
   try {
+    // Load environment variables from env-specific files
+    loadEnvFiles(envName)
+
+    // Validate Firebase env presence and warn early if missing
+    validateFirebaseEnv()
+    
     // Step 1: Check if environment exists
     const environment = await validateEnvironment(envName)
     
@@ -269,7 +275,8 @@ async function runProject(envName: string): Promise<void> {
     // Start the main project
     execSync(`npm run ${scriptName}`, { 
       stdio: 'inherit',
-      cwd: process.cwd()
+      cwd: process.cwd(),
+      env: { ...process.env, PIXELL_ENV: envName }
     })
     
   } catch (error) {
@@ -549,6 +556,187 @@ function maskUrl(url: string): string {
 function maskKey(key: string): string {
   if (!key) return ''
   return key.substring(0, 12) + '...' + '*'.repeat(8)
+}
+
+/**
+ * Utility: load env files into process.env so child processes inherit them
+ * Priority order (first found wins for each var):
+ *  - .env.dev (root)
+ *  - apps/web/.env.dev
+ *  - .env.local (root)
+ *  - apps/web/.env.local
+ *  - .env (root)
+ *  - apps/web/.env
+ * Additionally, if envName provided, try .env.<envName> in root and apps/web just after .env.dev.
+ */
+function loadEnvFiles(envName?: string) {
+  try {
+    const cwd = process.cwd()
+    const loaded: string[] = []
+
+    // STRICT mapping: if env provided, use ONLY root .env.<env>
+    if (envName) {
+      const p = path.join(cwd, `.env.${envName}`)
+      if (fs.existsSync(p)) {
+        const applied = applyEnvFile(p)
+        if (applied) loaded.push(p)
+      }
+    } else {
+      // If no env provided, try root .env.local, then .env
+      const candidates = [path.join(cwd, '.env.local'), path.join(cwd, '.env')]
+      for (const p of candidates) {
+        if (!fs.existsSync(p)) continue
+        const applied = applyEnvFile(p)
+        if (applied) loaded.push(p)
+      }
+    }
+
+    if (loaded.length) {
+      console.log(chalk.gray(`\n🧩 Using env file:`))
+      loaded.forEach(p => console.log(chalk.gray(`   • ${path.relative(cwd, p)}`)))
+    } else {
+      console.log(chalk.yellow(`\n⚠️  No env file found for "${envName ?? 'default'}"`))
+    }
+  } catch (err) {
+    console.warn('Warning: failed to load env files', err)
+  }
+}
+
+/**
+ * Minimal .env parser and applier. Only handles KEY=VALUE with optional quotes.
+ * Does not override variables that are already set in process.env.
+ */
+function applyEnvFile(filePath: string): boolean {
+  try {
+    const content = fs.readFileSync(filePath, 'utf8')
+    let appliedAny = false
+    for (const rawLine of content.split(/\r?\n/)) {
+      const line = rawLine.trim()
+      if (!line || line.startsWith('#')) continue
+      const eqIndex = line.indexOf('=')
+      if (eqIndex === -1) continue
+      const key = line.substring(0, eqIndex).trim()
+      let value = line.substring(eqIndex + 1).trim()
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1)
+      }
+      if (process.env[key] === undefined) {
+        process.env[key] = value
+        appliedAny = true
+      }
+    }
+    return appliedAny
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Sync Firebase NEXT_PUBLIC_* vars into apps/web/.env.local so Next.js picks them up in dev
+ */
+async function ensureEnvFileFirebase(): Promise<void> {
+  try {
+    const keys = [
+      'NEXT_PUBLIC_FIREBASE_API_KEY',
+      'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
+      'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
+      'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
+      'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
+      'NEXT_PUBLIC_FIREBASE_APP_ID'
+    ]
+
+    // Prefer values from env-specific files directly to avoid relying on process.env
+    const envName = process.argv.includes('--env')
+      ? process.argv[process.argv.indexOf('--env') + 1]
+      : undefined
+    const fromFiles = await collectEnvValues(keys, envName)
+
+    // If nothing parsed from files, fall back to process.env
+    const values: Record<string, string> = {}
+    for (const k of keys) {
+      const v = fromFiles[k] ?? process.env[k]
+      if (v && String(v).trim() !== '') values[k] = String(v)
+    }
+    if (Object.keys(values).length === 0) return
+
+    const webEnvPath = path.join(process.cwd(), 'apps', 'web', '.env.local')
+    let existing = ''
+    if (await fs.pathExists(webEnvPath)) {
+      existing = await fs.readFile(webEnvPath, 'utf8')
+    }
+    const lines = existing.split('\n').filter(Boolean)
+    const filtered = lines.filter(l => !keys.some(k => l.startsWith(`${k}=`)))
+    for (const k of Object.keys(values)) {
+      filtered.push(`${k}=${values[k]}`)
+    }
+    await fs.writeFile(webEnvPath, filtered.join('\n') + '\n', 'utf8')
+  } catch (err) {
+    console.warn('Warning: failed to write Firebase vars to apps/web/.env.local', err)
+  }
+}
+
+/**
+ * Parse env-specific files and collect values for selected keys
+ */
+async function collectEnvValues(keys: string[], envName?: string): Promise<Record<string, string>> {
+  const cwd = process.cwd()
+  const webDir = path.join(cwd, 'apps', 'web')
+  const order: string[] = []
+  if (envName) {
+    order.push(path.join(cwd, `.env.${envName}`))
+    order.push(path.join(webDir, `.env.${envName}`))
+  }
+  order.push(path.join(cwd, '.env.local'))
+  order.push(path.join(webDir, '.env.local'))
+  order.push(path.join(cwd, '.env'))
+  order.push(path.join(webDir, '.env'))
+
+  const result: Record<string, string> = {}
+  for (const p of order) {
+    if (!fs.existsSync(p)) continue
+    try {
+      const content = await fs.readFile(p, 'utf8')
+      for (const rawLine of content.split(/\r?\n/)) {
+        const line = rawLine.trim()
+        if (!line || line.startsWith('#')) continue
+        const eq = line.indexOf('=')
+        if (eq === -1) continue
+        const k = line.substring(0, eq).trim()
+        if (!keys.includes(k)) continue
+        let v = line.substring(eq + 1).trim()
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+          v = v.slice(1, -1)
+        }
+        if (result[k] === undefined) {
+          result[k] = v
+        }
+      }
+    } catch {}
+  }
+  return result
+}
+
+/**
+ * Check presence of required Firebase envs and print clear guidance if missing
+ */
+function validateFirebaseEnv() {
+  const required = [
+    'NEXT_PUBLIC_FIREBASE_API_KEY',
+    'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
+    'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
+    'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
+    'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
+    'NEXT_PUBLIC_FIREBASE_APP_ID'
+  ]
+  const missing = required.filter(k => !process.env[k] || String(process.env[k]).trim() === '')
+  if (missing.length) {
+    console.log(chalk.yellow('\n⚠️  Missing Firebase env variables:'))
+    missing.forEach(k => console.log(chalk.yellow(`   • ${k}`)))
+    console.log(chalk.gray('\nTips:'))
+    console.log(chalk.gray(' - Add them to .env.dev or apps/web/.env.dev for local dev'))
+    console.log(chalk.gray(' - Or place them in .env.local /.env in root or apps/web'))
+    console.log(chalk.gray(' - Ensure keys match your Firebase project and are not restricted'))
+  }
 }
 
 /**

@@ -1,8 +1,8 @@
-import { getAuth, signInWithEmailLink as firebaseSignInWithEmailLink, isSignInWithEmailLink as firebaseIsSignInWithEmailLink, UserCredential } from 'firebase/auth';
+import { getAuth, sendSignInLinkToEmail as firebaseSendSignInLinkToEmail, signInWithEmailLink as firebaseSignInWithEmailLink, isSignInWithEmailLink as firebaseIsSignInWithEmailLink, UserCredential } from 'firebase/auth';
 
 export const sendSignInLink = async (email: string, actionCodeSettings: any) => {
   const auth = getAuth();
-  await firebaseSignInWithEmailLink(auth, email, actionCodeSettings);
+  await firebaseSendSignInLinkToEmail(auth, email, actionCodeSettings);
 };
 
 export const isSignInLink = (url: string): boolean => {

@@ -24,6 +24,7 @@ interface Stats {
 interface UIStore {
   // Panel visibility
   leftPanelVisible: boolean
+  leftPanelCollapsed: boolean
   rightPanelVisible: boolean
   leftPanelTab: 'files' | 'history'
   
@@ -42,6 +43,7 @@ interface UIStore {
   
   // Actions
   toggleLeftPanel: () => void
+  toggleLeftPanelCollapsed: () => void
   toggleRightPanel: () => void
   setLeftPanelTab: (tab: 'files' | 'history') => void
   setChatInputFocused: (focused: boolean) => void
@@ -59,6 +61,7 @@ export const useUIStore = create<UIStore>()(
   subscribeWithSelector((set) => ({
     // Initial state
     leftPanelVisible: true,
+    leftPanelCollapsed: false,
     rightPanelVisible: true,
     leftPanelTab: 'files',
     chatInputFocused: false,
@@ -72,6 +75,10 @@ export const useUIStore = create<UIStore>()(
     // Actions
     toggleLeftPanel: () => set((state) => ({ 
       leftPanelVisible: !state.leftPanelVisible 
+    })),
+    
+    toggleLeftPanelCollapsed: () => set((state) => ({ 
+      leftPanelCollapsed: !state.leftPanelCollapsed 
     })),
     
     toggleRightPanel: () => set((state) => ({ 
