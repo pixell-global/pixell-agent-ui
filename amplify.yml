@@ -18,13 +18,9 @@ applications:
               cat > .next/deploy-manifest.json << 'EOF'
               {
                 "version": 1,
-                "mode": "compute",
-                "framework": {
-                  "name": "nextjs",
-                  "version": "15.5.2"
+                "imageOptimization": {
+                  "loader": "default"
                 },
-                "buildCommand": "npm run build",
-                "outputDirectory": ".next",
                 "routes": [
                   {
                     "handle": "filesystem"
@@ -34,7 +30,8 @@ applications:
                     "dest": "/",
                     "status": 200
                   }
-                ]
+                ],
+                "overrides": {}
               }
               EOF
             - ls -la .next/deploy-manifest.json
