@@ -43,7 +43,7 @@ const plans: Plan[] = [
 
 function BillingContent() {
   const params = useSearchParams()
-  const orgId = params.get('orgId')
+  const orgId = params?.get('orgId')
   const { addToast } = useToast()
   const [loading, setLoading] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<PlanType>('starter')
