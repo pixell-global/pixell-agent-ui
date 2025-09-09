@@ -15,7 +15,7 @@ function isTestEnvironment(): boolean {
 function getAct(): ((callback: () => void) => void) | null {
 	try {
 		// Try React 18+ act from react-dom/test-utils
-		return require('react-dom/test-utils').act
+		const testUtils = eval('require')('react-dom/test-utils'); return testUtils.act
 	} catch {
 		// Fallback: no act available, just return null
 		return null
