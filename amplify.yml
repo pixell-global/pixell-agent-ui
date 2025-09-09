@@ -7,7 +7,8 @@ applications:
           commands:
             - cd ../../
             - npm install
-            - npm run setup:packages
+            - npm run build --workspace=@pixell/renderer
+            - npm run build --workspace=@pixell/protocols
         build:
           commands:
             - cd apps/web
