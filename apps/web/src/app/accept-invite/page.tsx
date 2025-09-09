@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 
 function AcceptInviteContent() {
   const params = useSearchParams()
-  const token = params.get('token')
+  const token = params?.get('token')
   const router = useRouter()
 
   const [loading, setLoading] = useState(true)
