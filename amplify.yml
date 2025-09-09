@@ -6,7 +6,7 @@ applications:
         preBuild:
           commands:
             - cd ../../
-            - npm ci
+            - npm install
         build:
           commands:
             - cd apps/web
