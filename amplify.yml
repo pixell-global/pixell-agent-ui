@@ -7,6 +7,7 @@ applications:
           commands:
             - cd ../../
             - npm install
+            - npm run setup:packages
         build:
           commands:
             - cd apps/web
