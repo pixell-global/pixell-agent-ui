@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb, organizations } from '@pixell/db-mysql'
 import { eq } from 'drizzle-orm'
+import Stripe from 'stripe'
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,8 +10,6 @@ export async function POST(request: NextRequest) {
     const whSecret = process.env.STRIPE_WEBHOOK_SECRET
     if (!key || !whSecret) return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 })
 
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const Stripe = require('stripe')
     const stripe = new Stripe(key, { apiVersion: '2024-06-20' })
     const rawBody = await request.text()
     let event

@@ -1,11 +1,11 @@
 'use client'
 
 import { useSearchParams, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 
-export default function AcceptInvitePage() {
+function AcceptInviteContent() {
   const params = useSearchParams()
   const token = params.get('token')
   const router = useRouter()
@@ -88,6 +88,14 @@ export default function AcceptInvitePage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function AcceptInvitePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center gradient-hero"><div className="text-white font-inter">Loading...</div></div>}>
+      <AcceptInviteContent />
+    </Suspense>
   )
 }
 

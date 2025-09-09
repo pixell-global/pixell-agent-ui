@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifySessionCookie } from '@pixell/auth-firebase/server'
 import { getDb, organizations, organizationMembers } from '@pixell/db-mysql'
 import { and, eq } from 'drizzle-orm'
+import Stripe from 'stripe'
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,8 +28,6 @@ export async function POST(request: NextRequest) {
 
     const key = process.env.STRIPE_SECRET_KEY
     if (!key) return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 })
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const Stripe = require('stripe')
     const stripe = new Stripe(key, { apiVersion: '2024-06-20' })
 
     const orgRows = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1)

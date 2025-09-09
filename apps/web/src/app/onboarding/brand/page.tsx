@@ -1,7 +1,7 @@
 'use client'
 
 import { useSearchParams, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,7 @@ import { useToast } from '@/components/ui/toast-provider'
 import { apiFetch } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
-export default function OnboardingBrandPage() {
+function OnboardingBrandContent() {
   const params = useSearchParams()
   const orgId = params.get('orgId')
   const router = useRouter()
@@ -77,6 +77,14 @@ export default function OnboardingBrandPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function OnboardingBrandPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center gradient-hero"><div className="text-white font-inter">Loading...</div></div>}>
+      <OnboardingBrandContent />
+    </Suspense>
   )
 }
 
