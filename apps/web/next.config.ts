@@ -55,6 +55,8 @@ const nextConfig: NextConfig = {
   },
   // Disable static optimization
   generateStaticParams: false,
+  // Force all pages to be dynamic
+  dynamicParams: true,
 };
 
 export default nextConfig;
