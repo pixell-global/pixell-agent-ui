@@ -47,10 +47,6 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
     NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   },
-  // Disable static generation to avoid Html import errors
-  experimental: {
-    staticGenerationRetryCount: 0,
-  },
   // Force dynamic rendering for all pages
   trailingSlash: false,
 };
