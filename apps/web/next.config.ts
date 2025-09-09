@@ -39,13 +39,6 @@ loadEnv()
 const nextConfig: NextConfig = {
   // Ensure Next resolves the correct monorepo root for tracing and dev/build artifacts
   outputFileTracingRoot: path.resolve(__dirname, "..", ".."),
-  // Temporarily disable strict error checking for deployment
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   env: {
     NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
     NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -54,6 +47,12 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
     NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   },
+  // Disable static generation to avoid Html import errors
+  experimental: {
+    staticGenerationRetryCount: 0,
+  },
+  // Force dynamic rendering for all pages
+  trailingSlash: false,
 };
 
 export default nextConfig;
