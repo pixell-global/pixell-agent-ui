@@ -30,6 +30,13 @@ applications:
                   "minimumCacheTTL": 60,
                   "dangerouslyAllowSVG": false
                 },
+                "computeResources": [
+                  {
+                    "name": "default",
+                    "runtime": "nodejs18.x",
+                    "entrypoint": "server.js"
+                  }
+                ],
                 "routes": [
                   {
                     "path": "/_next/image*",
