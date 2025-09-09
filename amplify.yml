@@ -12,8 +12,7 @@ applications:
         build:
           commands:
             - cd apps/web
-            - npx next build --experimental-build-mode=compile
-            - cp deploy-manifest.json .next/
+            - npm run build
       artifacts:
         baseDirectory: apps/web/.next
         files:
