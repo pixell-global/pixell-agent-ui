@@ -4,6 +4,9 @@ import { createRateLimit, getClientIP } from '@/lib/security'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+// Required for static export
+export const dynamic = 'force-static'
+
 // Rate limiting for file uploads
 const rateLimiter = createRateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
