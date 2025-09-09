@@ -21,6 +21,8 @@ export const metadata: Metadata = {
   description: "Advanced AI agent orchestration platform",
 };
 
+export const dynamic = 'force-dynamic';
+
 // Removed force-dynamic from layout to prevent build conflicts with static error pages
 
 export default function RootLayout({

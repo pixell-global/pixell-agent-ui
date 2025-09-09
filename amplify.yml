@@ -1,20 +1,19 @@
 version: 1
 applications:
-  - appRoot: apps/web
+  - appRoot: .
     frontend:
       phases:
         preBuild:
           commands:
-            - cd ../../
             - npm install
-            - npm run build --workspace=@pixell/renderer
             - npm run build --workspace=@pixell/protocols
+            - npm run build --workspace=@pixell/renderer
         build:
           commands:
             - cd apps/web
             - npm run build
       artifacts:
-        baseDirectory: .next
+        baseDirectory: apps/web/.next
         files:
           - '**/*'
       cache:

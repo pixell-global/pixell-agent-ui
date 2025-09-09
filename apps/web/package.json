@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "dev:regular": "next dev",
-    "build": "next build --experimental-build-mode=compile",
+    "build": "next build --experimental-build-mode=compile && node scripts/amplify-build-transform.js",
+    "build:amplify": "next build --experimental-build-mode=compile && node scripts/amplify-build-transform.js",
     "start": "next start",
     "lint": "next lint"
   },

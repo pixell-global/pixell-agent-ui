@@ -51,10 +51,14 @@ const nextConfig: NextConfig = {
   experimental: {
     staticGenerationRetryCount: 0,
   },
-  // Disable static generation completely
-  output: undefined,
+  // Force all pages to be server-rendered
+  output: 'standalone',
   generateEtags: false,
   compress: false,
+  // Disable static generation
+  generateStaticParams: false,
+  // Force dynamic rendering
+  dynamicIO: true,
 };
 
 export default nextConfig;
