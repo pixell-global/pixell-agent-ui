@@ -49,6 +49,8 @@ const nextConfig: NextConfig = {
   },
   // Force dynamic rendering for all pages
   trailingSlash: false,
+  // Disable static generation to avoid Html import errors in Amplify
+  output: 'standalone',
 };
 
 export default nextConfig;
