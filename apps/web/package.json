@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "dev:regular": "next dev",
-    "build": "next build --experimental-build-mode=compile",
+    "build": "next build",
     "build:regular": "next build",
     "start": "next start",
     "lint": "next lint"
