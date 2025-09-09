@@ -50,8 +50,10 @@ const nextConfig: NextConfig = {
   // Force dynamic rendering for all pages
   trailingSlash: false,
   // Disable static generation to avoid Html import errors in Amplify
-  experimental: {
-    staticGenerationRetryCount: 0,
+  output: 'export',
+  distDir: '.next',
+  images: {
+    unoptimized: true,
   },
 };
 
