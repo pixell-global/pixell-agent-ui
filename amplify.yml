@@ -13,6 +13,7 @@ applications:
           commands:
             - cd apps/web
             - npm run build
+            - ls -la .next/
             - |
               cat > .next/deploy-manifest.json << 'EOF'
               {
@@ -36,6 +37,9 @@ applications:
                 ]
               }
               EOF
+            - ls -la .next/deploy-manifest.json
+            - pwd
+            - find . -name "deploy-manifest.json" -type f
       artifacts:
         baseDirectory: apps/web/.next
         files:
