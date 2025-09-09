@@ -12,7 +12,7 @@ applications:
         build:
           commands:
             - cd apps/web
-            - npm run build
+            - npx next build --experimental-build-mode=compile
       artifacts:
         baseDirectory: apps/web/.next
         files:
