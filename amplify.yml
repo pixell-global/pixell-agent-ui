@@ -41,7 +41,7 @@ applications:
             - pwd
             - find . -name "deploy-manifest.json" -type f
       artifacts:
-        baseDirectory: apps/web/.next
+        baseDirectory: .next
         files:
           - '**/*'
       cache:
