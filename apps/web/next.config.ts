@@ -47,16 +47,14 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
     NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   },
-  // Force dynamic rendering for all pages
   trailingSlash: false,
-  // Disable static generation to avoid Html import errors in Amplify
   experimental: {
     staticGenerationRetryCount: 0,
   },
-  // Disable static optimization
-  generateStaticParams: false,
-  // Force all pages to be dynamic
-  dynamicParams: true,
+  // Disable static generation completely
+  output: undefined,
+  generateEtags: false,
+  compress: false,
 };
 
 export default nextConfig;

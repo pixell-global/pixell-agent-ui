@@ -6,8 +6,6 @@ import fs from 'fs-extra'
 
 const execAsync = promisify(exec)
 
-// Required for static export
-export const dynamic = 'force-static'
 
 // Get workspace path from environment or default
 const getWorkspacePath = () => {

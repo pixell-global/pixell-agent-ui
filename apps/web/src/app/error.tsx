@@ -9,9 +9,8 @@ export default function Error({
 }) {
   return (
     <div>
-      <h1>Something went wrong!</h1>
-      <p>An unexpected error occurred.</p>
-      <button onClick={reset}>Try again</button>
+      <h2>Something went wrong!</h2>
+      <button onClick={() => reset()}>Try again</button>
     </div>
   )
 }
