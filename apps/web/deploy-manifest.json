@@ -1,12 +1,12 @@
 {
   "version": 1,
+  "mode": "compute",
   "framework": {
     "name": "nextjs",
     "version": "15.5.0"
   },
-  "imageOptimization": {
-    "loader": "default"
-  },
+  "buildCommand": "next build --experimental-build-mode=compile",
+  "outputDirectory": ".next",
   "routes": [
     {
       "handle": "filesystem"
@@ -16,7 +16,5 @@
       "dest": "/",
       "status": 200
     }
-  ],
-  "buildCommand": "next build --experimental-build-mode=compile",
-  "outputDirectory": ".next"
+  ]
 }
