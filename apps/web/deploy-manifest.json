@@ -1,0 +1,8 @@
+{
+  "version": "1.0",
+  "framework": "nextjs",
+  "buildCommand": "npx next build --experimental-build-mode=compile",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
+  "nodeVersion": "18"
+}

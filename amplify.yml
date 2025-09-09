@@ -14,9 +14,10 @@ applications:
             - cd apps/web
             - npx next build --experimental-build-mode=compile
       artifacts:
-        baseDirectory: apps/web/.next
+        baseDirectory: apps/web
         files:
-          - '**/*'
+          - '.next/**/*'
+          - 'deploy-manifest.json'
       cache:
         paths:
           - apps/web/node_modules/**/*
