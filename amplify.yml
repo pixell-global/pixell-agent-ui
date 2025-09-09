@@ -13,6 +13,29 @@ applications:
           commands:
             - cd apps/web
             - npm run build
+            - |
+              cat > .next/deploy-manifest.json << 'EOF'
+              {
+                "version": 1,
+                "mode": "compute",
+                "framework": {
+                  "name": "nextjs",
+                  "version": "15.5.2"
+                },
+                "buildCommand": "npm run build",
+                "outputDirectory": ".next",
+                "routes": [
+                  {
+                    "handle": "filesystem"
+                  },
+                  {
+                    "src": "/(.*)",
+                    "dest": "/",
+                    "status": 200
+                  }
+                ]
+              }
+              EOF
       artifacts:
         baseDirectory: apps/web/.next
         files:
