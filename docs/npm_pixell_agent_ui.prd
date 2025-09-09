@@ -1,0 +1,102 @@
+# Pixell Agent UI (npm package PRD)
+
+## 1) Overview
+- **Package name (proposed)**: `@pixell/agent-ui`
+- **Purpose**: A small, framework-agnostic renderer that turns a declarative `UISpec` JSON into interactive UI. Ships a component registry, prop binding, actions wiring, theme tokens, and JSON Patch updates.
+- **Consumers**: Pixell web app and any external apps wanting Dynamic UI without copying code.
+
+## 2) Deliverables
+- ESM + CJS build with type declarations.
+- Public API:
+  - `renderUISpec(container: HTMLElement, spec: UISpecEnvelope, options?: RenderOptions): { unmount(): void }`
+  - `applyPatch(spec: UISpecEnvelope, ops: JsonPatchOp[]): UISpecEnvelope`
+  - Types: `UISpecEnvelope`, `JsonPatchOp`, `RenderOptions`, `IntentClient`, `IntentResult`.
+- Internal implementation ports the following files from this repo:
+  - Registry: `apps/web/components/agent-ui/registry.tsx`
+  - Renderer: `apps/web/components/agent-ui/renderer/{index.tsx, RenderEngine.tsx}`
+  - Utilities: `renderer/{propResolver.ts, actions.ts, theme.ts, patch.ts, types.ts, util.ts}`
+  - Default components: `renderer_components/{Page.tsx, List.tsx, Table.tsx, Text.tsx, Button.tsx, Link.tsx, Unknown.tsx}`
+
+## 3) Install
+```bash
+npm install @pixell/agent-ui
+```
+
+## 4) Quick Start
+```ts
+import { renderUISpec, applyPatch, type UISpecEnvelope, type RenderOptions } from '@pixell/agent-ui'
+
+const container = document.getElementById('ui-root')!
+
+const spec: UISpecEnvelope = {
+  manifest: { id: 'example.app.v1', name: 'Example', version: '1.0.0', capabilities: ['page','list','table','button'] },
+  data: { items: [{ title: 'Hello' }] },
+  actions: { open: { kind: 'open_url', url: 'https://example.com' } },
+  view: {
+    type: 'page',
+    title: 'Items',
+    children: [
+      { type: 'list', props: { data: '@items', item: { type: 'text', props: { text: '{{ title }}' } } } },
+      { type: 'button', props: { text: 'Open', onPress: { action: 'open' } } },
+    ],
+  },
+}
+
+const options: RenderOptions = {
+  onOpenUrl: (url) => window.open(url, '_blank'),
+  capabilitySet: { components: ['page','list','table','button'], features: ['http.extended'] },
+}
+
+const { unmount } = renderUISpec(container, spec, options)
+
+// Later, apply JSON Patch updates
+applyPatch(spec, [{ op: 'replace', path: '/data/items/0/title', value: 'Updated' }])
+```
+
+## 5) Capabilities and Features
+- **Bindings**: `@path` reads from `spec.data`; `{{ template }}` interpolates from row scope or root data.
+- **Components**: `page`, `text`, `button`, `list`, `link`, `table`, `unknown` out of the box. `table` gracefully downgrades to `list` if not supported by `capabilitySet`.
+- **Actions**:
+  - `open_url`: callback to `options.onOpenUrl(url)`.
+  - `http`: callback to `options.onHttp(req)`; extended methods (PUT/PATCH/DELETE) gated by `features: ['http.extended']`.
+  - `state.set`: local UI state updates applied inside renderer and mirrored to `spec.data` for consumers if needed.
+  - `emit`: calls `options.intentClient.invokeIntent(event, payload)`.
+- **Theme**: `theme.tokens` mapped to CSS variables at mount time.
+- **Patch**: `applyPatch` supports add/replace/remove on `/data` and `/view`.
+
+## 6) Usage in this project
+The web app already hosts the renderer code in:
+- `apps/web/components/agent-ui/registry.tsx`
+- `apps/web/components/agent-ui/renderer/index.tsx`
+- `apps/web/components/agent-ui/renderer/RenderEngine.tsx`
+- `apps/web/components/agent-ui/renderer/{types.ts, actions.ts, propResolver.ts, patch.ts, theme.ts, util.ts}`
+- `apps/web/components/agent-ui/renderer_components/*`
+
+To switch to the npm package:
+1) Install the package
+```bash
+npm install @pixell/agent-ui
+```
+2) Replace imports in the app where the renderer is used. For example in `apps/web/src/components/activity/activity-pane.tsx`:
+```ts
+- import { renderUISpec } from '../../../components/agent-ui/renderer'
++ import { renderUISpec } from '@pixell/agent-ui'
+```
+3) Ensure the container element exists and pass `capabilitySet` and callbacks as needed (the current code already does this).
+4) Optionally remove or alias the duplicated local renderer files once package is adopted.
+
+## 7) Build & Ship Plan
+- Create a new workspace package `packages/agent-ui/` with the code above, preserving public API described in section 2.
+- Configure `package.json` with `exports`, `types`, and build via `tsup`/`tsc`.
+- Add tests ported from `docs/agent_ui_client_tests/agent_ui_renderer.test.tsx` and run in CI.
+- Version as `0.1.0` and publish under the Pixell npm org.
+
+## 8) Constraints & Security
+- No direct HTML injection. The default `Text` component renders plain text and sanitizes user content via React.
+- Keep runtime dependencies minimal; rely on React 18 peer dep.
+- The package should tree-shake and be SSR-safe (no DOM access on import; only at `renderUISpec`).
+
+## 9) Future Extensions
+- Pluggable registry to allow host apps to register/override components.
+- Streaming patch support.
+- Additional core components (container/grid/forms). 

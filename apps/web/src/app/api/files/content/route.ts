@@ -6,6 +6,7 @@ import fs from 'fs-extra'
 
 const execAsync = promisify(exec)
 
+
 // Get workspace path from environment or default
 const getWorkspacePath = () => {
   return process.env.STORAGE_LOCAL_PATH || path.join(process.cwd(), 'workspace-files')

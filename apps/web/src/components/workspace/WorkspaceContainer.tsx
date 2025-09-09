@@ -5,7 +5,6 @@ import { useEditorStore } from '@/stores/editor-store'
 import { ChatWorkspace } from '@/components/chat/ChatWorkspace'
 import type { ActivityPaneRef } from '@/components/activity/activity-pane'
 import { FileEditorContainer } from '@/components/editor/FileEditorContainer'
-import { useEffectOnce } from 'react-use'
 
 interface WorkspaceContainerProps { activityPaneRef?: RefObject<ActivityPaneRef> }
 

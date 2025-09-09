@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev --turbopack -p 3003",
     "dev:regular": "next dev",
-    "build": "next build",
+    "build": "next build --experimental-build-mode=compile && node scripts/amplify-build-transform.js",
+    "build:amplify": "next build --experimental-build-mode=compile && node scripts/amplify-build-transform.js",
     "start": "next start",
     "lint": "next lint"
   },
@@ -36,7 +37,7 @@
     "isomorphic-dompurify": "^2.25.0",
     "katex": "^0.16.22",
     "lucide-react": "^0.518.0",
-    "next": "^15.1.6",
+    "next": "^15.5.2",
     "prismjs": "^1.30.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

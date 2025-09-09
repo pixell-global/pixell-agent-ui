@@ -6,12 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast-provider'
-import { apiFetch } from '@/lib/utils'
+// Remove unused import
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 function OnboardingBrandContent() {
   const params = useSearchParams()
-  const orgId = params.get('orgId')
+  const orgId = params?.get('orgId')
   const router = useRouter()
   const [name, setName] = useState('')
   const [accessMode, setAccessMode] = useState<'shared' | 'isolated'>('shared')
@@ -24,7 +24,7 @@ function OnboardingBrandContent() {
     setLoading(true)
     setError(null)
     try {
-      const res = await apiFetch('/api/brands', {
+      const res = await fetch('/api/brands', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, metadata: { accessMode } }),
@@ -87,5 +87,3 @@ export default function OnboardingBrandPage() {
     </Suspense>
   )
 }
-
-
