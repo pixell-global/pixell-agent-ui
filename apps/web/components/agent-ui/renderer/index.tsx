@@ -1,4 +1,4 @@
-import React, { act } from 'react'
+import React from 'react'
 import { createRoot, Root } from 'react-dom/client'
 import { RenderEngine } from './RenderEngine'
 import type { UISpecEnvelope, JsonPatchOp, RenderOptions } from './types'
@@ -11,6 +11,17 @@ function isTestEnvironment(): boolean {
 	return false
 }
 
+// Safe act import - try to get from react-dom/test-utils first, then fallback
+function getAct(): ((callback: () => void) => void) | null {
+	try {
+		// Try React 18+ act from react-dom/test-utils
+		return require('react-dom/test-utils').act
+	} catch {
+		// Fallback: no act available, just return null
+		return null
+	}
+}
+
 export function renderUISpec(container: HTMLElement, spec: UISpecEnvelope, options?: RenderOptions): { unmount: () => void } {
 	// Reuse a single root per container to avoid createRoot collisions
 	let root: Root | undefined = (container as any).__pafRoot as Root | undefined
@@ -19,7 +30,8 @@ export function renderUISpec(container: HTMLElement, spec: UISpecEnvelope, optio
 		root = createRoot(container)
 		;(container as any).__pafRoot = root
 	}
-	if (inTest && typeof act === 'function') {
+	const act = getAct()
+	if (inTest && act) {
 		act(() => {
 			root!.render(<RenderEngine container={container} spec={spec} options={options || {}} />)
 		})
