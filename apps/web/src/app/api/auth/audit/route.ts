@@ -3,8 +3,6 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { createRateLimit, getClientIP, SecurityEvents, createAuditLog } from '@/lib/security'
 
-// Required for static export
-export const dynamic = 'force-static'
 
 // Rate limiting for audit endpoint
 const rateLimiter = createRateLimit({
