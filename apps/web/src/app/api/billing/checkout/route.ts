@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifySessionCookie } from '@pixell/auth-firebase/server'
 import { getDb, organizations, organizationMembers } from '@pixell/db-mysql'
 import { and, eq } from 'drizzle-orm'
-import { eq } from 'drizzle-orm'
 
 // Placeholder: integrate Stripe SDK if configured via env
 const getStripe = () => {
@@ -11,7 +10,7 @@ const getStripe = () => {
   // Lazy require to avoid bundling in Edge-unfriendly contexts
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const Stripe = require('stripe')
-  return new Stripe(key, { apiVersion: '2024-06-20' })
+  return new Stripe(key, { apiVersion: '2025-08-27.basil' })
 }
 
 export async function POST(request: NextRequest) {
@@ -19,7 +18,7 @@ export async function POST(request: NextRequest) {
     const cookieName = process.env.SESSION_COOKIE_NAME || 'session'
     const sessionCookie = request.cookies.get(cookieName)?.value
     if (!sessionCookie) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    await verifySessionCookie(sessionCookie)
+    const decoded = await verifySessionCookie(sessionCookie)
 
     const { orgId } = await request.json()
     if (!orgId) return NextResponse.json({ error: 'Organization ID required' }, { status: 400 })

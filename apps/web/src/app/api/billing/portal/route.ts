@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     const key = process.env.STRIPE_SECRET_KEY
     if (!key) return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 })
-    const stripe = new Stripe(key, { apiVersion: '2024-06-20' })
+    const stripe = new Stripe(key, { apiVersion: '2025-08-27.basil' })
 
     const orgRows = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1)
     const org = orgRows[0]

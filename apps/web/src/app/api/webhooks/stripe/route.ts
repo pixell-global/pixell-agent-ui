@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     const whSecret = process.env.STRIPE_WEBHOOK_SECRET
     if (!key || !whSecret) return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 })
 
-    const stripe = new Stripe(key, { apiVersion: '2024-06-20' })
+    const stripe = new Stripe(key, { apiVersion: '2025-08-27.basil' })
     const rawBody = await request.text()
     let event
     try {

@@ -114,4 +114,13 @@ coverage/
 
 # Implementation Docs
 implementation_docs/
-vividyai-firebase-adminsdk-fbsvc-195d3f599f.json
+
+# Deployment files
+deploy*.sh
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+DEPLOYMENT.md
+
+# Infrastructure files
+infrastructure/
