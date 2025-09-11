@@ -196,8 +196,8 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
         console.log('✅ Dynamic UI spec detected. Rendering via renderer.')
         setUiSpec(envelope)
         setUiData(envelope.data)
-      } else if (typeof dataObj?.html === 'string' || typeof contents?.html === 'string') {
-        console.log('✅ Raw HTML detected. Rendering in iframe.')
+      } else if (typeof dataObj?.url === 'string' || typeof contents?.url === 'string') {
+        console.log('✅ URL detected. Rendering in iframe.')
         setGeneratedUI({
           title: result.contents.data.title || 'Generated UI',
           url: result.contents.data.url || ''
