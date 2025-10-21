@@ -170,7 +170,7 @@ export async function streamChatHandler(req: Request, res: Response) {
     if (!response.ok) {
       const errorText = await response.text()
       let errorMessage = 'Failed to connect to PAF Core Agent'
-      
+
       try {
         const errorJson = JSON.parse(errorText)
         errorMessage = errorJson.error || errorMessage
@@ -178,7 +178,11 @@ export async function streamChatHandler(req: Request, res: Response) {
         // Use default error message if JSON parsing fails
       }
 
-      return res.status(response.status).json({ error: errorMessage })
+      // Send error as SSE event (headers already sent)
+      res.write(`data: ${JSON.stringify({ type: 'error', error: errorMessage })}\n\n`)
+      res.write(`data: [DONE]\n\n`)
+      res.end()
+      return
     }
 
     // Stream the response from PAF Core Agent to client (SSE headers already set above)
