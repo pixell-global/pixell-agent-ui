@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
 import { getPafCoreAgentUrl } from '../utils/environments'
+import { connectionManager } from '../services/connection-manager'
 
 // PAF Core Agent service URL
 const getCoreAgentUrl = async () => {
@@ -11,17 +12,17 @@ const getCoreAgentUrl = async () => {
  */
 export async function streamChatHandler(req: Request, res: Response) {
   try {
-    const { 
-      message, 
-      files = [], 
+    const {
+      message,
+      files = [],
       history = [],
       show_thinking = false,
       model = 'gpt-4o',
       temperature = 0.7,
       max_tokens, // No default limit - let AI complete naturally
       // Legacy support for old format
-      fileContext = [], 
-      settings = {} 
+      fileContext = [],
+      settings = {}
     } = req.body
 
     if (!message?.trim()) {
@@ -29,6 +30,9 @@ export async function streamChatHandler(req: Request, res: Response) {
     }
 
     const coreAgentUrl = await getCoreAgentUrl()
+
+    // Try to get connection (gRPC or HTTP based on strategy)
+    const connection = await connectionManager.getConnection(coreAgentUrl)
     
     // Use the new files format if provided, otherwise fall back to legacy fileContext
     let processedFiles = files
@@ -61,8 +65,68 @@ export async function streamChatHandler(req: Request, res: Response) {
     console.log('📤 Sending to PAF Core Agent:', {
       message: payload.message,
       filesCount: payload.files.length,
-      model: payload.model
+      model: payload.model,
+      connectionType: connection.type
     })
+
+    // Set up SSE headers
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    })
+
+    // Handle gRPC connection
+    if (connection.type === 'grpc' && connection.grpcClient) {
+      try {
+        console.log('🚀 Using gRPC connection to PAF Core Agent')
+
+        // Call gRPC Invoke with 'chat' action
+        const result = await connection.grpcClient.invoke('chat', {
+          message: payload.message,
+          files: payload.files,
+          history: payload.history,
+          show_thinking: payload.show_thinking,
+          model: payload.model,
+          temperature: payload.temperature,
+          max_tokens: payload.max_tokens
+        })
+
+        // Parse the result and stream it as SSE
+        if (result.success) {
+          // Send the result as content
+          const sseData = {
+            type: 'content',
+            delta: { content: result.result },
+            accumulated: result.result
+          }
+          res.write(`data: ${JSON.stringify(sseData)}\n\n`)
+        } else {
+          // Send error
+          const errorData = {
+            type: 'error',
+            error: result.error || 'Unknown error from PAF Core Agent'
+          }
+          res.write(`data: ${JSON.stringify(errorData)}\n\n`)
+        }
+
+        // Send completion
+        res.write(`data: ${JSON.stringify({ type: 'complete' })}\n\n`)
+        res.write(`data: [DONE]\n\n`)
+        res.end()
+        return
+
+      } catch (grpcError) {
+        console.error('❌ gRPC request failed:', grpcError)
+        // Fall through to HTTP fallback
+        console.log('🔄 Attempting HTTP fallback...')
+      }
+    }
+
+    // Handle HTTP connection (or fallback from gRPC)
+    console.log('📡 Using HTTP connection to PAF Core Agent')
 
     // Make request to PAF Core Agent
     const response = await fetch(`${coreAgentUrl}/api/chat/stream`, {
@@ -87,16 +151,7 @@ export async function streamChatHandler(req: Request, res: Response) {
       return res.status(response.status).json({ error: errorMessage })
     }
 
-    // Set up Server-Sent Events headers
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type'
-    })
-
-    // Stream the response from PAF Core Agent to client
+    // Stream the response from PAF Core Agent to client (SSE headers already set above)
     const reader = response.body?.getReader()
     const decoder = new TextDecoder()
 
@@ -353,64 +408,105 @@ export async function streamChatHandler(req: Request, res: Response) {
 export async function healthHandler(req: Request, res: Response) {
   try {
     const coreAgentUrl = await getCoreAgentUrl()
-    
-    // Check PAF Core Agent health
-    const response = await fetch(`${coreAgentUrl}/api/health`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      // Add timeout for health checks
-      signal: AbortSignal.timeout(5000) // 5 second timeout
-    })
+    const connection = await connectionManager.getConnection(coreAgentUrl)
+    const lastHealthCheck = connectionManager.getLastHealthCheck()
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      return res.status(response.status).json({
-        status: 'error',
-        error: `PAF Core Agent health check failed: ${errorText}`,
-        runtime: {
-          provider: 'unknown',
-          configured: false,
-          coreAgentUrl,
-          connected: false
-        }
-      })
+    let healthData: any = {
+      status: 'unknown',
+      runtime: {
+        provider: 'unknown',
+        configured: false
+      }
     }
 
-    const healthData = await response.json() as any
-    
-    // Return the health data from PAF Core Agent with additional orchestrator info
+    // Try gRPC health check if using gRPC
+    if (connection.type === 'grpc' && connection.grpcClient) {
+      try {
+        const grpcHealth = await connection.grpcClient.health()
+        healthData = {
+          status: grpcHealth.ok ? 'healthy' : 'unhealthy',
+          runtime: {
+            provider: 'grpc',
+            configured: true,
+            connected: grpcHealth.ok
+          },
+          message: grpcHealth.message,
+          timestamp: grpcHealth.timestamp
+        }
+      } catch (grpcError) {
+        console.error('gRPC health check failed, trying HTTP...', grpcError)
+        // Fall through to HTTP check
+      }
+    }
+
+    // Try HTTP health check (if gRPC failed or not using gRPC)
+    if (healthData.status === 'unknown') {
+      try {
+        const response = await fetch(`${coreAgentUrl}/api/health`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          signal: AbortSignal.timeout(5000) // 5 second timeout
+        })
+
+        if (response.ok) {
+          const httpHealth = await response.json() as any
+          healthData = {
+            status: httpHealth.status || 'healthy',
+            runtime: {
+              ...httpHealth.runtime,
+              provider: 'http',
+              configured: true,
+              connected: true
+            }
+          }
+        }
+      } catch (httpError) {
+        console.error('HTTP health check failed:', httpError)
+      }
+    }
+
+    // Return health data with orchestrator info
     res.json({
-      status: healthData.status || 'healthy',
-      runtime: healthData.runtime || {},
+      ...healthData,
       orchestrator: {
         status: 'healthy',
         coreAgentUrl,
-        connected: true
+        connectionType: connection.type,
+        connectionStrategy: process.env.PAF_CORE_CONNECTION_STRATEGY || 'auto',
+        lastHealthCheck: lastHealthCheck ? {
+          type: lastHealthCheck.type,
+          ok: lastHealthCheck.ok,
+          age: Date.now() - lastHealthCheck.timestamp
+        } : null
       }
     })
-    
+
   } catch (error) {
-    // Only log unexpected errors, not connection failures which are expected when PAF Core Agent is down
+    // Only log unexpected errors
     if (!(error instanceof Error && (error.message.includes('ECONNREFUSED') || error.message.includes('fetch failed')))) {
       console.error('Health check error:', error)
     }
-    
+
     const errorMessage = error instanceof Error && error.name === 'TimeoutError'
       ? 'PAF Core Agent health check timed out'
       : error instanceof Error && error.message.includes('fetch')
       ? 'Cannot connect to PAF Core Agent'
       : error instanceof Error ? error.message : 'Unknown error'
-    
-    res.status(500).json({ 
-      status: 'error', 
+
+    res.status(500).json({
+      status: 'error',
       error: errorMessage,
-      runtime: { 
-        provider: 'unknown', 
+      runtime: {
+        provider: 'unknown',
         configured: false,
         coreAgentUrl: await getCoreAgentUrl(),
         connected: false
+      },
+      orchestrator: {
+        status: 'error',
+        connectionStrategy: process.env.PAF_CORE_CONNECTION_STRATEGY || 'auto'
       }
     })
   }

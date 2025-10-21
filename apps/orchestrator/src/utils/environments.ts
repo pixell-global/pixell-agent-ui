@@ -93,24 +93,42 @@ export async function getEnvironmentsConfig(): Promise<EnvironmentConfig[]> {
  */
 export async function getPafCoreAgentUrl(): Promise<string> {
   try {
-    // First try to get from environment variable as fallback
+    // First try to get from environment variable (highest priority)
     const envUrl = process.env.PAF_CORE_AGENT_URL
     if (envUrl) {
+      console.log(`Using PAF Core Agent URL from environment: ${envUrl}`)
       return envUrl
     }
 
     // Get from active environment configuration
     const activeEnv = await getActiveEnvironment()
     if (activeEnv?.pafCoreAgent?.url) {
+      console.log(`Using PAF Core Agent URL from environment config: ${activeEnv.pafCoreAgent.url}`)
       return activeEnv.pafCoreAgent.url
     }
 
-    // Default fallback
+    // Default fallback with warning
+    console.warn('No PAF Core Agent URL configured, using default: http://localhost:8000')
     return 'http://localhost:8000'
   } catch (error) {
     console.error('Failed to get PAF Core Agent URL:', error)
     return 'http://localhost:8000'
   }
+}
+
+/**
+ * Get PAF Core connection strategy from environment
+ * Options: 'grpc', 'http', 'auto' (default: 'auto')
+ * - grpc: Force gRPC only
+ * - http: Force HTTP only
+ * - auto: Try gRPC first, fallback to HTTP on failure
+ */
+export function getPafCoreConnectionStrategy(): 'grpc' | 'http' | 'auto' {
+  const strategy = process.env.PAF_CORE_CONNECTION_STRATEGY?.toLowerCase()
+  if (strategy === 'grpc' || strategy === 'http' || strategy === 'auto') {
+    return strategy
+  }
+  return 'auto' // default
 }
 
 export type { EnvironmentConfig, EnvironmentsConfig } 
