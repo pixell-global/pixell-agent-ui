@@ -158,13 +158,13 @@ export async function getParRuntimeUrl(): Promise<string> {
       return activeEnv.pafCoreAgent.url
     }
 
-    // Default to ALB URL
-    const defaultUrl = 'http://paf-core-agent-prod-alb-62806388.us-east-2.elb.amazonaws.com'
+    // Default to par.pixell.global (production PAR Runtime)
+    const defaultUrl = 'https://par.pixell.global'
     console.warn(`No PAR_RUNTIME_URL configured, using default: ${defaultUrl}`)
     return defaultUrl
   } catch (error) {
     console.error('Failed to get PAR Runtime URL:', error)
-    return 'http://paf-core-agent-prod-alb-62806388.us-east-2.elb.amazonaws.com'
+    return 'https://par.pixell.global'
   }
 }
 
