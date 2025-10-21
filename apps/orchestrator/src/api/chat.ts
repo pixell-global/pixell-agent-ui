@@ -119,13 +119,28 @@ export async function streamChatHandler(req: Request, res: Response) {
 
         // Parse the result and stream it as SSE
         if (result.success) {
-          // Send the result as content
-          const sseData = {
-            type: 'content',
-            delta: { content: result.result },
-            accumulated: result.result
-          };
-          res.write(`data: ${JSON.stringify(sseData)}\n\n`);
+          // Parse the gRPC result to extract the actual response
+          try {
+            const parsedResult = JSON.parse(result.result);
+            const actualResponse = parsedResult?.data?.response || parsedResult?.response || result.result;
+
+            // Send the result as content
+            const sseData = {
+              type: 'content',
+              delta: { content: actualResponse },
+              accumulated: actualResponse
+            };
+            res.write(`data: ${JSON.stringify(sseData)}\n\n`);
+          } catch (parseError) {
+            console.error('❌ Failed to parse gRPC result:', parseError);
+            // Fallback to raw result if parsing fails
+            const sseData = {
+              type: 'content',
+              delta: { content: result.result },
+              accumulated: result.result
+            };
+            res.write(`data: ${JSON.stringify(sseData)}\n\n`);
+          }
         } else {
           // Send error
           const errorData = {
