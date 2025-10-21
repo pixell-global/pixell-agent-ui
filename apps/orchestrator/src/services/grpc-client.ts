@@ -2,7 +2,30 @@ import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import path from 'path';
 import { URL } from 'url';
-import { createPathPrefixInterceptor } from './grpc-interceptor';
+
+/**
+ * PathAwareChannel extends grpc.Channel to support path prefix for ALB routing
+ * Based on solution from: https://github.com/grpc/grpc-node/issues/980
+ */
+class PathAwareChannel extends grpc.Channel {
+  private pathPrefix: string;
+
+  constructor(target: string, credentials: grpc.ChannelCredentials, options: grpc.ChannelOptions, pathPrefix: string = '') {
+    super(target, credentials, options);
+    this.pathPrefix = pathPrefix;
+    if (pathPrefix) {
+      console.log(`📍 PathAwareChannel initialized with prefix: ${pathPrefix}`);
+    }
+  }
+
+  createCall(method: string, deadline: grpc.Deadline | null | undefined, host: string | null | undefined, parentCall: grpc.Call | null | undefined, propagateFlags: number | null | undefined): grpc.Call {
+    const fullPath = this.pathPrefix ? `${this.pathPrefix}${method}` : method;
+    if (this.pathPrefix) {
+      console.log(`🔀 Channel.createCall: ${method} → ${fullPath}`);
+    }
+    return super.createCall(fullPath, deadline, host, parentCall, propagateFlags);
+  }
+}
 
 export interface HealthResponse {
   ok: boolean;
@@ -85,17 +108,8 @@ export class PafCoreGrpcClient {
       ? grpc.credentials.createSsl()
       : grpc.credentials.createInsecure();
 
-    // Create interceptors for A2A path-based routing
-    const interceptors: grpc.Interceptor[] = [];
-    if (agentAppId) {
-      const pathPrefix = `/agents/${agentAppId}/a2a`;
-      const interceptor = createPathPrefixInterceptor(pathPrefix);
-      interceptors.push(interceptor);
-      console.log(`✨ Using PathPrefixInterceptor for A2A routing: ${pathPrefix}`);
-    }
-
-    // Create client options with interceptors
-    const clientOptions: grpc.ChannelOptions = {
+    // Create channel options
+    const channelOptions: grpc.ChannelOptions = {
       // DNS resolver: use native for better compatibility
       'grpc.dns_resolver': 'native',
       // SSL target name override for proper TLS handshake
@@ -104,11 +118,18 @@ export class PafCoreGrpcClient {
       'grpc.default_authority': config.host
     };
 
-    if (interceptors.length > 0) {
-      clientOptions.interceptors = interceptors;
-    }
+    // Build path prefix for A2A routing
+    const pathPrefix = agentAppId ? `/agents/${agentAppId}/a2a` : '';
 
-    // Create client
+    // Create custom channel with path prefix support
+    const channel = new PathAwareChannel(target, credentials, channelOptions, pathPrefix);
+
+    // Create client options with channel override
+    const clientOptions = {
+      channelOverride: channel
+    };
+
+    // Create client with custom channel via channelOverride
     this.client = new this.serviceDefinition(target, credentials, clientOptions);
   }
 
