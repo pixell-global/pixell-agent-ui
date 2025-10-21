@@ -95,7 +95,15 @@ export class PafCoreGrpcClient {
     }
 
     // Create client options with interceptors
-    const clientOptions: grpc.ChannelOptions = {};
+    const clientOptions: grpc.ChannelOptions = {
+      // DNS resolver: use native for better compatibility
+      'grpc.dns_resolver': 'native',
+      // SSL target name override for proper TLS handshake
+      'grpc.ssl_target_name_override': config.host,
+      // Default authority for gRPC requests
+      'grpc.default_authority': config.host
+    };
+
     if (interceptors.length > 0) {
       clientOptions.interceptors = interceptors;
     }
