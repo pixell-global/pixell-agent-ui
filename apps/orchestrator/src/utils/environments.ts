@@ -131,4 +131,59 @@ export function getPafCoreConnectionStrategy(): 'grpc' | 'http' | 'auto' {
   return 'auto' // default
 }
 
+/**
+ * Get PAR Runtime base URL (where agent apps are deployed)
+ * PAF Core is an agent app deployed in the runtime system
+ */
+export async function getParRuntimeUrl(): Promise<string> {
+  try {
+    // First try PAR_RUNTIME_URL (new variable)
+    const parUrl = process.env.PAR_RUNTIME_URL
+    if (parUrl) {
+      console.log(`Using PAR Runtime URL: ${parUrl}`)
+      return parUrl
+    }
+
+    // Fallback to PAF_CORE_AGENT_URL (legacy compatibility)
+    const legacyUrl = process.env.PAF_CORE_AGENT_URL
+    if (legacyUrl) {
+      console.log(`Using legacy PAF_CORE_AGENT_URL as PAR Runtime: ${legacyUrl}`)
+      return legacyUrl
+    }
+
+    // Get from active environment configuration
+    const activeEnv = await getActiveEnvironment()
+    if (activeEnv?.pafCoreAgent?.url) {
+      console.log(`Using PAR Runtime URL from environment config: ${activeEnv.pafCoreAgent.url}`)
+      return activeEnv.pafCoreAgent.url
+    }
+
+    // Default to ALB URL
+    const defaultUrl = 'http://paf-core-agent-prod-alb-62806388.us-east-2.elb.amazonaws.com'
+    console.warn(`No PAR_RUNTIME_URL configured, using default: ${defaultUrl}`)
+    return defaultUrl
+  } catch (error) {
+    console.error('Failed to get PAR Runtime URL:', error)
+    return 'http://paf-core-agent-prod-alb-62806388.us-east-2.elb.amazonaws.com'
+  }
+}
+
+/**
+ * Get PAF Core Agent App ID
+ * PAF Core is deployed as an agent app in the runtime system
+ * Agent app ID is used for A2A path-based routing: /agents/{agent_app_id}/a2a
+ */
+export function getPafCoreAgentAppId(): string | null {
+  const agentId = process.env.PAF_CORE_AGENT_APP_ID
+
+  if (!agentId) {
+    console.warn('⚠️ PAF_CORE_AGENT_APP_ID not set - A2A path routing may not work correctly')
+    console.warn('   Set this environment variable to the agent app ID for proper A2A routing')
+    return null
+  }
+
+  console.log(`📍 PAF Core Agent App ID: ${agentId}`)
+  return agentId
+}
+
 export type { EnvironmentConfig, EnvironmentsConfig } 

@@ -69,28 +69,61 @@ export class ConnectionManager {
   }
 
   /**
+   * Build A2A URL with agent app ID path
+   * Example: http://host/agents/4906eeb7-9959-414e-84c6-f2445822ebe4/a2a
+   */
+  private buildA2AUrl(parRuntimeUrl: string, agentAppId: string | null): string {
+    if (!agentAppId) {
+      console.warn('⚠️ No agent app ID provided, using runtime URL directly');
+      return parRuntimeUrl;
+    }
+
+    // Remove trailing slash from runtime URL
+    const baseUrl = parRuntimeUrl.replace(/\/$/, '');
+
+    // Construct A2A path: /agents/{agent_app_id}/a2a
+    const a2aUrl = `${baseUrl}/agents/${agentAppId}/a2a`;
+
+    console.log(`📍 A2A URL: ${a2aUrl}`);
+    return a2aUrl;
+  }
+
+  /**
    * Get connection based on strategy
    * Returns connection type and client/URL
+   *
+   * @param parRuntimeUrl - PAR Runtime base URL (e.g., http://par.pixell.global or ALB URL)
+   * @param agentAppId - PAF Core agent app ID for A2A routing
    */
-  async getConnection(pafCoreUrl: string): Promise<ConnectionResult> {
+  async getConnection(parRuntimeUrl: string, agentAppId: string | null = null): Promise<ConnectionResult> {
     const strategy = this.getStrategy();
 
     console.log(`🔍 Connection strategy: ${strategy}`);
+    console.log(`🌐 PAR Runtime URL: ${parRuntimeUrl}`);
+    if (agentAppId) {
+      console.log(`📍 Agent App ID: ${agentAppId}`);
+    }
+
+    // Build A2A URL for HTTP requests
+    const a2aUrl = this.buildA2AUrl(parRuntimeUrl, agentAppId);
 
     // Strategy: Force HTTP only
     if (strategy === 'http') {
       console.log('📡 Using HTTP connection (forced by strategy)');
       return {
         type: 'http',
-        httpUrl: pafCoreUrl
+        httpUrl: a2aUrl
       };
     }
 
     // Strategy: Force gRPC only
     if (strategy === 'grpc') {
       console.log('📡 Using gRPC connection (forced by strategy)');
+      console.warn('⚠️ gRPC with A2A path routing requires PathPrefixInterceptor (future enhancement)');
       try {
-        const client = this.getGrpcClient(pafCoreUrl);
+        // Note: For full A2A support, gRPC needs PathPrefixInterceptor
+        // Currently using base runtime URL for gRPC
+        const client = this.getGrpcClient(parRuntimeUrl);
         return {
           type: 'grpc',
           grpcClient: client
@@ -107,7 +140,9 @@ export class ConnectionManager {
     console.log('🔄 Auto mode: Trying gRPC first...');
 
     try {
-      const grpcHealthy = await this.testGrpcConnection(pafCoreUrl);
+      // Note: For full A2A support, gRPC needs PathPrefixInterceptor
+      // Currently using base runtime URL for gRPC
+      const grpcHealthy = await this.testGrpcConnection(parRuntimeUrl);
 
       if (grpcHealthy) {
         console.log('✅ gRPC connection successful');
@@ -125,7 +160,7 @@ export class ConnectionManager {
       }
     } catch (error: any) {
       console.warn(`⚠️ gRPC connection failed: ${error.message}`);
-      console.log('🔄 Falling back to HTTP connection');
+      console.log('🔄 Falling back to HTTP connection with A2A routing');
 
       this.lastHealthCheck = {
         type: 'http',
@@ -135,7 +170,7 @@ export class ConnectionManager {
 
       return {
         type: 'http',
-        httpUrl: pafCoreUrl,
+        httpUrl: a2aUrl,
         error: `gRPC failed, using HTTP fallback: ${error.message}`
       };
     }

@@ -1,10 +1,13 @@
 import { Request, Response } from 'express'
-import { getPafCoreAgentUrl } from '../utils/environments'
+import { getParRuntimeUrl, getPafCoreAgentAppId } from '../utils/environments'
 import { connectionManager } from '../services/connection-manager'
 
-// PAF Core Agent service URL
-const getCoreAgentUrl = async () => {
-  return await getPafCoreAgentUrl()
+// Get PAR Runtime configuration
+const getRuntimeConfig = async () => {
+  const parRuntimeUrl = await getParRuntimeUrl()
+  const agentAppId = getPafCoreAgentAppId()
+
+  return { parRuntimeUrl, agentAppId }
 }
 
 /**
@@ -29,10 +32,11 @@ export async function streamChatHandler(req: Request, res: Response) {
       return res.status(400).json({ error: 'Message is required' })
     }
 
-    const coreAgentUrl = await getCoreAgentUrl()
+    const { parRuntimeUrl, agentAppId } = await getRuntimeConfig()
 
     // Try to get connection (gRPC or HTTP based on strategy)
-    const connection = await connectionManager.getConnection(coreAgentUrl)
+    // Connection manager will build A2A URL: {parRuntimeUrl}/agents/{agentAppId}/a2a
+    const connection = await connectionManager.getConnection(parRuntimeUrl, agentAppId)
     
     // Use the new files format if provided, otherwise fall back to legacy fileContext
     let processedFiles = files
@@ -128,8 +132,13 @@ export async function streamChatHandler(req: Request, res: Response) {
     // Handle HTTP connection (or fallback from gRPC)
     console.log('📡 Using HTTP connection to PAF Core Agent')
 
-    // Make request to PAF Core Agent
-    const response = await fetch(`${coreAgentUrl}/api/chat/stream`, {
+    // Use the A2A URL from connection manager
+    // Format: {parRuntimeUrl}/agents/{agentAppId}/a2a/api/chat/stream
+    const a2aUrl = connection.httpUrl || parRuntimeUrl
+    console.log(`🔗 A2A URL: ${a2aUrl}`)
+
+    // Make request to PAF Core Agent via A2A protocol
+    const response = await fetch(`${a2aUrl}/api/chat/stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -407,9 +416,10 @@ export async function streamChatHandler(req: Request, res: Response) {
  */
 export async function healthHandler(req: Request, res: Response) {
   try {
-    const coreAgentUrl = await getCoreAgentUrl()
-    const connection = await connectionManager.getConnection(coreAgentUrl)
+    const { parRuntimeUrl, agentAppId } = await getRuntimeConfig()
+    const connection = await connectionManager.getConnection(parRuntimeUrl, agentAppId)
     const lastHealthCheck = connectionManager.getLastHealthCheck()
+    const a2aUrl = connection.httpUrl || parRuntimeUrl
 
     let healthData: any = {
       status: 'unknown',
@@ -442,7 +452,7 @@ export async function healthHandler(req: Request, res: Response) {
     // Try HTTP health check (if gRPC failed or not using gRPC)
     if (healthData.status === 'unknown') {
       try {
-        const response = await fetch(`${coreAgentUrl}/api/health`, {
+        const response = await fetch(`${a2aUrl}/api/health`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -472,7 +482,9 @@ export async function healthHandler(req: Request, res: Response) {
       ...healthData,
       orchestrator: {
         status: 'healthy',
-        coreAgentUrl,
+        parRuntimeUrl,
+        agentAppId,
+        a2aUrl,
         connectionType: connection.type,
         connectionStrategy: process.env.PAF_CORE_CONNECTION_STRATEGY || 'auto',
         lastHealthCheck: lastHealthCheck ? {
@@ -495,13 +507,16 @@ export async function healthHandler(req: Request, res: Response) {
       ? 'Cannot connect to PAF Core Agent'
       : error instanceof Error ? error.message : 'Unknown error'
 
+    const { parRuntimeUrl, agentAppId } = await getRuntimeConfig()
+
     res.status(500).json({
       status: 'error',
       error: errorMessage,
       runtime: {
         provider: 'unknown',
         configured: false,
-        coreAgentUrl: await getCoreAgentUrl(),
+        parRuntimeUrl,
+        agentAppId,
         connected: false
       },
       orchestrator: {
@@ -517,9 +532,11 @@ export async function healthHandler(req: Request, res: Response) {
  */
 export async function statusHandler(req: Request, res: Response) {
   try {
-    const coreAgentUrl = await getCoreAgentUrl()
-    
-    const response = await fetch(`${coreAgentUrl}/api/chat/status`, {
+    const { parRuntimeUrl, agentAppId } = await getRuntimeConfig()
+    const connection = await connectionManager.getConnection(parRuntimeUrl, agentAppId)
+    const a2aUrl = connection.httpUrl || parRuntimeUrl
+
+    const response = await fetch(`${a2aUrl}/api/chat/status`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -555,9 +572,11 @@ export async function statusHandler(req: Request, res: Response) {
  */
 export async function modelsHandler(req: Request, res: Response) {
   try {
-    const coreAgentUrl = await getCoreAgentUrl()
-    
-    const response = await fetch(`${coreAgentUrl}/api/chat/models`, {
+    const { parRuntimeUrl, agentAppId } = await getRuntimeConfig()
+    const connection = await connectionManager.getConnection(parRuntimeUrl, agentAppId)
+    const a2aUrl = connection.httpUrl || parRuntimeUrl
+
+    const response = await fetch(`${a2aUrl}/api/chat/models`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
