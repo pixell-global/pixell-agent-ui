@@ -2,6 +2,7 @@ import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import path from 'path';
 import { URL } from 'url';
+import { createPathPrefixInterceptor } from './grpc-interceptor';
 
 export interface HealthResponse {
   ok: boolean;
@@ -56,12 +57,15 @@ export class PafCoreGrpcClient {
   private client: any;
   private serviceDefinition: any;
 
-  constructor(pafCoreUrl: string) {
+  constructor(pafCoreUrl: string, agentAppId?: string | null) {
     // Parse URL to get connection config
     const config = parseUrlForGrpc(pafCoreUrl);
     const target = `${config.host}:${config.port}`;
 
     console.log(`🔗 Initializing gRPC client: ${target} (TLS: ${config.useTLS})`);
+    if (agentAppId) {
+      console.log(`📍 Agent App ID for A2A routing: ${agentAppId}`);
+    }
 
     // Load proto definition
     const PROTO_PATH = path.join(__dirname, '../../proto/agent.proto');
@@ -81,8 +85,23 @@ export class PafCoreGrpcClient {
       ? grpc.credentials.createSsl()
       : grpc.credentials.createInsecure();
 
+    // Create interceptors for A2A path-based routing
+    const interceptors: grpc.Interceptor[] = [];
+    if (agentAppId) {
+      const pathPrefix = `/agents/${agentAppId}/a2a`;
+      const interceptor = createPathPrefixInterceptor(pathPrefix);
+      interceptors.push(interceptor);
+      console.log(`✨ Using PathPrefixInterceptor for A2A routing: ${pathPrefix}`);
+    }
+
+    // Create client options with interceptors
+    const clientOptions: grpc.ChannelOptions = {};
+    if (interceptors.length > 0) {
+      clientOptions.interceptors = interceptors;
+    }
+
     // Create client
-    this.client = new this.serviceDefinition(target, credentials);
+    this.client = new this.serviceDefinition(target, credentials, clientOptions);
   }
 
   /**

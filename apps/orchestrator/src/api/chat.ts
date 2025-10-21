@@ -85,18 +85,37 @@ export async function streamChatHandler(req: Request, res: Response) {
     // Handle gRPC connection
     if (connection.type === 'grpc' && connection.grpcClient) {
       try {
-        console.log('🚀 Using gRPC connection to PAF Core Agent')
+        console.log('🚀 Using gRPC connection to PAF Core Agent with A2A routing')
+
+        // Serialize parameters as strings (gRPC protobuf requirement)
+        const grpcParameters: Record<string, string> = {
+          message: payload.message,
+          files: JSON.stringify(payload.files),
+          history: JSON.stringify(payload.history),
+          show_thinking: String(payload.show_thinking),
+          model: payload.model,
+          temperature: String(payload.temperature)
+        };
+
+        // Include max_tokens if provided
+        if (payload.max_tokens !== undefined) {
+          grpcParameters.max_tokens = String(payload.max_tokens);
+        }
+
+        console.log('📤 gRPC Invoke parameters:', {
+          action: 'chat',
+          parametersCount: Object.keys(grpcParameters).length,
+          message: grpcParameters.message
+        });
 
         // Call gRPC Invoke with 'chat' action
-        const result = await connection.grpcClient.invoke('chat', {
-          message: payload.message,
-          files: payload.files,
-          history: payload.history,
-          show_thinking: payload.show_thinking,
-          model: payload.model,
-          temperature: payload.temperature,
-          max_tokens: payload.max_tokens
-        })
+        const result = await connection.grpcClient.invoke('chat', grpcParameters);
+
+        console.log('📥 gRPC response received:', {
+          success: result.success,
+          duration: result.duration_ms,
+          hasResult: !!result.result
+        });
 
         // Parse the result and stream it as SSE
         if (result.success) {
@@ -105,27 +124,27 @@ export async function streamChatHandler(req: Request, res: Response) {
             type: 'content',
             delta: { content: result.result },
             accumulated: result.result
-          }
-          res.write(`data: ${JSON.stringify(sseData)}\n\n`)
+          };
+          res.write(`data: ${JSON.stringify(sseData)}\n\n`);
         } else {
           // Send error
           const errorData = {
             type: 'error',
             error: result.error || 'Unknown error from PAF Core Agent'
-          }
-          res.write(`data: ${JSON.stringify(errorData)}\n\n`)
+          };
+          res.write(`data: ${JSON.stringify(errorData)}\n\n`);
         }
 
         // Send completion
-        res.write(`data: ${JSON.stringify({ type: 'complete' })}\n\n`)
-        res.write(`data: [DONE]\n\n`)
-        res.end()
-        return
+        res.write(`data: ${JSON.stringify({ type: 'complete' })}\n\n`);
+        res.write(`data: [DONE]\n\n`);
+        res.end();
+        return;
 
       } catch (grpcError) {
-        console.error('❌ gRPC request failed:', grpcError)
+        console.error('❌ gRPC request failed:', grpcError);
         // Fall through to HTTP fallback
-        console.log('🔄 Attempting HTTP fallback...')
+        console.log('🔄 Attempting HTTP fallback...');
       }
     }
 
@@ -135,10 +154,12 @@ export async function streamChatHandler(req: Request, res: Response) {
     // Use the A2A URL from connection manager
     // Format: {parRuntimeUrl}/agents/{agentAppId}/a2a/api/chat/stream
     const a2aUrl = connection.httpUrl || parRuntimeUrl
-    console.log(`🔗 A2A URL: ${a2aUrl}`)
+    const fullUrl = `${a2aUrl}/api/chat/stream`
+    console.log(`🔗 A2A Base URL: ${a2aUrl}`)
+    console.log(`🔗 Full Request URL: ${fullUrl}`)
 
     // Make request to PAF Core Agent via A2A protocol
-    const response = await fetch(`${a2aUrl}/api/chat/stream`, {
+    const response = await fetch(fullUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

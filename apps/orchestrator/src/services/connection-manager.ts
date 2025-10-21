@@ -46,9 +46,9 @@ export class ConnectionManager {
   /**
    * Get or create gRPC client
    */
-  private getGrpcClient(pafCoreUrl: string): PafCoreGrpcClient {
+  private getGrpcClient(parRuntimeUrl: string, agentAppId: string | null): PafCoreGrpcClient {
     if (!this.grpcClient) {
-      this.grpcClient = new PafCoreGrpcClient(pafCoreUrl);
+      this.grpcClient = new PafCoreGrpcClient(parRuntimeUrl, agentAppId);
     }
     return this.grpcClient;
   }
@@ -56,9 +56,9 @@ export class ConnectionManager {
   /**
    * Test gRPC connection health
    */
-  private async testGrpcConnection(pafCoreUrl: string): Promise<boolean> {
+  private async testGrpcConnection(parRuntimeUrl: string, agentAppId: string | null): Promise<boolean> {
     try {
-      const client = this.getGrpcClient(pafCoreUrl);
+      const client = this.getGrpcClient(parRuntimeUrl, agentAppId);
       const health = await client.health();
       console.log(`✅ gRPC health check passed: ${health.message}`);
       return health.ok;
@@ -119,11 +119,8 @@ export class ConnectionManager {
     // Strategy: Force gRPC only
     if (strategy === 'grpc') {
       console.log('📡 Using gRPC connection (forced by strategy)');
-      console.warn('⚠️ gRPC with A2A path routing requires PathPrefixInterceptor (future enhancement)');
       try {
-        // Note: For full A2A support, gRPC needs PathPrefixInterceptor
-        // Currently using base runtime URL for gRPC
-        const client = this.getGrpcClient(parRuntimeUrl);
+        const client = this.getGrpcClient(parRuntimeUrl, agentAppId);
         return {
           type: 'grpc',
           grpcClient: client
@@ -140,9 +137,7 @@ export class ConnectionManager {
     console.log('🔄 Auto mode: Trying gRPC first...');
 
     try {
-      // Note: For full A2A support, gRPC needs PathPrefixInterceptor
-      // Currently using base runtime URL for gRPC
-      const grpcHealthy = await this.testGrpcConnection(parRuntimeUrl);
+      const grpcHealthy = await this.testGrpcConnection(parRuntimeUrl, agentAppId);
 
       if (grpcHealthy) {
         console.log('✅ gRPC connection successful');
