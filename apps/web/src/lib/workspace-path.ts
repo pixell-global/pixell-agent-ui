@@ -65,32 +65,21 @@ export function buildStorageConfigForOrg(orgId: string | null): StorageConfig {
   const base = StorageManager.getConfigFromEnv()
   const safeOrg = orgId || 'public'
 
-  if (base.provider === 'local') {
-    const root = base.config.rootPath || path.join(process.cwd(), 'workspace-files')
-    // Place org workspace under root/orgs/<orgId>/workspace-files
-    base.config.rootPath = path.join(root, 'orgs', safeOrg, 'workspace-files')
-    return base
+  // S3-only: Derive per-organization bucket name
+  base.config.bucketResolver = async () => {
+    const name = await fetchOrganizationName(safeOrg)
+    return generateOrgBucketName(safeOrg, name)
+  }
+  // Keep simple, consistent prefix within each bucket
+  base.config.prefix = base.config.prefix || 'workspace-files'
+
+  // Alias support for S3 endpoint via S3_FILE_STORAGE_URL
+  if (!base.config.endpoint && process.env.S3_FILE_STORAGE_URL) {
+    base.config.endpoint = process.env.S3_FILE_STORAGE_URL
   }
 
-  if (base.provider === 's3') {
-    // Derive per-organization bucket name
-    base.config.bucketResolver = async () => {
-      const name = await fetchOrganizationName(safeOrg)
-      return generateOrgBucketName(safeOrg, name)
-    }
-    // Keep simple, consistent prefix within each bucket
-    base.config.prefix = base.config.prefix || 'workspace-files'
-
-    // Alias support for S3 endpoint via S3_FILE_STORAGE_URL
-    if (!base.config.endpoint && process.env.S3_FILE_STORAGE_URL) {
-      base.config.endpoint = process.env.S3_FILE_STORAGE_URL
-    }
-
-    // Default region precedence: STORAGE_S3_REGION -> AWS_DEFAULT_REGION -> us-east-2
-    base.config.region = base.config.region || process.env.STORAGE_S3_REGION || process.env.AWS_DEFAULT_REGION || 'us-east-2'
-
-    return base
-  }
+  // Default region precedence: STORAGE_S3_REGION -> AWS_DEFAULT_REGION -> us-east-2
+  base.config.region = base.config.region || process.env.STORAGE_S3_REGION || process.env.AWS_DEFAULT_REGION || 'us-east-2'
 
   return base
 }
@@ -110,34 +99,22 @@ export function buildStorageConfigForContext(
   const base = StorageManager.getConfigFromEnv()
   const safeOrg = orgId || 'public'
 
-  if (base.provider === 'local') {
-    const root = base.config.rootPath || path.join(process.cwd(), 'workspace-files')
-    // Build context-specific path using our prefix builder
-    const contextPath = buildStoragePrefix(orgId, context)
-    base.config.rootPath = path.join(root, contextPath)
-    return base
+  // S3-only: Derive per-organization bucket name
+  base.config.bucketResolver = async () => {
+    const name = await fetchOrganizationName(safeOrg)
+    return generateOrgBucketName(safeOrg, name)
   }
 
-  if (base.provider === 's3') {
-    // Derive per-organization bucket name
-    base.config.bucketResolver = async () => {
-      const name = await fetchOrganizationName(safeOrg)
-      return generateOrgBucketName(safeOrg, name)
-    }
+  // Use context-specific prefix (e.g., orgs/{orgId}/users/{userId}/workspace-files)
+  base.config.prefix = buildStoragePrefix(orgId, context)
 
-    // Use context-specific prefix (e.g., orgs/{orgId}/users/{userId}/workspace-files)
-    base.config.prefix = buildStoragePrefix(orgId, context)
-
-    // Alias support for S3 endpoint via S3_FILE_STORAGE_URL
-    if (!base.config.endpoint && process.env.S3_FILE_STORAGE_URL) {
-      base.config.endpoint = process.env.S3_FILE_STORAGE_URL
-    }
-
-    // Default region precedence: STORAGE_S3_REGION -> AWS_DEFAULT_REGION -> us-east-2
-    base.config.region = base.config.region || process.env.STORAGE_S3_REGION || process.env.AWS_DEFAULT_REGION || 'us-east-2'
-
-    return base
+  // Alias support for S3 endpoint via S3_FILE_STORAGE_URL
+  if (!base.config.endpoint && process.env.S3_FILE_STORAGE_URL) {
+    base.config.endpoint = process.env.S3_FILE_STORAGE_URL
   }
+
+  // Default region precedence: STORAGE_S3_REGION -> AWS_DEFAULT_REGION -> us-east-2
+  base.config.region = base.config.region || process.env.STORAGE_S3_REGION || process.env.AWS_DEFAULT_REGION || 'us-east-2'
 
   return base
 }
