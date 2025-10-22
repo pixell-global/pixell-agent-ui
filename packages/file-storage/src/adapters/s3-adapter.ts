@@ -1,4 +1,17 @@
-import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command, HeadObjectCommand } from '@aws-sdk/client-s3'
+import {
+  S3Client,
+  GetObjectCommand,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  ListObjectsV2Command,
+  HeadObjectCommand,
+  HeadBucketCommand,
+  CreateBucketCommand,
+  PutBucketVersioningCommand,
+  PutBucketEncryptionCommand,
+  PutPublicAccessBlockCommand,
+  PutBucketLifecycleConfigurationCommand
+} from '@aws-sdk/client-s3'
 import { Upload } from '@aws-sdk/lib-storage'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { createHash } from 'crypto'
@@ -23,19 +36,20 @@ export class S3Adapter implements FileStorageAdapter {
   private initialized = false
   private maxFileSize = 100 * 1024 * 1024 // 100MB default
   private allowedTypes: string[] = []
+  private bucketResolver?: () => Promise<string>
 
   async initialize(config: Record<string, any>): Promise<void> {
     this.bucket = config.bucket
     this.prefix = config.prefix || 'workspace-files'
     this.maxFileSize = config.maxFileSize || 100 * 1024 * 1024
     this.allowedTypes = config.allowedTypes || []
+    this.bucketResolver = typeof config.bucketResolver === 'function' ? config.bucketResolver : undefined
 
-    if (!this.bucket) {
-      throw new Error('S3 bucket name is required')
-    }
+    // Region default precedence: config -> env -> us-east-2 (framework default)
+    const region = config.region || process.env.AWS_DEFAULT_REGION || 'us-east-2'
 
     this.s3Client = new S3Client({
-      region: config.region || 'us-east-1',
+      region,
       endpoint: config.endpoint, // For non-AWS S3 services
       credentials: config.credentials || {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID || config.accessKeyId,
@@ -46,6 +60,18 @@ export class S3Adapter implements FileStorageAdapter {
 
     // Test connection
     try {
+      // Resolve bucket dynamically if needed
+      if (!this.bucket && this.bucketResolver) {
+        this.bucket = await this.bucketResolver()
+      }
+      if (!this.bucket) {
+        throw new Error('S3 bucket name is required')
+      }
+
+      // Ensure bucket exists (create if missing) for per-org buckets
+      await this.ensureBucketExists(this.bucket)
+
+      // Verify bucket is accessible
       await this.s3Client.send(new ListObjectsV2Command({
         Bucket: this.bucket,
         MaxKeys: 1
@@ -510,6 +536,135 @@ export class S3Adapter implements FileStorageAdapter {
   private ensureInitialized(): void {
     if (!this.initialized) {
       throw new Error('S3Adapter not initialized. Call initialize() first.')
+    }
+  }
+
+  /**
+   * Ensure S3 bucket exists, creating it with security settings if needed
+   */
+  private async ensureBucketExists(bucketName: string): Promise<void> {
+    try {
+      // Check if bucket exists
+      await this.s3Client.send(new HeadBucketCommand({ Bucket: bucketName }))
+      console.log(`✓ S3 bucket exists: ${bucketName}`)
+    } catch (error: any) {
+      if (error.name === 'NotFound' || error.name === 'NoSuchBucket') {
+        // Bucket doesn't exist, create it
+        console.log(`Creating S3 bucket: ${bucketName}`)
+        await this.createBucket(bucketName)
+      } else {
+        // Some other error (access denied, network issue, etc.)
+        throw error
+      }
+    }
+  }
+
+  /**
+   * Create a new S3 bucket with security best practices:
+   * - Versioning enabled
+   * - Encryption enabled (AES-256)
+   * - Public access blocked
+   * - Lifecycle policies configured
+   */
+  private async createBucket(bucketName: string): Promise<void> {
+    try {
+      // 1. Create the bucket
+      await this.s3Client.send(new CreateBucketCommand({
+        Bucket: bucketName
+      }))
+      console.log(`✓ Created S3 bucket: ${bucketName}`)
+
+      // 2. Enable versioning
+      await this.s3Client.send(new PutBucketVersioningCommand({
+        Bucket: bucketName,
+        VersioningConfiguration: {
+          Status: 'Enabled'
+        }
+      }))
+      console.log(`✓ Enabled versioning for: ${bucketName}`)
+
+      // 3. Enable server-side encryption (AES-256)
+      await this.s3Client.send(new PutBucketEncryptionCommand({
+        Bucket: bucketName,
+        ServerSideEncryptionConfiguration: {
+          Rules: [
+            {
+              ApplyServerSideEncryptionByDefault: {
+                SSEAlgorithm: 'AES256'
+              },
+              BucketKeyEnabled: true
+            }
+          ]
+        }
+      }))
+      console.log(`✓ Enabled encryption for: ${bucketName}`)
+
+      // 4. Block all public access
+      await this.s3Client.send(new PutPublicAccessBlockCommand({
+        Bucket: bucketName,
+        PublicAccessBlockConfiguration: {
+          BlockPublicAcls: true,
+          BlockPublicPolicy: true,
+          IgnorePublicAcls: true,
+          RestrictPublicBuckets: true
+        }
+      }))
+      console.log(`✓ Blocked public access for: ${bucketName}`)
+
+      // 5. Set lifecycle policy (archive to Glacier after 30 days, delete after 90 days)
+      try {
+        await this.s3Client.send(new PutBucketLifecycleConfigurationCommand({
+          Bucket: bucketName,
+          LifecycleConfiguration: {
+            Rules: [
+              {
+                Id: 'archive-old-files',
+                Status: 'Enabled',
+                Transitions: [
+                  {
+                    Days: 30,
+                    StorageClass: 'GLACIER'
+                  }
+                ],
+                Expiration: {
+                  Days: 90
+                },
+                Filter: {
+                  Prefix: ''
+                }
+              }
+            ]
+          }
+        }))
+        console.log(`✓ Set lifecycle policy for: ${bucketName}`)
+      } catch (lifecycleError) {
+        // Lifecycle policies are optional - warn but don't fail
+        console.warn(`⚠️  Could not set lifecycle policy for ${bucketName}:`, getErrorMessage(lifecycleError))
+      }
+
+      console.log(`✅ Successfully configured S3 bucket: ${bucketName}`)
+
+    } catch (error: any) {
+      // Handle specific bucket creation errors
+      if (error.name === 'BucketAlreadyExists' || error.name === 'BucketAlreadyOwnedByYou') {
+        // Bucket was created by another process/thread in the meantime - that's ok
+        console.log(`✓ Bucket already exists: ${bucketName}`)
+        return
+      }
+
+      if (error.name === 'AccessDenied' || error.message?.includes('Access Denied')) {
+        throw new Error(
+          `AWS IAM permissions insufficient. Need s3:CreateBucket permission for ${bucketName}. ` +
+          `Please update your IAM policy to allow bucket creation.`
+        )
+      }
+
+      if (error.name === 'InvalidBucketName') {
+        throw new Error(`Generated bucket name is invalid: ${bucketName}. Must be DNS-compliant and <63 characters.`)
+      }
+
+      // Re-throw other errors with context
+      throw new Error(`Failed to create S3 bucket ${bucketName}: ${getErrorMessage(error)}`)
     }
   }
 
