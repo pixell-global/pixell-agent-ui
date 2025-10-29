@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 function OnboardingBrandContent() {
   const params = useSearchParams()
-  const orgId = params?.get('orgId')
+  const orgId = params.get('orgId')
   const router = useRouter()
   const [name, setName] = useState('')
   const [accessMode, setAccessMode] = useState<'shared' | 'isolated'>('shared')

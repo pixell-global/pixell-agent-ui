@@ -1,15 +1,12 @@
 version: 1
 applications:
-  - appRoot: .
+  - appRoot: apps/web
     frontend:
       phases:
         preBuild:
           commands:
+            - cd ../../
             - npm install
-            - npm run build --workspace=@pixell/protocols
-            - npm run build --workspace=@pixell/renderer  
-            - npm run build --workspace=@pixell/db-mysql
-            - npm install --workspace=apps/web
         build:
           commands:
             - cd apps/web

@@ -9,7 +9,7 @@ interface CollapsedActivityPaneProps {
 }
 
 export const CollapsedActivityPane: React.FC<CollapsedActivityPaneProps> = ({ className }) => {
-  const toggleRightPanel = useUIStore(state => state.toggleRightPanel)
+  const toggleRightPanelCollapsed = useUIStore(state => state.toggleRightPanelCollapsed)
 
   return (
     <div className={cn("flex flex-col h-full bg-background border-l", className)}>
@@ -19,7 +19,7 @@ export const CollapsedActivityPane: React.FC<CollapsedActivityPaneProps> = ({ cl
           variant="ghost" 
           size="sm" 
           className="h-8 w-8 p-0" 
-          onClick={toggleRightPanel}
+          onClick={toggleRightPanelCollapsed}
           title="Expand activity"
           aria-label="Expand activity"
         >
