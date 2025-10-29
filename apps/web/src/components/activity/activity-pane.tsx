@@ -41,6 +41,7 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
   const [generatedUI, setGeneratedUI] = useState<{
     title: string
     url: string
+    html: string
   } | null>(null)
   const [uiSpec, setUiSpec] = useState<any | null>(null)
   const [uiData, setUiData] = useState<any | null>(null)
@@ -200,9 +201,21 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
         console.log('✅ URL detected. Rendering in iframe.')
         setGeneratedUI({
           title: result.contents.data.title || 'Generated UI',
-          url: result.contents.data.url || ''
+          url: result.contents.data.url || '',
+          html: result.contents.data.html || ''
         })
-      } else {
+      } 
+
+	  else if (typeof dataObj?.html === 'string') {
+        console.log('✅ HTML detected. Rendering in iframe.')
+        setGeneratedUI({
+          title: result.contents.data.title || 'Generated UI',
+          url: result.contents.data.url || '',
+          html: result.contents.data.html || ''
+        })
+      }
+
+	  else {
         console.log('❌ UI 데이터 파싱 실패 - 예상 구조와 다름')
         console.log('기대하는 구조: result.contents.data.{url, title}')
         console.log('실제 구조:', result)
@@ -286,7 +299,8 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
                 <div className="h-full flex flex-col">
                   <div className="bg-white border rounded p-3 flex-1 overflow-hidden">
                     <iframe 
-                      src={generatedUI.url}
+                      src={generatedUI.html ? undefined : generatedUI.url}
+                      srcDoc={generatedUI.html || undefined}
                       className="w-full h-full border-0"
                       sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation allow-popups-to-escape-sandbox"
                       title={generatedUI.title}

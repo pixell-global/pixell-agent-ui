@@ -280,7 +280,7 @@ export class CoreAgentService {
     payload: any
   }> {
     try {
-      const response = await fetch(`http://localhost:8000/api/activity-manager?organization_id=5d1c6e27-852f-438b-8f69-82dd5b409f5a`, {
+      const response = await fetch(`http://localhost:8000/api/activity-manager?organization_id=5d1c6e27-852f-438b-8f69-82dd5b409f5a`, { /// TODO: ORGANIZATION_ID 처리
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
