@@ -69,71 +69,38 @@ export class StorageManager implements FileStorageAdapter {
 
   /**
    * Get storage configuration from environment variables
+   *
+   * S3-ONLY: This framework now exclusively uses S3-compatible storage.
+   * AWS credentials are required.
    */
   static getConfigFromEnv(): StorageConfig {
-    const provider = (process.env.STORAGE_PROVIDER as StorageProvider) || 'local'
-    
-    let config: Record<string, any> = {}
-    let fallback: { provider: StorageProvider; config: Record<string, any> } | undefined
+    const provider: StorageProvider = 's3'
 
-    switch (provider) {
-      case 'local':
-        config = {
-          rootPath: process.env.STORAGE_LOCAL_PATH || './workspace-files',
-          maxFileSize: parseInt(process.env.STORAGE_MAX_FILE_SIZE || '52428800'), // 50MB
-          allowedTypes: process.env.STORAGE_ALLOWED_TYPES?.split(',') || []
-        }
-        break
+    // Validate AWS credentials are present
+    const accessKeyId = process.env.STORAGE_S3_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID
+    const secretAccessKey = process.env.STORAGE_S3_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY
 
-      case 's3':
-        config = {
-          bucket: process.env.STORAGE_S3_BUCKET,
-          region: process.env.STORAGE_S3_REGION || 'us-east-1',
-          endpoint: process.env.STORAGE_S3_ENDPOINT,
-          accessKeyId: process.env.STORAGE_S3_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID,
-          secretAccessKey: process.env.STORAGE_S3_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY,
-          prefix: process.env.STORAGE_S3_PREFIX || 'workspace-files',
-          maxFileSize: parseInt(process.env.STORAGE_MAX_FILE_SIZE || '104857600'), // 100MB
-          allowedTypes: process.env.STORAGE_ALLOWED_TYPES?.split(',') || [],
-          forcePathStyle: process.env.STORAGE_S3_FORCE_PATH_STYLE === 'true'
-        }
-
-        if (!config.bucket) {
-          console.warn('S3 bucket not configured, falling back to local storage')
-          fallback = {
-            provider: 'local',
-            config: {
-              rootPath: './workspace-files',
-              maxFileSize: 52428800
-            }
-          }
-        }
-        break
-
-      case 'supabase':
-        config = {
-          url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-          anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-          serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-          bucket: process.env.STORAGE_SUPABASE_BUCKET || 'workspace-files',
-          maxFileSize: parseInt(process.env.STORAGE_MAX_FILE_SIZE || '52428800'), // 50MB
-          allowedTypes: process.env.STORAGE_ALLOWED_TYPES?.split(',') || []
-        }
-
-        if (!config.url || !config.anonKey) {
-          console.warn('Supabase not configured, falling back to local storage')
-          fallback = {
-            provider: 'local',
-            config: {
-              rootPath: './workspace-files',
-              maxFileSize: 52428800
-            }
-          }
-        }
-        break
+    if (!accessKeyId || !secretAccessKey) {
+      throw new Error(
+        'AWS credentials required for S3 storage.\n' +
+        'Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables.\n' +
+        'See documentation for IAM permission requirements.'
+      )
     }
 
-    return { provider, config, fallback }
+    const config = {
+      bucket: process.env.STORAGE_S3_BUCKET, // optional; will be derived per org if not set
+      region: process.env.STORAGE_S3_REGION || process.env.AWS_DEFAULT_REGION || 'us-east-2',
+      endpoint: process.env.STORAGE_S3_ENDPOINT,
+      accessKeyId,
+      secretAccessKey,
+      prefix: process.env.STORAGE_S3_PREFIX || 'workspace-files',
+      maxFileSize: parseInt(process.env.STORAGE_MAX_FILE_SIZE || '104857600'), // 100MB
+      allowedTypes: process.env.STORAGE_ALLOWED_TYPES?.split(',') || [],
+      forcePathStyle: process.env.STORAGE_S3_FORCE_PATH_STYLE === 'true'
+    }
+
+    return { provider, config }
   }
 
   // FileStorageAdapter implementation with fallback support

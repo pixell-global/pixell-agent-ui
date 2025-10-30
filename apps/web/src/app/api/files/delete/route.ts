@@ -3,17 +3,12 @@ import { StorageManager } from '@pixell/file-storage/src/storage-manager'
 import { resolveUserAndOrg, buildStorageConfigForContext } from '@/lib/workspace-path'
 import { getDefaultContext, type StorageContext } from '@/lib/storage-context'
 
-export async function GET(request: NextRequest) {
+export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const filePath = searchParams.get('path')
-    const format = searchParams.get('format') // 'base64' for binary files (not used for adapters)
-
     if (!filePath) {
-      return NextResponse.json(
-        { success: false, error: 'Path is required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: 'Path is required' }, { status: 400 })
     }
 
     const { userId, orgId } = await resolveUserAndOrg(request)
@@ -52,22 +47,14 @@ export async function GET(request: NextRequest) {
     const storage = new StorageManager()
     await storage.initialize(config)
 
-    // Read via adapter; S3Adapter already handles size checks
-    const { content, metadata } = await storage.readFile(filePath.startsWith('/') ? filePath : `/${filePath}`)
-
-    return NextResponse.json({
-      success: true,
-      content,
-      path: filePath,
-      size: metadata.size,
-      format: format || 'text',
-      encoding: 'utf8',
-      lastModified: metadata.lastModified
-    })
+    await storage.deleteFile(filePath.startsWith('/') ? filePath : `/${filePath}`)
+    return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to read file' },
+      { success: false, error: error instanceof Error ? error.message : 'Failed to delete' },
       { status: 500 }
     )
   }
 }
+
+
