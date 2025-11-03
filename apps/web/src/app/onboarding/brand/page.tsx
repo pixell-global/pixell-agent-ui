@@ -30,8 +30,8 @@ function OnboardingBrandContent() {
         body: JSON.stringify({ name, metadata: { accessMode } }),
       })
       if (!res.ok) throw new Error((await res.json()).error || 'Failed to create brand')
-      addToast({ type: 'success', title: 'Brand created', description: 'Welcome to Pixell Agent Framework!'} )
-      router.push('/')
+      addToast({ type: 'success', title: 'Brand created', description: 'Proceed to billing'} )
+      router.push(`/billing?orgId=${orgId}`)
     } catch (err: any) {
       setError(err?.message || 'Error')
       addToast({ type: 'error', title: 'Failed to create brand', description: err?.message })
@@ -70,7 +70,7 @@ function OnboardingBrandContent() {
               </Select>
               {error && <p className="text-red-600 text-sm font-inter">{error}</p>}
               <Button type="submit" className="w-full h-12 btn-lime font-inter" disabled={loading}>
-                {loading ? 'Creating...' : 'Get Started'}
+                {loading ? 'Creating...' : 'Finish'}
               </Button>
             </form>
           </CardContent>

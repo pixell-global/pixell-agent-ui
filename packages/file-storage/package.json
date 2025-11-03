@@ -7,32 +7,23 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "clean": "rm -rf dist",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:unit": "jest --testPathIgnorePatterns=integration",
-    "test:integration": "RUN_S3_INTEGRATION_TESTS=true jest integration.test.ts",
-    "test:coverage": "jest --coverage"
+    "clean": "rm -rf dist"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.470.0",
     "@aws-sdk/lib-storage": "^3.470.0",
     "@aws-sdk/s3-request-presigner": "^3.470.0",
+    "@supabase/supabase-js": "^2.38.0",
     "fs-extra": "^11.2.0",
     "mime-types": "^2.1.35"
   },
   "devDependencies": {
-    "@smithy/smithy-client": "^4.9.0",
     "@types/fs-extra": "^11.0.4",
     "@types/mime-types": "^2.1.4",
     "@types/node": "^20.0.0",
-    "@vitest/ui": "^3.2.4",
-    "aws-sdk-client-mock": "^4.1.0",
-    "aws-sdk-client-mock-jest": "^4.1.0",
-    "typescript": "^5.0.0",
-    "vitest": "^3.2.4"
+    "typescript": "^5.0.0"
   },
   "files": [
     "dist/**/*"
   ]
-}
+} 

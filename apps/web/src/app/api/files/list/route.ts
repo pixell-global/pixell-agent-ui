@@ -1,81 +1,96 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { StorageManager } from '@pixell/file-storage/src/storage-manager'
-import { resolveUserAndOrg, buildStorageConfigForContext } from '@/lib/workspace-path'
-import { getDefaultContext, type StorageContext } from '@/lib/storage-context'
+import { exec } from 'child_process'
+import { promisify } from 'util'
+import path from 'path'
+import fs from 'fs-extra'
+
+const execAsync = promisify(exec)
+
+
+// Get workspace path from environment or default
+const getWorkspacePath = () => {
+  return process.env.STORAGE_LOCAL_PATH || path.join(process.cwd(), 'workspace-files')
+}
+
+// Recursively read directory structure
+const readDirectoryRecursive = async (dirPath: string, relativePath: string = ''): Promise<any[]> => {
+  const files = []
+  
+  try {
+    const items = await fs.readdir(dirPath, { withFileTypes: true })
+    
+    for (const item of items) {
+      if (item.name.startsWith('.') && item.name !== '.temp') continue // Skip hidden files except .temp
+      
+      const itemPath = path.join(dirPath, item.name)
+      const itemRelativePath = relativePath ? `${relativePath}/${item.name}` : item.name
+      const stats = await fs.stat(itemPath)
+      
+      const fileNode = {
+        id: Buffer.from(itemRelativePath).toString('base64'),
+        name: item.name,
+        path: `/${itemRelativePath}`,
+        type: item.isDirectory() ? 'folder' : 'file',
+        size: item.isDirectory() ? undefined : stats.size,
+        lastModified: stats.mtime.toISOString(),
+        isExpanded: false,
+        children: undefined as any
+      }
+      
+      // Recursively load children for directories
+      if (item.isDirectory()) {
+        try {
+          const children = await readDirectoryRecursive(itemPath, itemRelativePath)
+          fileNode.children = children
+        } catch (error) {
+          console.error(`Error reading directory ${itemPath}:`, error)
+          fileNode.children = []
+        }
+      }
+      
+      files.push(fileNode)
+    }
+  } catch (error) {
+    console.error(`Error reading directory ${dirPath}:`, error)
+  }
+  
+  return files
+}
 
 export async function GET(request: NextRequest) {
   try {
-    const { userId, orgId } = await resolveUserAndOrg(request)
-
-    // If no user is authenticated, return empty file list
-    if (!userId) {
+    const workspacePath = getWorkspacePath()
+    
+    // Check if workspace directory exists
+    if (!(await fs.pathExists(workspacePath))) {
       return NextResponse.json({
         success: true,
         files: [],
-        path: '/',
-        message: 'No files available - please sign in'
+        path: '/'
       })
     }
-
-    // Get storage context from query params or default to user context
-    const searchParams = request.nextUrl.searchParams
-    const contextType = searchParams.get('context') || 'user'
-    const contextId = searchParams.get('contextId')
-
-    let context: StorageContext
-    switch (contextType) {
-      case 'team':
-        if (!contextId) {
-          return NextResponse.json({
-            success: false,
-            error: 'teamId required for team context'
-          }, { status: 400 })
-        }
-        context = { type: 'team', teamId: contextId }
-        break
-
-      case 'brand':
-        if (!contextId) {
-          return NextResponse.json({
-            success: false,
-            error: 'brandId required for brand context'
-          }, { status: 400 })
-        }
-        context = { type: 'brand', brandId: contextId }
-        break
-
-      case 'shared':
-        context = { type: 'shared' }
-        break
-
-      case 'user':
-      default:
-        context = getDefaultContext(userId)
-        break
+    
+    try {
+      const files = await readDirectoryRecursive(workspacePath)
+      
+      return NextResponse.json({
+        success: true,
+        files,
+        path: '/'
+      })
+    } catch (error) {
+      console.error('Error reading workspace directory:', error)
+      return NextResponse.json({
+        success: true,
+        files: [],
+        path: '/'
+      })
     }
-
-    const config = buildStorageConfigForContext(orgId, context)
-    const storage = new StorageManager()
-    await storage.initialize(config)
-
-    const relativePath = searchParams.get('path') || '/'
-    const files = await storage.listFiles(relativePath)
-
-    return NextResponse.json({
-      success: true,
-      files,
-      path: relativePath,
-      context: context.type
-    })
   } catch (error) {
     console.error('Error listing files:', error)
-
-    // Return a more user-friendly response for storage errors
-    return NextResponse.json({
-      success: true,
-      files: [],
-      path: '/',
-      message: 'File storage temporarily unavailable'
-    })
+    return NextResponse.json(
+      { success: false, error: 'Failed to list files' },
+      { status: 500 }
+    )
   }
-}
+} 
