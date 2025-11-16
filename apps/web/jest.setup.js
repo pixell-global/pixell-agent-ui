@@ -15,3 +15,7 @@ process.env.STRIPE_PRICE_ID_STARTER = 'price_starter_test'
 process.env.STRIPE_PRICE_ID_PRO = 'price_pro_test'
 process.env.STRIPE_PRICE_ID_MAX = 'price_max_test'
 process.env.STRIPE_PRICE_ID_TOPUP_500 = 'price_topup_test'
+
+// Setup database mocks globally
+jest.mock('@pixell/db-mysql')
+jest.mock('@pixell/db-mysql/schema')
