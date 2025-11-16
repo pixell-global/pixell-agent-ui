@@ -49,6 +49,10 @@ const nextConfig: NextConfig = {
   },
   // Force dynamic rendering for all pages
   trailingSlash: false,
+  // Enable instrumentation for server startup hooks
+  experimental: {
+    instrumentationHook: true,
+  },
 };
 
 export default nextConfig;
