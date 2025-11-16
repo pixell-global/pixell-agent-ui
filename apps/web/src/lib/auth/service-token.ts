@@ -41,10 +41,20 @@ export function validateServiceToken(request: NextRequest): boolean {
   }
 
   // Use constant-time comparison to prevent timing attacks
-  return crypto.timingSafeEqual(
-    Buffer.from(token),
-    Buffer.from(expectedToken)
-  )
+  // First check length to avoid crypto.timingSafeEqual error
+  if (token.length !== expectedToken.length) {
+    return false
+  }
+
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(token),
+      Buffer.from(expectedToken)
+    )
+  } catch (error) {
+    // Handle any buffer comparison errors
+    return false
+  }
 }
 
 /**
