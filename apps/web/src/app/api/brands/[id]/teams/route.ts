@@ -4,35 +4,37 @@ import { BrandsRepo } from '@pixell/db-mysql'
 
 const repo = new BrandsRepo()
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const sessionCookieName = process.env.SESSION_COOKIE_NAME || 'session'
     const sessionCookie = request.cookies.get(sessionCookieName)?.value
     if (!sessionCookie) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     await verifySessionCookie(sessionCookie)
 
+    const { id } = await params
     const { teamId, role } = await request.json()
     if (!teamId) return NextResponse.json({ error: 'teamId is required' }, { status: 400 })
 
-    await repo.assignTeam(params.id, teamId, role)
+    await repo.assignTeam(id, teamId, role)
     return NextResponse.json({ ok: true })
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || 'Internal error' }, { status: 500 })
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const sessionCookieName = process.env.SESSION_COOKIE_NAME || 'session'
     const sessionCookie = request.cookies.get(sessionCookieName)?.value
     if (!sessionCookie) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     await verifySessionCookie(sessionCookie)
 
+    const { id } = await params
     const { searchParams } = new URL(request.url)
     const teamId = searchParams.get('teamId')
     if (!teamId) return NextResponse.json({ error: 'teamId is required' }, { status: 400 })
 
-    await repo.revokeTeam(params.id, teamId)
+    await repo.revokeTeam(id, teamId)
     return NextResponse.json({ ok: true })
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || 'Internal error' }, { status: 500 })
