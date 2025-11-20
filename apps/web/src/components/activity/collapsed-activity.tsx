@@ -8,14 +8,14 @@ interface CollapsedActivityProps {
 }
 
 export const CollapsedActivity: React.FC<CollapsedActivityProps> = ({ className }) => {
-  const toggleRightPanelCollapsed = useUIStore(state => state.toggleRightPanelCollapsed)
+  const toggleRightPanel = useUIStore(state => state.toggleRightPanel)
 
   return (
     <div className={cn('relative h-full bg-background border-l', className)}>
       {/* Slim gutter with top-centered button */}
       <div className="absolute top-2 left-1/2 -translate-x-1/2">
         <button
-          onClick={toggleRightPanelCollapsed}
+          onClick={toggleRightPanel}
           title="Expand activity"
           aria-label="Expand activity"
           className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted"

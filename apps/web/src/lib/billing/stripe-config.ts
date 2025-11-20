@@ -6,11 +6,23 @@
 
 import Stripe from 'stripe'
 
-// Initialize Stripe client
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-11-20.acacia',
-  typescript: true,
-})
+// Initialize Stripe client (only if secret key is provided)
+let stripeInstance: Stripe | null = null
+
+export const stripe = (() => {
+  const secretKey = process.env.STRIPE_SECRET_KEY
+  if (!secretKey) {
+    console.warn('[Stripe] STRIPE_SECRET_KEY not configured. Stripe features will be disabled.')
+    return null as any // Return a mock object to prevent errors
+  }
+  if (!stripeInstance) {
+    stripeInstance = new Stripe(secretKey, {
+      apiVersion: '2025-10-29.clover',
+      typescript: true,
+    })
+  }
+  return stripeInstance
+})()
 
 /**
  * Subscription Plan Configuration

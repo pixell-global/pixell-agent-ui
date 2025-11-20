@@ -4,8 +4,8 @@
  * Handles credit balance tracking, deduction, and validation
  */
 
-import { db } from '@pixell/db-mysql'
-import { creditBalances, billableActions } from '@pixell/db-mysql/schema'
+import { getDb } from '@pixell/db-mysql'
+import { creditBalances, billableActions, organizations, subscriptions } from '@pixell/db-mysql/schema'
 import { eq } from 'drizzle-orm'
 import { ACTION_CREDIT_COSTS, type ActionTier, calculatePlanCredits, type SubscriptionTier } from './stripe-config'
 
@@ -61,6 +61,7 @@ export interface CreditDeductionResult {
  * Get current credit balance for organization
  */
 export async function getCreditBalance(orgId: string): Promise<CreditBalance | null> {
+  const db = await getDb()
   const [balance] = await db
     .select()
     .from(creditBalances)
@@ -75,6 +76,9 @@ export async function getCreditBalance(orgId: string): Promise<CreditBalance | n
     ...balance,
     topupCredits: balance.topupCredits,
     topupCreditsUsed: balance.topupCreditsUsed,
+    autoTopupEnabled: balance.autoTopupEnabled ?? false,
+    lastWarning80At: balance.lastWarning80At ?? null,
+    lastWarning100At: balance.lastWarning100At ?? null,
   }
 }
 
@@ -87,6 +91,7 @@ export async function initializeCreditBalance(
   periodStart: Date,
   periodEnd: Date
 ): Promise<void> {
+  const db = await getDb()
   const credits = calculatePlanCredits(tier)
 
   await db.insert(creditBalances).values({
@@ -181,6 +186,7 @@ export async function deductCredits(
     idempotencyKey?: string
   }
 ): Promise<CreditDeductionResult> {
+  const db = await getDb()
   const balance = await getCreditBalance(orgId)
 
   if (!balance) {
@@ -273,6 +279,19 @@ export async function deductCredits(
       }
     : undefined
 
+  // Check if auto top-up should trigger
+  if (updatedBalance && updatedBalance.autoTopupEnabled && balanceAfter) {
+    const totalRemainingCredits =
+      balanceAfter.small + balanceAfter.medium + balanceAfter.large + balanceAfter.xl + balanceAfter.topup
+
+    if (totalRemainingCredits < updatedBalance.autoTopupThreshold) {
+      // Trigger auto top-up in the background (don't await to avoid blocking the deduction response)
+      triggerAutoTopup(orgId, updatedBalance.autoTopupAmount).catch((error) => {
+        console.error(`[Auto Top-up] Failed to trigger auto top-up for org ${orgId}:`, error)
+      })
+    }
+  }
+
   return {
     success: true,
     billableActionId: billableAction.id,
@@ -284,6 +303,7 @@ export async function deductCredits(
  * Add top-up credits to organization
  */
 export async function addTopupCredits(orgId: string, amount: number): Promise<void> {
+  const db = await getDb()
   const balance = await getCreditBalance(orgId)
 
   if (!balance) {
@@ -301,6 +321,81 @@ export async function addTopupCredits(orgId: string, amount: number): Promise<vo
 }
 
 /**
+ * Trigger auto top-up purchase
+ * Creates a Stripe payment intent to charge for credits
+ */
+async function triggerAutoTopup(orgId: string, amount: number): Promise<void> {
+  console.log(`[Auto Top-up] Triggering auto top-up for org ${orgId}: ${amount} credits`)
+
+  try {
+    const db = await getDb()
+
+    // Get organization and subscription
+    const [org] = await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.id, orgId))
+      .limit(1)
+
+    if (!org) {
+      throw new Error('Organization not found')
+    }
+
+    const [sub] = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.orgId, orgId))
+      .limit(1)
+
+    if (!sub || !sub.stripeCustomerId) {
+      throw new Error('No Stripe customer found for organization')
+    }
+
+    // Import stripe here to avoid circular dependencies
+    const { stripe } = await import('@/lib/billing/stripe-config')
+
+    if (!stripe) {
+      throw new Error('Stripe not configured')
+    }
+
+    // Calculate price ($0.04 per credit)
+    const priceInCents = Math.round(amount * 0.04 * 100) // Convert to cents
+
+    // Create payment intent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: priceInCents,
+      currency: 'usd',
+      customer: sub.stripeCustomerId,
+      description: `Auto top-up: ${amount} credits`,
+      metadata: {
+        orgId,
+        purchaseType: 'auto_topup',
+        creditsAmount: amount.toString(),
+      },
+      automatic_payment_methods: {
+        enabled: true,
+        allow_redirects: 'never',
+      },
+      off_session: true, // This is for automatic charges
+      confirm: true, // Immediately confirm the payment
+    })
+
+    console.log(`[Auto Top-up] Payment intent created: ${paymentIntent.id}, status: ${paymentIntent.status}`)
+
+    // If payment succeeded, webhook will handle adding the credits
+    // If payment requires action, log it (customer will need to update payment method)
+    if (paymentIntent.status === 'requires_action') {
+      console.error(`[Auto Top-up] Payment requires action for org ${orgId}. Customer may need to update payment method.`)
+      // TODO: Send email notification to customer
+    }
+  } catch (error: any) {
+    console.error(`[Auto Top-up] Failed to create payment intent for org ${orgId}:`, error.message)
+    // TODO: Send email notification about failed auto top-up
+    throw error
+  }
+}
+
+/**
  * Reset credits for new billing period
  */
 export async function resetCreditsForNewPeriod(
@@ -309,6 +404,7 @@ export async function resetCreditsForNewPeriod(
   periodStart: Date,
   periodEnd: Date
 ): Promise<void> {
+  const db = await getDb()
   const credits = calculatePlanCredits(tier)
 
   await db

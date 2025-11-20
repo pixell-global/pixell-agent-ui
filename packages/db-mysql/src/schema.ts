@@ -13,10 +13,12 @@ export const organizations = mysqlTable('organizations', {
   id: char('id', { length: 36 }).primaryKey(),
   name: varchar('name', { length: 160 }).notNull(),
   createdBy: varchar('created_by', { length: 128 }).notNull(),
+
+  // Stripe integration (synchronized from Stripe - see subscriptions table comments)
   stripeCustomerId: varchar('stripe_customer_id', { length: 120 }),
-  subscriptionStatus: mysqlEnum('subscription_status', ['active', 'trialing', 'past_due', 'incomplete', 'canceled']).default('incomplete').notNull(),
-  subscriptionTier: mysqlEnum('subscription_tier', ['free', 'starter', 'pro', 'max']).default('free').notNull(),
-  trialEndsAt: timestamp('trial_ends_at'),
+  subscriptionStatus: mysqlEnum('subscription_status', ['active', 'trialing', 'past_due', 'incomplete', 'canceled']).default('incomplete').notNull(), // Synced from Stripe
+  subscriptionTier: mysqlEnum('subscription_tier', ['free', 'starter', 'pro', 'max']).default('free').notNull(), // Synced from Stripe
+  trialEndsAt: timestamp('trial_ends_at'), // Synced from Stripe
   lastBillingWarningAt: timestamp('last_billing_warning_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
@@ -124,6 +126,34 @@ export const actionEvents = mysqlTable('action_events', {
 // =============================================================================
 // BILLING TABLES
 // =============================================================================
+//
+// IMPORTANT FOR AI AGENTS: Database Synchronization Architecture
+// ================================================================
+//
+// The `subscriptions` and `organizations` tables contain subscription data
+// that is synchronized from Stripe (Single Source of Truth).
+//
+// STRIPE IS THE SSoT - Our database is a read-optimized cache
+//
+// Synchronization Mechanisms:
+// 1. PRIMARY: Webhooks (apps/web/src/app/api/webhooks/stripe/route.ts)
+//    - Real-time updates when Stripe events occur
+//    - Events: checkout.session.completed, customer.subscription.*, invoice.*
+//
+// 2. BACKUP: Lambda reconciliation (packages/workers/subscription-reconciliation/)
+//    - Runs weekly (Sundays 3am UTC)
+//    - Catches missed webhooks and manual Stripe changes
+//    - Ensures eventual consistency
+//
+// NEVER update Stripe based on this database. Always:
+// - Query Stripe for authoritative subscription data
+// - Update this database to match Stripe (via webhooks or reconciliation)
+// - On conflicts, Stripe data overwrites database data
+//
+// Related Documentation:
+// - BILLING_SYSTEM_ARCHITECTURE.md
+// - packages/workers/subscription-reconciliation/README.md
+// ================================================================
 
 export const subscriptions = mysqlTable('subscriptions', {
   id: char('id', { length: 36 }).primaryKey(),

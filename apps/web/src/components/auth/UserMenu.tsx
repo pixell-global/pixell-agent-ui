@@ -13,20 +13,22 @@ import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from './AuthProvider'
-import { 
-  User, 
-  Settings, 
-  LogOut, 
-  Shield, 
+import {
+  User,
+  Settings,
+  LogOut,
+  Shield,
   Bell,
   HelpCircle,
   Building2
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { useUIStore } from '@/stores/ui-store'
+import { useRouter } from 'next/navigation'
 
 export const UserMenu: React.FC = () => {
   const { user, signOut, status } = useAuth()
+  const router = useRouter()
   const BrandSelector = dynamic(async () => (await import('../brands/BrandSelector')).BrandSelector, { ssr: false })
   const leftPanelVisible = useUIStore(state => state.leftPanelVisible)
   const leftPanelCollapsed = useUIStore(state => state.leftPanelCollapsed)
@@ -108,27 +110,27 @@ export const UserMenu: React.FC = () => {
         </DropdownMenuItem>
         
         <DropdownMenuSeparator />
-        
-        <DropdownMenuItem>
+
+        <DropdownMenuItem onClick={() => router.push('/settings/profile')}>
           <User className="mr-2 h-4 w-4" />
           Profile
         </DropdownMenuItem>
-        
-        <DropdownMenuItem>
+
+        <DropdownMenuItem onClick={() => router.push('/settings/billing')}>
           <Settings className="mr-2 h-4 w-4" />
           Settings
         </DropdownMenuItem>
-        
-        <DropdownMenuItem>
+
+        <DropdownMenuItem onClick={() => router.push('/settings/notifications')}>
           <Bell className="mr-2 h-4 w-4" />
           Notifications
         </DropdownMenuItem>
-        
-        
-        
+
+
+
         <DropdownMenuSeparator />
-        
-        <DropdownMenuItem>
+
+        <DropdownMenuItem onClick={() => window.open('https://docs.pixell.ai', '_blank')}>
           <HelpCircle className="mr-2 h-4 w-4" />
           Help & Support
         </DropdownMenuItem>

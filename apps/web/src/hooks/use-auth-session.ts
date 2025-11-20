@@ -4,7 +4,7 @@ import { useEffect, useCallback } from 'react'
 import { useUserStore } from '@/stores/user-store'
 
 export function useAuthSession() {
-  const { setUser, setLoading, handleSessionExpired } = useUserStore()
+  const { setUser, setLoading, clearUser } = useUserStore()
 
   const checkSession = useCallback(async () => {
     try {
@@ -31,19 +31,19 @@ export function useAuthSession() {
           setUser(user as any)
         } else {
           // No user returned - session may be expired
-          handleSessionExpired()
+          clearUser()
         }
       } else {
         // API returned error - likely session expired
-        handleSessionExpired()
+        clearUser()
       }
     } catch (error) {
       console.error('Session check failed:', error)
-      handleSessionExpired()
+      clearUser()
     } finally {
       setLoading(false)
     }
-  }, [setUser, setLoading, handleSessionExpired])
+  }, [setUser, setLoading, clearUser])
 
   // Check session on mount and set up periodic checks
   useEffect(() => {

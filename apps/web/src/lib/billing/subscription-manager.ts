@@ -2,9 +2,38 @@
  * Subscription Manager
  *
  * Handles subscription lifecycle: create, update, cancel, retrieve
+ *
+ * =============================================================================
+ * ARCHITECTURE NOTE FOR AI AGENTS
+ * =============================================================================
+ *
+ * STRIPE IS THE SINGLE SOURCE OF TRUTH (SSoT)
+ *
+ * This module handles USER-INITIATED subscription actions. These are the ONLY
+ * cases where we update Stripe (all other updates come FROM Stripe TO us):
+ *
+ * User-Initiated Actions (Stripe API calls):
+ * - Create subscription → stripe.subscriptions.create()
+ * - Upgrade/downgrade → stripe.subscriptions.update()
+ * - Cancel subscription → stripe.subscriptions.update({ cancel_at_period_end })
+ *
+ * Database Synchronization Flow:
+ * 1. User action → This module calls Stripe API
+ * 2. Stripe processes → Sends webhook event
+ * 3. Webhook handler → Updates database (apps/web/src/app/api/webhooks/stripe/route.ts)
+ * 4. Lambda reconciliation → Weekly backup sync (packages/workers/subscription-reconciliation/)
+ *
+ * Database reads in this file are for CACHING/PERFORMANCE only.
+ * For authoritative subscription state, always query Stripe directly.
+ *
+ * Related Files:
+ * - Webhook handler: apps/web/src/app/api/webhooks/stripe/route.ts
+ * - Lambda reconciliation: packages/workers/subscription-reconciliation/
+ * - Database schema: packages/db-mysql/src/schema.ts
+ * =============================================================================
  */
 
-import { db } from '@pixell/db-mysql'
+import { getDb } from '@pixell/db-mysql'
 import { subscriptions, organizations, creditBalances } from '@pixell/db-mysql/schema'
 import { eq } from 'drizzle-orm'
 import { stripe } from './stripe-config'
@@ -37,6 +66,7 @@ export interface CancelSubscriptionParams {
  * Get subscription for organization
  */
 export async function getSubscription(orgId: string) {
+  const db = await getDb()
   const [subscription] = await db
     .select()
     .from(subscriptions)
@@ -51,6 +81,7 @@ export async function getSubscription(orgId: string) {
  */
 export async function createSubscription(params: CreateSubscriptionParams) {
   const { orgId, orgName, userEmail, tier, trialDays = 7 } = params
+  const db = await getDb()
 
   // Get organization
   const [org] = await db
@@ -115,6 +146,10 @@ export async function createSubscription(params: CreateSubscriptionParams) {
   }
 
   // Paid tier: create Stripe customer and subscription
+  if (!stripe) {
+    throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.')
+  }
+
   let customerId = org.stripeCustomerId
 
   // Create Stripe customer if doesn't exist
@@ -173,20 +208,20 @@ export async function createSubscription(params: CreateSubscriptionParams) {
     stripeCustomerId: customerId,
     planTier: tier,
     status: stripeSubscription.status as any,
-    currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
-    currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
-    trialEnd: stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000) : null,
-    cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
-    canceledAt: stripeSubscription.canceled_at ? new Date(stripeSubscription.canceled_at * 1000) : null,
-    endedAt: stripeSubscription.ended_at ? new Date(stripeSubscription.ended_at * 1000) : null,
+    currentPeriodStart: new Date((stripeSubscription as any).current_period_start * 1000),
+    currentPeriodEnd: new Date((stripeSubscription as any).current_period_end * 1000),
+    trialEnd: (stripeSubscription as any).trial_end ? new Date((stripeSubscription as any).trial_end * 1000) : null,
+    cancelAtPeriodEnd: (stripeSubscription as any).cancel_at_period_end,
+    canceledAt: (stripeSubscription as any).canceled_at ? new Date((stripeSubscription as any).canceled_at * 1000) : null,
+    endedAt: (stripeSubscription as any).ended_at ? new Date((stripeSubscription as any).ended_at * 1000) : null,
   })
 
   // Initialize credit balance
   await initializeCreditBalance(
     orgId,
     tier,
-    new Date(stripeSubscription.current_period_start * 1000),
-    new Date(stripeSubscription.current_period_end * 1000)
+    new Date((stripeSubscription as any).current_period_start * 1000),
+    new Date((stripeSubscription as any).current_period_end * 1000)
   )
 
   // Update organization
@@ -195,14 +230,14 @@ export async function createSubscription(params: CreateSubscriptionParams) {
     .set({
       subscriptionTier: tier,
       subscriptionStatus: stripeSubscription.status as any,
-      trialEndsAt: stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000) : null,
+      trialEndsAt: (stripeSubscription as any).trial_end ? new Date((stripeSubscription as any).trial_end * 1000) : null,
     })
     .where(eq(organizations.id, orgId))
 
   // Get client secret for payment confirmation
-  const invoice = stripeSubscription.latest_invoice as Stripe.Invoice | null
-  const paymentIntent = invoice?.payment_intent as Stripe.PaymentIntent | null
-  const clientSecret = paymentIntent?.client_secret || null
+  const invoice = (stripeSubscription as any).latest_invoice as Stripe.Invoice | null
+  const paymentIntent = (invoice as any)?.payment_intent as Stripe.PaymentIntent | null
+  const clientSecret = (paymentIntent as any)?.client_secret || null
 
   return {
     subscriptionId,
@@ -218,6 +253,7 @@ export async function createSubscription(params: CreateSubscriptionParams) {
  */
 export async function updateSubscription(params: UpdateSubscriptionParams) {
   const { orgId, newTier, prorationBehavior = 'create_prorations' } = params
+  const db = await getDb()
 
   const subscription = await getSubscription(orgId)
   if (!subscription) {
@@ -227,6 +263,9 @@ export async function updateSubscription(params: UpdateSubscriptionParams) {
   // If downgrading to free, cancel Stripe subscription
   if (newTier === 'free') {
     if (subscription.stripeSubscriptionId) {
+      if (!stripe) {
+        throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.')
+      }
       await stripe.subscriptions.cancel(subscription.stripeSubscriptionId, {
         prorate: true,
       })
@@ -270,6 +309,10 @@ export async function updateSubscription(params: UpdateSubscriptionParams) {
   // Upgrading or changing paid tier
   if (!subscription.stripeSubscriptionId) {
     throw new Error('Cannot upgrade from free tier. Please create a new subscription.')
+  }
+
+  if (!stripe) {
+    throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.')
   }
 
   const newPriceId = getStripePriceId(newTier)
@@ -337,6 +380,7 @@ export async function updateSubscription(params: UpdateSubscriptionParams) {
  */
 export async function cancelSubscription(params: CancelSubscriptionParams) {
   const { orgId, cancelAtPeriodEnd, reason } = params
+  const db = await getDb()
 
   const subscription = await getSubscription(orgId)
   if (!subscription) {
@@ -365,6 +409,10 @@ export async function cancelSubscription(params: CancelSubscriptionParams) {
   }
 
   // Cancel Stripe subscription
+  if (!stripe) {
+    throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.')
+  }
+
   if (cancelAtPeriodEnd) {
     const updatedSubscription = await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
       cancel_at_period_end: true,
@@ -389,7 +437,7 @@ export async function cancelSubscription(params: CancelSubscriptionParams) {
       .set({
         status: 'canceled',
         canceledAt: new Date(),
-        endedAt: new Date(canceledSubscription.canceled_at! * 1000),
+        endedAt: new Date((canceledSubscription as any).canceled_at! * 1000),
       })
       .where(eq(subscriptions.orgId, orgId))
 
@@ -408,6 +456,7 @@ export async function cancelSubscription(params: CancelSubscriptionParams) {
  * Reactivate a canceled subscription
  */
 export async function reactivateSubscription(orgId: string) {
+  const db = await getDb()
   const subscription = await getSubscription(orgId)
   if (!subscription) {
     throw new Error('No subscription found')
@@ -419,6 +468,10 @@ export async function reactivateSubscription(orgId: string) {
 
   if (!subscription.cancelAtPeriodEnd) {
     throw new Error('Subscription is not scheduled for cancellation')
+  }
+
+  if (!stripe) {
+    throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.')
   }
 
   // Remove cancellation from Stripe

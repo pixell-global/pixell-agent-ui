@@ -4,11 +4,11 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useServerAuth } from './ServerAuthProvider';
+import { useAuth } from './AuthProvider';
 import Link from 'next/link';
 
 export const ServerSignUp: React.FC = () => {
-  const { signUp, status } = useServerAuth();
+  const { signUp, status } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');

@@ -399,29 +399,45 @@
     WEEKLY RECONCILIATION (Sundays 3am)
     ═══════════════════════════════════
 
-    Cron Job                Database                 Email
-       │                       │                        │
-       │ Fetch all orgs        │                        │
-       ├──────────────────────▶│                        │
-       │◀──────────────────────┤                        │
-       │                       │                        │
-       │ For each org:         │                        │
-       │ Query actual usage    │                        │
-       ├──────────────────────▶│                        │
-       │◀──────────────────────┤                        │
-       │ SUM(billable_actions) │                        │
-       │                       │                        │
-       │ Compare with          │                        │
-       │ credit_balances       │                        │
-       │                       │                        │
-       │ (If drift detected)   │                        │
-       │ Update balance        │                        │
-       ├──────────────────────▶│                        │
-       │                       │                        │
-       │ Log drift             │                        │
-       │                       │                        │
-       │ Email admin alert     │                        │
-       ├───────────────────────┼───────────────────────▶│
+    Implementation: AWS Lambda function (pixell-subscription-reconciliation)
+    Trigger: EventBridge cron rule
+    Location: packages/workers/subscription-reconciliation/
+    Infrastructure: infrastructure/lib/pixell-infrastructure-stack.ts
+
+    Lambda Function         Stripe API          Database                 Email
+       │                       │                       │                        │
+       │ 1. SUBSCRIPTION SYNC  │                       │                        │
+       │ Fetch all orgs        │                       │                        │
+       │                       │                       │                        │
+       │ For each org:         │                       │                        │
+       │ Get subscription      │                       │                        │
+       ├──────────────────────▶│                       │                        │
+       │◀──────────────────────┤                       │                        │
+       │ subscription data     │                       │                        │
+       │                       │                       │                        │
+       │ Compare with DB       │                       │                        │
+       │                       │                       │                        │
+       │ (If differences)      │                       │                        │
+       │ Update to match Stripe│                       │                        │
+       │                       ├──────────────────────▶│                        │
+       │                       │                       │                        │
+       │ 2. CREDIT SYNC        │                       │                        │
+       │ Query actual usage    │                       │                        │
+       │                       ├──────────────────────▶│                        │
+       │                       │◀──────────────────────┤                        │
+       │                       │ SUM(billable_actions) │                        │
+       │                       │                       │                        │
+       │ Compare with          │                       │                        │
+       │ credit_balances       │                       │                        │
+       │                       │                       │                        │
+       │ (If drift detected)   │                       │                        │
+       │ Update balance        │                       │                        │
+       │                       ├──────────────────────▶│                        │
+       │                       │                       │                        │
+       │ Log drift             │                       │                        │
+       │                       │                       │                        │
+       │ Email admin alert     │                       │                        │
+       ├──────────────────────────────────────────────┼───────────────────────▶│
        │                       │                        │
        │ (If no drift)         │                        │
        │ No action needed      │                        │

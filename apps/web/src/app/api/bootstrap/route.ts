@@ -3,6 +3,7 @@ import { verifySessionCookie } from '@pixell/auth-firebase/server'
 import { getDb, users, organizations, organizationMembers } from '@pixell/db-mysql'
 import { randomUUID } from 'crypto'
 import { and, eq } from 'drizzle-orm'
+import { createSubscription } from '@/lib/billing/subscription-manager'
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,6 +33,14 @@ export async function POST(request: NextRequest) {
 
     // Add membership as owner
     await db.insert(organizationMembers).values({ orgId, userId: uid, role: 'owner' })
+
+    // Create free tier subscription with credit balance
+    await createSubscription({
+      orgId,
+      orgName,
+      userEmail: email || uid,
+      tier: 'free',
+    })
 
     const response = NextResponse.json({ orgId })
     response.cookies.set('ORG', orgId, {
