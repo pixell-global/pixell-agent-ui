@@ -22,7 +22,7 @@ export interface ActivityPaneRef {
 }
 
 export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
-  const toggleRightPanel = useUIStore(state => state.toggleRightPanel)
+  const toggleRightPanelCollapsed = useUIStore(state => state.toggleRightPanelCollapsed)
   const { 
     liveMetrics, 
     tasks, 
@@ -244,23 +244,11 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Pane header with collapse + Connection Status */}
-      <div className="flex items-center justify-between p-3 border-b">
-        <div className="flex items-center gap-2">
-        {isConnected ? (
-          <>
-            <Wifi className="h-4 w-4 text-green-500" />
-            <span className="text-sm text-green-600">Connected</span>
-          </>
-        ) : (
-          <>
-            <WifiOff className="h-4 w-4 text-red-500" />
-            <span className="text-sm text-red-600">Disconnected</span>
-          </>
-        )}
-        </div>
+      {/* Pane header with title + collapse button */}
+      <div className="flex items-center justify-between px-4 h-9 border-b bg-card/60">
+        <span className="text-sm font-medium">Activities</span>
         <button
-          onClick={toggleRightPanel}
+          onClick={toggleRightPanelCollapsed}
           title="Collapse activity"
           aria-label="Collapse activity"
           className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted"

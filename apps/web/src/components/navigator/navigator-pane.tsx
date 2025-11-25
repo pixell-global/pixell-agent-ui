@@ -241,12 +241,12 @@ export const NavigatorPane: React.FC<NavigatorPaneProps> = ({ className }) => {
   return (
     <div className={cn("flex flex-col h-full bg-background border-r", className)}>
       {/* Pane header with collapse */}
-      <div className="flex items-center justify-between px-2 py-2 border-b">
-        <span className="text-xs font-medium text-muted-foreground">Navigator</span>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="h-7 w-7 p-0" 
+      <div className="flex items-center justify-between px-4 h-9 border-b bg-card/60">
+        <span className="text-sm font-medium">Navigator</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-7 p-0"
           onClick={toggleLeftPanelCollapsed}
           title="Collapse navigator"
           aria-label="Collapse navigator"

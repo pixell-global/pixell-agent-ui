@@ -13,18 +13,16 @@ export const CollapsedNavigator: React.FC<CollapsedNavigatorProps> = ({ classNam
 
   return (
     <div className={cn("flex flex-col h-full bg-background border-r", className)}>
-      {/* Expand button */}
-      <div className="flex items-center justify-center h-full">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="h-8 w-8 p-0 rotate-90" 
+      {/* Expand button at top */}
+      <div className="flex items-center justify-center h-9 border-b bg-card/60">
+        <button
           onClick={toggleLeftPanelCollapsed}
           title="Expand navigator"
           aria-label="Expand navigator"
+          className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted"
         >
           <ChevronRight className="h-4 w-4" />
-        </Button>
+        </button>
       </div>
     </div>
   )

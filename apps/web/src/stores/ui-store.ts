@@ -26,31 +26,33 @@ interface UIStore {
   leftPanelVisible: boolean
   leftPanelCollapsed: boolean
   rightPanelVisible: boolean
+  rightPanelCollapsed: boolean
   leftPanelTab: 'files' | 'history'
-  
+
   // Chat state
   chatInputFocused: boolean
   isStreaming: boolean
-  
+
   // Orchestrator connection state
   isConnected: boolean
   lastUpdate: Date | null
   stats: Stats | null
-  
+
   // Theme and preferences
   theme: 'light' | 'dark' | 'system'
   sidebarCollapsed: boolean
-  
+
   // Actions
   toggleLeftPanel: () => void
   toggleLeftPanelCollapsed: () => void
   toggleRightPanel: () => void
+  toggleRightPanelCollapsed: () => void
   setLeftPanelTab: (tab: 'files' | 'history') => void
   setChatInputFocused: (focused: boolean) => void
   setIsStreaming: (streaming: boolean) => void
   setTheme: (theme: 'light' | 'dark' | 'system') => void
   setSidebarCollapsed: (collapsed: boolean) => void
-  
+
   // Orchestrator actions
   setConnected: (connected: boolean) => void
   setStats: (stats: Stats | null) => void
@@ -63,6 +65,7 @@ export const useUIStore = create<UIStore>()(
     leftPanelVisible: true,
     leftPanelCollapsed: false,
     rightPanelVisible: true,
+    rightPanelCollapsed: false,
     leftPanelTab: 'files',
     chatInputFocused: false,
     isStreaming: false,
@@ -71,26 +74,30 @@ export const useUIStore = create<UIStore>()(
     stats: null,
     theme: 'system',
     sidebarCollapsed: false,
-    
+
     // Actions
-    toggleLeftPanel: () => set((state) => ({ 
-      leftPanelVisible: !state.leftPanelVisible 
+    toggleLeftPanel: () => set((state) => ({
+      leftPanelVisible: !state.leftPanelVisible
     })),
-    
-    toggleLeftPanelCollapsed: () => set((state) => ({ 
-      leftPanelCollapsed: !state.leftPanelCollapsed 
+
+    toggleLeftPanelCollapsed: () => set((state) => ({
+      leftPanelCollapsed: !state.leftPanelCollapsed
     })),
-    
-    toggleRightPanel: () => set((state) => ({ 
-      rightPanelVisible: !state.rightPanelVisible 
+
+    toggleRightPanel: () => set((state) => ({
+      rightPanelVisible: !state.rightPanelVisible
     })),
-    
+
+    toggleRightPanelCollapsed: () => set((state) => ({
+      rightPanelCollapsed: !state.rightPanelCollapsed
+    })),
+
     setLeftPanelTab: (tab) => set({ leftPanelTab: tab }),
     setChatInputFocused: (focused) => set({ chatInputFocused: focused }),
     setIsStreaming: (streaming) => set({ isStreaming: streaming }),
     setTheme: (theme) => set({ theme }),
     setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
-    
+
     // Orchestrator actions
     setConnected: (connected) => set({ isConnected: connected }),
     setStats: (stats) => set({ stats }),
