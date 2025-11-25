@@ -378,4 +378,172 @@ export type NewWebhookEvent = typeof webhookEvents.$inferInsert
 export type Invoice = typeof invoices.$inferSelect
 export type NewInvoice = typeof invoices.$inferInsert
 
+// =============================================================================
+// EXTERNAL ACCOUNTS OAUTH SYSTEM
+// =============================================================================
+//
+// These tables support connecting external OAuth accounts (TikTok, Instagram, etc.)
+// to enable the AI agent to perform authenticated actions on behalf of users.
+//
+// Security:
+// - Access tokens are encrypted with AES-256-GCM before storage
+// - Only Pro and Max plan users can connect external accounts
+// - Actions require approval by default (configurable auto-approve per account)
+// =============================================================================
+
+// Supported OAuth providers enum
+export const oauthProviderEnum = mysqlEnum('oauth_provider', [
+  'tiktok',
+  'instagram',
+  'google',
+  'reddit',
+])
+
+// Connected external accounts
+export const externalAccounts = mysqlTable('external_accounts', {
+  id: char('id', { length: 36 }).primaryKey(),
+  orgId: char('org_id', { length: 36 }).notNull(),
+  userId: varchar('user_id', { length: 128 }).notNull(),
+
+  // Provider info
+  provider: oauthProviderEnum.notNull(),
+  providerAccountId: varchar('provider_account_id', { length: 255 }).notNull(),
+  providerUsername: varchar('provider_username', { length: 255 }),
+  displayName: varchar('display_name', { length: 255 }),
+  avatarUrl: text('avatar_url'),
+
+  // Encrypted tokens (AES-256-GCM)
+  accessTokenEncrypted: text('access_token_encrypted').notNull(),
+  refreshTokenEncrypted: text('refresh_token_encrypted'),
+  tokenExpiresAt: timestamp('token_expires_at'),
+
+  // Scopes granted
+  scopes: json('scopes').$type<string[]>(),
+
+  // User preferences
+  isDefault: boolean('is_default').default(false),
+  autoApprove: boolean('auto_approve').default(false),
+
+  // Status
+  isActive: boolean('is_active').default(true),
+  lastUsedAt: timestamp('last_used_at'),
+  lastErrorAt: timestamp('last_error_at'),
+  lastError: text('last_error'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  uniqueProviderAccount: unique('unique_provider_account').on(t.orgId, t.provider, t.providerAccountId),
+  orgProviderIdx: index('idx_external_accounts_org_provider').on(t.orgId, t.provider),
+  userIdx: index('idx_external_accounts_user').on(t.userId),
+}))
+
+// Pending action status enum
+export const pendingActionStatusEnum = mysqlEnum('pending_action_status', [
+  'pending',
+  'approved',
+  'rejected',
+  'executing',
+  'completed',
+  'partial',
+  'failed',
+  'expired',
+])
+
+// Pending action item status enum
+export const pendingActionItemStatusEnum = mysqlEnum('pending_action_item_status', [
+  'pending',
+  'approved',
+  'rejected',
+  'executed',
+  'failed',
+])
+
+// Type for pending action items JSON
+export type PendingActionItemData = {
+  index: number
+  payload: Record<string, unknown>
+  previewText: string
+}
+
+// Pending actions awaiting user approval
+export const pendingActions = mysqlTable('pending_actions', {
+  id: char('id', { length: 36 }).primaryKey(),
+  orgId: char('org_id', { length: 36 }).notNull(),
+  userId: varchar('user_id', { length: 128 }).notNull(),
+  conversationId: char('conversation_id', { length: 36 }),
+
+  // Which account to use
+  externalAccountId: char('external_account_id', { length: 36 }),
+  provider: oauthProviderEnum.notNull(),
+
+  // Action details
+  actionType: varchar('action_type', { length: 50 }).notNull(),
+  actionDescription: text('action_description'),
+
+  // Batch items stored as JSON
+  items: json('items').$type<PendingActionItemData[]>().notNull(),
+  itemCount: int('item_count').notNull(),
+
+  // Status
+  status: pendingActionStatusEnum.default('pending').notNull(),
+
+  // Execution tracking
+  itemsApproved: int('items_approved').default(0),
+  itemsRejected: int('items_rejected').default(0),
+  itemsExecuted: int('items_executed').default(0),
+  itemsFailed: int('items_failed').default(0),
+
+  // Timestamps
+  expiresAt: timestamp('expires_at'),
+  reviewedAt: timestamp('reviewed_at'),
+  executionStartedAt: timestamp('execution_started_at'),
+  executionCompletedAt: timestamp('execution_completed_at'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  orgStatusIdx: index('idx_pending_actions_org_status').on(t.orgId, t.status),
+  conversationIdx: index('idx_pending_actions_conversation').on(t.conversationId),
+  expiresIdx: index('idx_pending_actions_expires').on(t.expiresAt),
+  externalAccountIdx: index('idx_pending_actions_external_account').on(t.externalAccountId),
+}))
+
+// Individual items within a pending action (for granular review)
+export const pendingActionItems = mysqlTable('pending_action_items', {
+  id: char('id', { length: 36 }).primaryKey(),
+  pendingActionId: char('pending_action_id', { length: 36 }).notNull(),
+
+  // Item details
+  itemIndex: int('item_index').notNull(),
+  payload: json('payload').notNull(),
+  previewText: text('preview_text'),
+
+  // User can edit before approval
+  isEdited: boolean('is_edited').default(false),
+  editedPayload: json('edited_payload'),
+
+  // Per-item status
+  status: pendingActionItemStatusEnum.default('pending').notNull(),
+
+  // Execution result
+  executedAt: timestamp('executed_at'),
+  result: json('result'),
+  error: text('error'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  actionIdx: index('idx_pending_action_items_action').on(t.pendingActionId),
+  statusIdx: index('idx_pending_action_items_status').on(t.pendingActionId, t.status),
+}))
+
+// Type exports for external accounts
+export type ExternalAccount = typeof externalAccounts.$inferSelect
+export type NewExternalAccount = typeof externalAccounts.$inferInsert
+
+export type PendingAction = typeof pendingActions.$inferSelect
+export type NewPendingAction = typeof pendingActions.$inferInsert
+
+export type PendingActionItem = typeof pendingActionItems.$inferSelect
+export type NewPendingActionItem = typeof pendingActionItems.$inferInsert
 
