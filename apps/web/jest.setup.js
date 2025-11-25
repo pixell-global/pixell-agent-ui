@@ -16,6 +16,11 @@ process.env.STRIPE_PRICE_ID_PRO = 'price_pro_test'
 process.env.STRIPE_PRICE_ID_MAX = 'price_max_test'
 process.env.STRIPE_PRICE_ID_TOPUP_500 = 'price_topup_test'
 
+// OAuth environment variables
+process.env.TOKEN_ENCRYPTION_KEY = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'
+process.env.TIKAPI_KEY = 'test_tikapi_key_12345'
+process.env.NEXT_PUBLIC_TIKAPI_CLIENT_ID = 'c_test_client_id'
+
 // Setup database mocks globally
 jest.mock('@pixell/db-mysql')
 jest.mock('@pixell/db-mysql/schema')
