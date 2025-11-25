@@ -19,3 +19,8 @@ process.env.STRIPE_PRICE_ID_TOPUP_500 = 'price_topup_test'
 // Setup database mocks globally
 jest.mock('@pixell/db-mysql')
 jest.mock('@pixell/db-mysql/schema')
+
+// Mock uuid module
+jest.mock('uuid', () => ({
+  v4: jest.fn(() => 'test-uuid-1234-5678-90ab-cdef12345678'),
+}))
