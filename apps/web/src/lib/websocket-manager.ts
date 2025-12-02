@@ -178,6 +178,44 @@ class SimpleWebSocketManager {
           })
           break
 
+        // Activity event handlers
+        case 'activity_created':
+          store.addActivity(message.data)
+          console.log('📋 Activity created:', message.data.name)
+          break
+
+        case 'activity_updated':
+          store.updateActivity(message.data)
+          console.log('📋 Activity updated:', message.data.name, message.data.status)
+          break
+
+        case 'activity_progress':
+          store.updateActivityProgress(message.data.id, message.data.progress, message.data.progressMessage)
+          console.log('📊 Activity progress:', message.data.id, `${message.data.progress}%`)
+          break
+
+        case 'activity_completed':
+          store.updateActivity(message.data)
+          notificationStore.addEvent(createJobNotification('success', message.data.name, 'Activity completed successfully'))
+          console.log('✅ Activity completed:', message.data.name)
+          break
+
+        case 'activity_failed':
+          store.updateActivity(message.data)
+          notificationStore.addEvent(createJobNotification('error', message.data.name, message.data.errorMessage || 'Activity failed'))
+          console.log('❌ Activity failed:', message.data.name)
+          break
+
+        case 'activity_approval_requested':
+          store.addActivityApprovalRequest(message.data.activityId, message.data.approvalRequest)
+          notificationStore.addEvent({
+            type: 'system.alert',
+            title: 'Approval Required',
+            description: message.data.approvalRequest.title,
+          })
+          console.log('🔔 Approval requested for activity:', message.data.activityId)
+          break
+
         case 'pong':
           // Heartbeat response
           break
@@ -293,16 +331,33 @@ export const webSocketActions = {
   sendChatMessage: (message: string, fileReferences?: any[]) => {
     sendWebSocketMessage('chat_message', { message, fileReferences })
   },
-  
+
   requestTaskUpdate: (taskId: string) => {
     sendWebSocketMessage('request_task_update', { taskId })
   },
-  
+
   requestAgentStatus: (agentId?: string) => {
     sendWebSocketMessage('request_agent_status', { agentId })
   },
-  
+
   requestLiveMetrics: () => {
     sendWebSocketMessage('request_live_metrics', {})
+  },
+
+  // Activity-related actions
+  requestActivityUpdate: (activityId: string) => {
+    sendWebSocketMessage('request_activity_update', { activityId })
+  },
+
+  subscribeToActivity: (activityId: string) => {
+    sendWebSocketMessage('subscribe_activity', { activityId })
+  },
+
+  unsubscribeFromActivity: (activityId: string) => {
+    sendWebSocketMessage('unsubscribe_activity', { activityId })
+  },
+
+  requestActivitiesList: () => {
+    sendWebSocketMessage('request_activities_list', {})
   }
 } 

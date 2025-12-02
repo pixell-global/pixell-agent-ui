@@ -4,6 +4,7 @@
  * Tests to verify OAuth-related environment variables are properly configured.
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { isEncryptionConfigured, generateEncryptionKey } from '../encryption'
 import { isProviderImplemented, getProviderStatuses } from '../providers'
 

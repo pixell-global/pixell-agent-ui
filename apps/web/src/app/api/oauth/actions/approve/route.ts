@@ -66,10 +66,10 @@ export async function POST(req: NextRequest) {
     if (itemIds && itemIds.length > 0) {
       await db
         .update(pendingActionItems)
-        .set({ status: 'approved', updatedAt: now })
+        .set({ status: 'approved' })
         .where(
           and(
-            eq(pendingActionItems.actionId, actionId),
+            eq(pendingActionItems.pendingActionId, actionId),
             inArray(pendingActionItems.id, itemIds)
           )
         )
@@ -77,10 +77,10 @@ export async function POST(req: NextRequest) {
       // Approve all pending items
       await db
         .update(pendingActionItems)
-        .set({ status: 'approved', updatedAt: now })
+        .set({ status: 'approved' })
         .where(
           and(
-            eq(pendingActionItems.actionId, actionId),
+            eq(pendingActionItems.pendingActionId, actionId),
             eq(pendingActionItems.status, 'pending')
           )
         )
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
       .from(pendingActionItems)
       .where(
         and(
-          eq(pendingActionItems.actionId, actionId),
+          eq(pendingActionItems.pendingActionId, actionId),
           eq(pendingActionItems.status, 'pending')
         )
       )
@@ -103,9 +103,7 @@ export async function POST(req: NextRequest) {
         .update(pendingActions)
         .set({
           status: 'approved',
-          approvedBy: session.user.id,
-          approvedAt: now,
-          updatedAt: now,
+          reviewedAt: now,
         })
         .where(eq(pendingActions.id, actionId))
     }

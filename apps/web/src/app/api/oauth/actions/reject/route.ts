@@ -57,16 +57,15 @@ export async function POST(req: NextRequest) {
       .update(pendingActions)
       .set({
         status: 'rejected',
-        rejectionReason: reason || null,
-        updatedAt: now,
+        reviewedAt: now,
       })
       .where(eq(pendingActions.id, actionId))
 
     // Mark all items as rejected
     await db
       .update(pendingActionItems)
-      .set({ status: 'rejected', updatedAt: now })
-      .where(eq(pendingActionItems.actionId, actionId))
+      .set({ status: 'rejected' })
+      .where(eq(pendingActionItems.pendingActionId, actionId))
 
     return NextResponse.json({ success: true })
   } catch (error) {

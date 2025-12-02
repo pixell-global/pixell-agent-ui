@@ -6,13 +6,12 @@ import { getStripePriceId, isValidTier, type SubscriptionTier } from '@/lib/bill
 import { getSubscription, updateSubscription } from '@/lib/billing/subscription-manager'
 
 // Placeholder: integrate Stripe SDK if configured via env
-const getStripe = () => {
+const getStripe = async () => {
   const key = process.env.STRIPE_SECRET_KEY
   if (!key) return null
-  // Lazy require to avoid bundling in Edge-unfriendly contexts
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const Stripe = require('stripe')
-  return new Stripe(key, { apiVersion: '2025-10-29.clover' })
+  // Dynamic import to avoid bundling in Edge-unfriendly contexts
+  const { default: Stripe } = await import('stripe')
+  return new Stripe(key, { apiVersion: '2025-10-29.clover' as const })
 }
 
 async function getCurrentUserOrg(userId: string): Promise<string | null> {
@@ -50,7 +49,7 @@ export async function POST(request: NextRequest) {
     const orgId = await getCurrentUserOrg(decoded.sub)
     if (!orgId) return NextResponse.json({ error: 'User not in any organization' }, { status: 400 })
 
-    const stripe = getStripe()
+    const stripe = await getStripe()
     if (!stripe) return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 })
 
     const db = await getDb()

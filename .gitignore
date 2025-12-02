@@ -2,6 +2,8 @@
 demo/
 docs/
 
+scripts/
+
 # Filesystem
 workspace-files/
 .temp/

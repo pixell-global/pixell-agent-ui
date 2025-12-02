@@ -9,6 +9,10 @@ import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/ui-store'
+import { MOCK_FILE_TREE } from '@/lib/mock-data'
+
+// Enable mock data when real files aren't available
+const USE_MOCK_DATA = true
 
 interface NavigatorPaneProps {
   className?: string
@@ -61,6 +65,17 @@ export const NavigatorPane: React.FC<NavigatorPaneProps> = ({ className }) => {
   const loadWorkspaceFiles = async () => {
     setIsLoading(true)
     try {
+      // Use mock data for demonstration
+      if (USE_MOCK_DATA) {
+        await new Promise(resolve => setTimeout(resolve, 300))
+        setFileTree(MOCK_FILE_TREE)
+        setUseRealFiles(true)
+        setUsedStorage(calculateStorageUsage(MOCK_FILE_TREE))
+        console.log('Loaded mock files for demonstration:', MOCK_FILE_TREE.length, 'root items')
+        setIsLoading(false)
+        return
+      }
+
       // Add timestamp to prevent caching
       const timestamp = new Date().getTime()
       // Load from workspace root - the API will handle the workspace-files path

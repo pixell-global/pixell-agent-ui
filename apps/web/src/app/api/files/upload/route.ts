@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerStorageManager } from '@/lib/storage-client'
 import { createRateLimit, getClientIP } from '@/lib/security'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
-
 
 // Rate limiting for file uploads
 const rateLimiter = createRateLimit({
@@ -18,7 +15,7 @@ export async function POST(req: NextRequest) {
     if (limited) {
       return NextResponse.json(
         { error: 'Too many upload requests' },
-        { 
+        {
           status: 429,
           headers: {
             'X-RateLimit-Remaining': remaining.toString(),
@@ -27,33 +24,12 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Verify authentication
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value
-          },
-          set(name: string, value: string, options: any) {
-            cookieStore.set({ name, value, ...options })
-          },
-          remove(name: string, options: any) {
-            cookieStore.set({ name, value: '', ...options })
-          },
-        },
-      }
-    )
-
-    const { data: { session }, error: authError } = await supabase.auth.getSession()
-    if (authError || !session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // Note: Supabase auth has been removed
+    // For now, uploads work without authentication
+    // In production, implement your own auth check here
 
     const body = await req.json()
-    const { filename, folder, contentType } = body
+    const { filename, folder, contentType, userId } = body
 
     // Validate inputs
     if (!filename || typeof filename !== 'string') {
@@ -83,8 +59,8 @@ export async function POST(req: NextRequest) {
 
     // Create storage manager and generate signed URL
     const storageManager = getServerStorageManager()
-    
-    const userFolder = folder || `users/${session.user.id}/uploads`
+
+    const userFolder = folder || `users/${userId || 'anonymous'}/uploads`
     const uploadResult = await storageManager.createSignedUploadUrl(filename, {
       folder: userFolder,
       contentType,
@@ -92,7 +68,7 @@ export async function POST(req: NextRequest) {
 
     // Log upload attempt
     console.log('File upload signed URL created:', {
-      userId: session.user.id,
+      userId: userId || 'anonymous',
       filename,
       folder: userFolder,
       path: uploadResult.path,
@@ -107,11 +83,11 @@ export async function POST(req: NextRequest) {
     })
   } catch (error) {
     console.error('File upload error:', error)
-    
+
     return NextResponse.json(
-      { 
+      {
         error: error instanceof Error ? error.message : 'Upload failed',
-        success: false 
+        success: false
       },
       { status: 500 }
     )
@@ -121,32 +97,10 @@ export async function POST(req: NextRequest) {
 // Handle file completion notification
 export async function PUT(req: NextRequest) {
   try {
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value
-          },
-          set(name: string, value: string, options: any) {
-            cookieStore.set({ name, value, ...options })
-          },
-          remove(name: string, options: any) {
-            cookieStore.set({ name, value: '', ...options })
-          },
-        },
-      }
-    )
-
-    const { data: { session }, error: authError } = await supabase.auth.getSession()
-    if (authError || !session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // Note: Supabase auth has been removed
 
     const body = await req.json()
-    const { path, success } = body
+    const { path, success, userId } = body
 
     if (!path) {
       return NextResponse.json(
@@ -161,7 +115,7 @@ export async function PUT(req: NextRequest) {
 
     // Log upload completion
     console.log('File upload completed:', {
-      userId: session.user.id,
+      userId: userId || 'anonymous',
       path,
       success,
       publicUrl,
@@ -175,11 +129,11 @@ export async function PUT(req: NextRequest) {
     })
   } catch (error) {
     console.error('File upload completion error:', error)
-    
+
     return NextResponse.json(
-      { 
+      {
         error: error instanceof Error ? error.message : 'Upload completion failed',
-        success: false 
+        success: false
       },
       { status: 500 }
     )

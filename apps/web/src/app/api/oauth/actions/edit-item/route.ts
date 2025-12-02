@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       .from(pendingActions)
       .where(
         and(
-          eq(pendingActions.id, item.actionId),
+          eq(pendingActions.id, item.pendingActionId),
           eq(pendingActions.orgId, session.user.orgId!)
         )
       )
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (item.status !== 'pending' && item.status !== 'edited') {
+    if (item.status !== 'pending') {
       return NextResponse.json(
         { error: `Item is ${item.status}, cannot edit` },
         { status: 400 }
@@ -76,9 +76,8 @@ export async function POST(req: NextRequest) {
     await db
       .update(pendingActionItems)
       .set({
-        editedContent: content.trim(),
-        status: 'edited',
-        updatedAt: new Date(),
+        editedPayload: { text: content.trim() },
+        isEdited: true,
       })
       .where(eq(pendingActionItems.id, itemId))
 

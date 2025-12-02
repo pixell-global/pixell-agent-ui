@@ -4,6 +4,7 @@
  * Tests for the pending action approval workflow components.
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports */
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ApprovalCard } from '../approval-card'

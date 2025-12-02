@@ -1,6 +1,8 @@
 // Mock database module with proper method chaining
 // Create individual mock functions that can be accessed in tests
 export const mockLimit = jest.fn()
+export const mockOffset = jest.fn()
+export const mockOrderBy = jest.fn()
 export const mockWhere = jest.fn()
 export const mockSet = jest.fn()
 export const mockValues = jest.fn()
@@ -22,6 +24,8 @@ const createDb = () => {
     set: mockSet,
     values: mockValues,
     limit: mockLimit,
+    offset: mockOffset,
+    orderBy: mockOrderBy,
     $returningId: mockReturningId,
   }
 
@@ -34,6 +38,9 @@ const createDb = () => {
   mockWhere.mockReturnValue(chain)
   mockSet.mockReturnValue(chain)
   mockValues.mockReturnValue(chain)
+  mockLimit.mockReturnValue(chain)
+  mockOffset.mockReturnValue(chain)
+  mockOrderBy.mockReturnValue(chain)
 
   return chain
 }
@@ -41,5 +48,25 @@ const createDb = () => {
 export const db = createDb()
 
 export const getDb = jest.fn().mockResolvedValue(db)
+
+// Mock ConversationsRepo class
+export class ConversationsRepo {
+  create = jest.fn()
+  getById = jest.fn()
+  getWithMessages = jest.fn()
+  listByUser = jest.fn()
+  listOrgPublic = jest.fn()
+  getHiddenIds = jest.fn()
+  update = jest.fn()
+  updateTitle = jest.fn()
+  softDelete = jest.fn()
+  hideConversation = jest.fn()
+  unhideConversation = jest.fn()
+  addMessage = jest.fn()
+  getMessages = jest.fn()
+  getMessageCount = jest.fn()
+  needsTitleGeneration = jest.fn()
+  getFirstMessages = jest.fn()
+}
 
 export default db

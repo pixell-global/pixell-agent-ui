@@ -120,7 +120,7 @@ export class ExternalAccountsManager {
   ): Promise<ExternalAccountPublic[]> {
     const db = await getDb()
 
-    let query = db
+    const query = db
       .select()
       .from(externalAccounts)
       .where(

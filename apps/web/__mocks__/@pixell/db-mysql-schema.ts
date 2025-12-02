@@ -91,3 +91,106 @@ export const pendingActionItems = {
   error: 'error',
   createdAt: 'createdAt',
 }
+
+// Activities tables
+export const activities = {
+  id: 'id',
+  orgId: 'orgId',
+  userId: 'userId',
+  conversationId: 'conversationId',
+  agentId: 'agentId',
+  name: 'name',
+  description: 'description',
+  activityType: 'activityType',
+  status: 'status',
+  progress: 'progress',
+  progressMessage: 'progressMessage',
+  scheduleCron: 'scheduleCron',
+  scheduleNextRun: 'scheduleNextRun',
+  scheduleLastRun: 'scheduleLastRun',
+  scheduleTimezone: 'scheduleTimezone',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  estimatedDurationMs: 'estimatedDurationMs',
+  actualDurationMs: 'actualDurationMs',
+  result: 'result',
+  errorMessage: 'errorMessage',
+  errorCode: 'errorCode',
+  metadata: 'metadata',
+  tags: 'tags',
+  priority: 'priority',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  archivedAt: 'archivedAt',
+}
+
+export const activitySteps = {
+  id: 'id',
+  activityId: 'activityId',
+  stepOrder: 'stepOrder',
+  name: 'name',
+  description: 'description',
+  status: 'status',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  result: 'result',
+  errorMessage: 'errorMessage',
+  createdAt: 'createdAt',
+}
+
+export const activityApprovalRequests = {
+  id: 'id',
+  activityId: 'activityId',
+  requestType: 'requestType',
+  title: 'title',
+  description: 'description',
+  requiredScopes: 'requiredScopes',
+  options: 'options',
+  status: 'status',
+  respondedAt: 'respondedAt',
+  response: 'response',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt',
+}
+
+// Conversation tables
+export const conversations = {
+  id: 'id',
+  orgId: 'orgId',
+  userId: 'userId',
+  title: 'title',
+  titleSource: 'titleSource',
+  isPublic: 'isPublic',
+  messageCount: 'messageCount',
+  lastMessageAt: 'lastMessageAt',
+  lastMessagePreview: 'lastMessagePreview',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt',
+}
+
+export const conversationMessages = {
+  id: 'id',
+  conversationId: 'conversationId',
+  role: 'role',
+  content: 'content',
+  metadata: 'metadata',
+  createdAt: 'createdAt',
+}
+
+export const hiddenConversations = {
+  userId: 'userId',
+  conversationId: 'conversationId',
+  hiddenAt: 'hiddenAt',
+}
+
+// Organization members table
+export const organizationMembers = {
+  id: 'id',
+  orgId: 'orgId',
+  userId: 'userId',
+  role: 'role',
+  isDeleted: 'isDeleted',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+}

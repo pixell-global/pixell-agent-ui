@@ -48,17 +48,8 @@ export async function startProject(options: { env?: string }) {
     
     // Step 1: Check if environment exists
     const environment = await validateEnvironment(envName)
-    
-    // Step 2: Check Supabase setup for the environment
-    await validateSupabaseSetup(environment)
-    
-    // NEW: ensure .env.local has Supabase vars for active environment
-    await ensureEnvFileSupabase(environment)
-    
-    // Step 3: Check Docker status
-    await validateDockerSetup()
-    
-    // Step 4: Start the project
+
+    // Step 2: Start the project (Supabase validation removed)
     await runProject(envName)
     
   } catch (error) {
@@ -268,7 +259,6 @@ async function runProject(envName: string): Promise<void> {
     console.log(chalk.gray('\n📍 Services will be available at:'))
     console.log(chalk.gray('   • Frontend: http://localhost:3003'))
     console.log(chalk.gray('   • Backend: http://localhost:3001'))
-    console.log(chalk.gray('   • Database Studio: http://127.0.0.1:54323'))
     console.log(chalk.gray('\n💡 To start PAF Core Agent separately, run: pixell start core-agent'))
     console.log(chalk.gray('\n⏳ Starting services...\n'))
     

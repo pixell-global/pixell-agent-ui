@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       .from(pendingActions)
       .where(
         and(
-          eq(pendingActions.id, item.actionId),
+          eq(pendingActions.id, item.pendingActionId),
           eq(pendingActions.orgId, session.user.orgId!)
         )
       )
@@ -61,19 +61,18 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (item.status !== 'pending' && item.status !== 'edited') {
+    if (item.status !== 'pending') {
       return NextResponse.json(
         { error: `Item is ${item.status}, cannot skip` },
         { status: 400 }
       )
     }
 
-    // Update item status to skipped
+    // Update item status to rejected (skip = reject this specific item)
     await db
       .update(pendingActionItems)
       .set({
-        status: 'skipped',
-        updatedAt: new Date(),
+        status: 'rejected',
       })
       .where(eq(pendingActionItems.id, itemId))
 

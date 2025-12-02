@@ -4,7 +4,9 @@ import React, { useEffect, useRef } from 'react'
 import { ChatMessage, FileReference, FileAttachment, FileMention } from '@/types'
 import { EnhancedMessageBubble } from './EnhancedMessageBubble'
 import { ChatInput } from './ChatInput'
-import { useChatStore, selectMessages, selectIsLoading, selectStreamingMessage } from '@/stores/chat-store'
+import { useChatStore, selectMessages, selectIsLoading, selectStreamingMessage, selectCurrentConversationId, selectIsNewConversation } from '@/stores/chat-store'
+import { useTabStore } from '@/stores/tab-store'
+import { useHistoryStore } from '@/stores/history-store'
 import { coreAgentService } from '@/services/coreAgentService'
 import { ActivityPaneRef } from '@/components/activity/activity-pane'
 import { RefObject } from 'react'
@@ -16,20 +18,30 @@ interface ChatWorkspaceProps {
 
 export function ChatWorkspace({ className = '', activityPaneRef }: ChatWorkspaceProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
-  
+
   // Zustand store selectors
   const messages = useChatStore(selectMessages)
   const isLoading = useChatStore(selectIsLoading)
   const streamingMessage = useChatStore(selectStreamingMessage)
-  
+  const currentConversationId = useChatStore(selectCurrentConversationId)
+  const isNewConversation = useChatStore(selectIsNewConversation)
+
   // Debug logging removed - rendering now working
-  
+
   const settings = useChatStore(state => state.settings)
   const agentHealth = useChatStore(state => state.agentHealth)
-  
+
   // Store actions
   const addMessage = useChatStore(state => state.addMessage)
   const getRecentHistory = useChatStore(state => state.getRecentHistory)
+  const setConversationId = useChatStore(state => state.setConversationId)
+  const saveMessage = useChatStore(state => state.saveMessage)
+
+  // Tab store
+  const { getActiveTab, updateTabConversation, updateTabTitle } = useTabStore()
+
+  // History store for creating conversations
+  const { createConversation, updateConversation } = useHistoryStore()
   
   // Remove test message - rendering confirmed to work
   const setStreamingMessage = useChatStore(state => state.setStreamingMessage)
@@ -100,6 +112,25 @@ export function ChatWorkspace({ className = '', activityPaneRef }: ChatWorkspace
   const handleSendMessage = async (content: string, fileReferences: FileReference[], attachments: FileAttachment[], mentions: FileMention[]) => {
     if (!content.trim() || isLoading) return
 
+    // Create conversation if this is a new conversation
+    let conversationId = currentConversationId
+    if (!conversationId || isNewConversation) {
+      try {
+        const newConversation = await createConversation()
+        conversationId = newConversation.id
+        setConversationId(conversationId)
+
+        // Update the current tab with the conversation
+        const activeTab = getActiveTab()
+        if (activeTab) {
+          updateTabConversation(activeTab.id, conversationId)
+        }
+      } catch (error) {
+        console.error('Failed to create conversation:', error)
+        // Continue without persistence if creation fails
+      }
+    }
+
     // Add user message
     const userMessage: ChatMessage = {
       id: `user_${Date.now()}`,
@@ -111,8 +142,13 @@ export function ChatWorkspace({ className = '', activityPaneRef }: ChatWorkspace
       mentions: mentions.length > 0 ? mentions : undefined,
       createdAt: new Date().toISOString()
     }
-    
+
     addMessage(userMessage)
+
+    // Save user message to database (fire and forget)
+    if (conversationId) {
+      saveMessage(userMessage).catch((err) => console.error('Failed to save user message:', err))
+    }
 
     // Create assistant message for streaming
     const assistantMessage: ChatMessage = {
@@ -126,6 +162,9 @@ export function ChatWorkspace({ className = '', activityPaneRef }: ChatWorkspace
     addMessage(assistantMessage)
     setStreamingMessage(assistantMessage.id)
     setLoading(true)
+
+    // Store reference to assistant message for saving after completion
+    const assistantMessageRef = assistantMessage
 
     // Send to Core Agent
     try {
@@ -156,6 +195,19 @@ export function ChatWorkspace({ className = '', activityPaneRef }: ChatWorkspace
         (finalResponse) => {
           setStreamingMessage(null)
           setLoading(false)
+
+          // Save completed assistant message to database
+          if (conversationId) {
+            // Get the final content from the messages store
+            const state = useChatStore.getState()
+            const finalMessage = state.messages.find(m => m.id === assistantMessageRef.id)
+            if (finalMessage) {
+              saveMessage({
+                ...finalMessage,
+                streaming: false,
+              }).catch((err) => console.error('Failed to save assistant message:', err))
+            }
+          }
         },
         // On error
         (error) => {

@@ -1,10 +1,7 @@
 /**
- * Supabase Storage client utilities for file uploads with signed URLs
+ * Storage client utilities - Supabase has been removed
+ * This file provides mock implementations for file uploads
  */
-
-import { createBrowserClient } from '@supabase/ssr'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 
 export interface FileUploadOptions {
   folder?: string
@@ -29,258 +26,129 @@ export interface FileUploadResult {
 }
 
 /**
- * Client-side storage utilities
+ * Client-side storage utilities (mock implementation)
  */
 export class ClientStorageManager {
-  private supabase
   private bucket: string
 
   constructor() {
-    this.supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    this.bucket = process.env.NEXT_PUBLIC_SUPABASE_BUCKET || 'pixell-files'
+    this.bucket = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pixell-files'
+    console.warn('[Storage] Supabase storage has been removed. Using mock client.')
   }
 
   /**
-   * Generate a signed URL for file upload
+   * Generate a signed URL for file upload (mock)
    */
   async createSignedUploadUrl(
     filename: string,
     options: FileUploadOptions = {}
   ): Promise<SignedUploadResult> {
-    const { folder = 'uploads', upsert = true } = options
-    
-    // Generate unique filename if not provided
+    const { folder = 'uploads' } = options
     const finalFilename = options.filename || `${Date.now()}-${filename}`
     const path = folder ? `${folder}/${finalFilename}` : finalFilename
 
-    const { data, error } = await this.supabase.storage
-      .from(this.bucket)
-      .createSignedUploadUrl(path, {
-        upsert,
-      })
-
-    if (error) {
-      throw new Error(`Failed to create signed URL: ${error.message}`)
-    }
-
+    // Mock implementation - in a real scenario you'd use your own storage service
     return {
-      signedUrl: data.signedUrl,
-      path: data.path,
-      token: data.token,
+      signedUrl: `/api/mock-upload/${path}`,
+      path,
+      token: 'mock-token',
     }
   }
 
   /**
-   * Upload file using signed URL
+   * Upload file using signed URL (mock)
    */
   async uploadFileWithSignedUrl(
     file: File,
     signedUrl: string,
     options: FileUploadOptions = {}
   ): Promise<FileUploadResult> {
-    const { contentType = file.type, cacheControl = '3600' } = options
-
-    try {
-      const response = await fetch(signedUrl, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': contentType,
-          'Cache-Control': cacheControl,
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`)
-      }
-
-      // Extract path from signed URL
-      const urlParts = signedUrl.split('/')
-      const pathIndex = urlParts.findIndex(part => part === 'object')
-      const path = pathIndex !== -1 ? urlParts.slice(pathIndex + 1).join('/').split('?')[0] : ''
-
-      const publicUrl = this.getPublicUrl(path)
-
-      return {
-        success: true,
-        path,
-        publicUrl,
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Upload failed',
-      }
+    console.warn('[Storage] Upload attempted but Supabase storage is removed')
+    return {
+      success: false,
+      error: 'Storage has been removed. Please implement alternative storage.',
     }
   }
 
   /**
-   * Complete file upload flow (create signed URL + upload)
+   * Complete file upload flow (mock)
    */
   async uploadFile(
     file: File,
     options: FileUploadOptions = {}
   ): Promise<FileUploadResult> {
-    try {
-      // Create signed upload URL
-      const { signedUrl, path } = await this.createSignedUploadUrl(file.name, options)
-
-      // Upload file
-      const result = await this.uploadFileWithSignedUrl(file, signedUrl, options)
-
-      return {
-        ...result,
-        path,
-        publicUrl: result.success ? this.getPublicUrl(path) : undefined,
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Upload failed',
-      }
+    console.warn('[Storage] Upload attempted but Supabase storage is removed')
+    return {
+      success: false,
+      error: 'Storage has been removed. Please implement alternative storage.',
     }
   }
 
   /**
-   * Get public URL for a file
+   * Get public URL for a file (mock)
    */
   getPublicUrl(path: string): string {
-    const { data } = this.supabase.storage
-      .from(this.bucket)
-      .getPublicUrl(path)
-
-    return data.publicUrl
+    return `/storage/${this.bucket}/${path}`
   }
 
   /**
-   * Delete file
+   * Delete file (mock)
    */
   async deleteFile(path: string): Promise<{ success: boolean; error?: string }> {
-    try {
-      const { error } = await this.supabase.storage
-        .from(this.bucket)
-        .remove([path])
-
-      if (error) {
-        throw new Error(error.message)
-      }
-
-      return { success: true }
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Delete failed',
-      }
-    }
+    console.warn('[Storage] Delete attempted but Supabase storage is removed')
+    return { success: false, error: 'Storage has been removed' }
   }
 
   /**
-   * List files in a folder
+   * List files in a folder (mock)
    */
-  async listFiles(folder: string = ''): Promise<any[]> {
-    const { data, error } = await this.supabase.storage
-      .from(this.bucket)
-      .list(folder)
-
-    if (error) {
-      throw new Error(`Failed to list files: ${error.message}`)
-    }
-
-    return data || []
+  async listFiles(folder: string = ''): Promise<unknown[]> {
+    console.warn('[Storage] List files attempted but Supabase storage is removed')
+    return []
   }
 
   /**
-   * Get file metadata
+   * Get file metadata (mock)
    */
-  async getFileMetadata(path: string): Promise<any> {
-    const { data, error } = await this.supabase.storage
-      .from(this.bucket)
-      .list('', { search: path })
-
-    if (error) {
-      throw new Error(`Failed to get file metadata: ${error.message}`)
-    }
-
-    return data?.[0] || null
+  async getFileMetadata(path: string): Promise<unknown> {
+    console.warn('[Storage] Get metadata attempted but Supabase storage is removed')
+    return null
   }
 }
 
 /**
- * Server-side storage utilities
+ * Server-side storage utilities (mock implementation)
  */
 export class ServerStorageManager {
   private bucket: string
 
   constructor() {
-    this.bucket = process.env.NEXT_PUBLIC_SUPABASE_BUCKET || 'pixell-files'
-  }
-
-  private async getSupabaseClient() {
-    const cookieStore = await cookies()
-    
-    return createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value
-          },
-          set(name: string, value: string, options: any) {
-            cookieStore.set({ name, value, ...options })
-          },
-          remove(name: string, options: any) {
-            cookieStore.set({ name, value: '', ...options })
-          },
-        },
-      }
-    )
+    this.bucket = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pixell-files'
   }
 
   /**
-   * Create signed URL for upload (server-side)
+   * Create signed URL for upload (mock)
    */
   async createSignedUploadUrl(
     filename: string,
     options: FileUploadOptions = {}
   ): Promise<SignedUploadResult> {
-    const supabase = await this.getSupabaseClient()
-    const { folder = 'uploads', upsert = true } = options
-    
+    const { folder = 'uploads' } = options
     const finalFilename = options.filename || `${Date.now()}-${filename}`
     const path = folder ? `${folder}/${finalFilename}` : finalFilename
 
-    const { data, error } = await supabase.storage
-      .from(this.bucket)
-      .createSignedUploadUrl(path, {
-        upsert,
-      })
-
-    if (error) {
-      throw new Error(`Failed to create signed URL: ${error.message}`)
-    }
-
     return {
-      signedUrl: data.signedUrl,
-      path: data.path,
-      token: data.token,
+      signedUrl: `/api/mock-upload/${path}`,
+      path,
+      token: 'mock-token',
     }
   }
 
   /**
-   * Get public URL for a file (server-side)
+   * Get public URL for a file (mock)
    */
   async getPublicUrl(path: string): Promise<string> {
-    const supabase = await this.getSupabaseClient()
-    
-    const { data } = supabase.storage
-      .from(this.bucket)
-      .getPublicUrl(path)
-
-    return data.publicUrl
+    return `/storage/${this.bucket}/${path}`
   }
 }
 
@@ -318,7 +186,7 @@ export const generateSafeFilename = (originalName: string): string => {
   const baseName = originalName.split('.').slice(0, -1).join('.')
     .replace(/[^a-zA-Z0-9]/g, '_')
     .substring(0, 50)
-  
+
   return `${baseName}_${timestamp}_${randomSuffix}.${extension}`
 }
 
@@ -327,11 +195,11 @@ export const generateSafeFilename = (originalName: string): string => {
  */
 export const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 Bytes'
-  
+
   const k = 1024
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  
+
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 

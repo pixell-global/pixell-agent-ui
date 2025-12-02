@@ -4,6 +4,20 @@ import { useAgentStore } from '@/stores/agent-store'
 import { useEffect } from 'react'
 import type { Agent } from '@/stores/agent-store'
 
+// Type for agent rows from database
+type AgentRow = {
+  id: string
+  name: string
+  description?: string
+  type: Agent['type']
+  status: Agent['status']
+  capabilities: Record<string, unknown>
+  config: Record<string, unknown>
+  user_id: string
+  created_at: string
+  updated_at: string
+}
+
 export function useRealtimeAgents(userId: string) {
   const { client } = useSupabase()
   const { setAgents, addAgent, updateAgent, removeAgent, setLoading, setError } = useAgentStore()
@@ -27,9 +41,12 @@ export function useRealtimeAgents(userId: string) {
           .order('created_at', { ascending: false })
 
         if (error) throw error
-        
+
         // Transform database rows to Agent interface
-        const agents: Agent[] = (data || []).map(row => ({
+        // Note: data may be null if Supabase is mocked/disabled
+        const rows = data as AgentRow[] | null
+
+        const agents: Agent[] = (rows || []).map(row => ({
           id: row.id,
           name: row.name,
           description: row.description,
@@ -55,41 +72,44 @@ export function useRealtimeAgents(userId: string) {
     // Subscribe to real-time changes
     const subscription = client
       .channel('agents')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
+      .on('postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
           table: 'agents',
           filter: `user_id=eq.${userId}`
         },
-        (payload) => {
+        (payload: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) => {
+          const newData = payload.new as AgentRow & { id: string }
+          const oldData = payload.old as { id: string }
+
           if (payload.eventType === 'INSERT') {
             const newAgent: Agent = {
-              id: payload.new.id,
-              name: payload.new.name,
-              description: payload.new.description,
-              type: payload.new.type,
-              status: payload.new.status,
-              capabilities: payload.new.capabilities || {},
-              config: payload.new.config || {},
-              userId: payload.new.user_id,
-              createdAt: payload.new.created_at,
-              updatedAt: payload.new.updated_at,
+              id: newData.id,
+              name: newData.name,
+              description: newData.description,
+              type: newData.type,
+              status: newData.status,
+              capabilities: newData.capabilities || {},
+              config: newData.config || {},
+              userId: newData.user_id,
+              createdAt: newData.created_at,
+              updatedAt: newData.updated_at,
             }
             addAgent(newAgent)
           } else if (payload.eventType === 'UPDATE') {
             const updates: Partial<Agent> = {
-              name: payload.new.name,
-              description: payload.new.description,
-              type: payload.new.type,
-              status: payload.new.status,
-              capabilities: payload.new.capabilities || {},
-              config: payload.new.config || {},
-              updatedAt: payload.new.updated_at,
+              name: newData.name,
+              description: newData.description,
+              type: newData.type,
+              status: newData.status,
+              capabilities: newData.capabilities || {},
+              config: newData.config || {},
+              updatedAt: newData.updated_at,
             }
-            updateAgent(payload.new.id, updates)
+            updateAgent(newData.id, updates)
           } else if (payload.eventType === 'DELETE') {
-            removeAgent(payload.old.id)
+            removeAgent(oldData.id)
           }
         }
       )

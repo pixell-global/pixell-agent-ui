@@ -8,19 +8,29 @@ interface ChatState {
   messages: ChatMessage[]
   streamingMessageId: string | null
   isLoading: boolean
-  
+
+  // Conversation context
+  currentConversationId: string | null
+  isNewConversation: boolean
+
   // File context
   selectedFiles: FileReference[]
-  
+
   // File attachments
   pendingAttachments: FileAttachment[]
-  
+
   // AI Agent status
   agentHealth: AgentHealth | null
-  
+
   // UI settings
   settings: ChatUISettings
-  
+
+  // Conversation actions
+  setConversationId: (id: string | null) => void
+  setIsNewConversation: (isNew: boolean) => void
+  loadConversation: (conversationId: string) => Promise<void>
+  saveMessage: (message: ChatMessage) => Promise<void>
+
   // Actions
   addMessage: (message: ChatMessage) => void
   updateMessage: (id: string, updates: Partial<ChatMessage>) => void
@@ -63,6 +73,8 @@ export const useChatStore = create<ChatState>()(
         messages: [],
         streamingMessageId: null,
         isLoading: false,
+        currentConversationId: null,
+        isNewConversation: true,
         selectedFiles: [],
         pendingAttachments: [],
         agentHealth: null,
@@ -74,7 +86,103 @@ export const useChatStore = create<ChatState>()(
           autoScrollEnabled: true
           // Removed maxTokensPerStream - using natural completion without limits
         },
-        
+
+        // Conversation actions
+        setConversationId: (id) =>
+          set((state) => {
+            state.currentConversationId = id
+            state.isNewConversation = !id
+          }),
+
+        setIsNewConversation: (isNew) =>
+          set((state) => {
+            state.isNewConversation = isNew
+          }),
+
+        loadConversation: async (conversationId) => {
+          set((state) => {
+            state.isLoading = true
+            state.messages = []
+            state.currentConversationId = conversationId
+            state.isNewConversation = false
+          })
+
+          try {
+            const response = await fetch(`/api/conversations/${conversationId}`)
+            if (!response.ok) {
+              throw new Error('Failed to load conversation')
+            }
+
+            const data = await response.json()
+
+            // Transform database messages to ChatMessage format
+            const messages: ChatMessage[] = data.messages.map((m: any) => ({
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              messageType: m.metadata?.messageType || 'text',
+              fileReferences: m.metadata?.fileReferences || [],
+              thinkingSteps: m.metadata?.thinkingSteps || [],
+              attachments: m.metadata?.attachments || [],
+              createdAt: m.createdAt,
+            }))
+
+            set((state) => {
+              state.messages = messages
+              state.isLoading = false
+            })
+          } catch (error) {
+            console.error('Error loading conversation:', error)
+            set((state) => {
+              state.isLoading = false
+            })
+          }
+        },
+
+        saveMessage: async (message) => {
+          const state = get()
+          const conversationId = state.currentConversationId
+
+          if (!conversationId) {
+            console.warn('No conversation ID, cannot save message')
+            return
+          }
+
+          try {
+            const response = await fetch(`/api/conversations/${conversationId}/messages`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                role: message.role,
+                content: message.content,
+                metadata: {
+                  messageType: message.messageType,
+                  fileReferences: message.fileReferences,
+                  thinkingSteps: message.thinkingSteps,
+                  attachments: message.attachments,
+                },
+              }),
+            })
+
+            if (!response.ok) {
+              console.error('Failed to save message')
+              return
+            }
+
+            const data = await response.json()
+
+            // Check if we need to trigger title generation
+            if (data.needsTitleGeneration) {
+              // Fire and forget title generation
+              fetch(`/api/conversations/${conversationId}/generate-title`, {
+                method: 'POST',
+              }).catch((err) => console.error('Title generation failed:', err))
+            }
+          } catch (error) {
+            console.error('Error saving message:', error)
+          }
+        },
+
         // Message actions
         addMessage: (message) =>
           set((state) => {
@@ -278,6 +386,8 @@ export const useChatStore = create<ChatState>()(
             state.messages = []
             state.streamingMessageId = null
             state.isLoading = false
+            state.currentConversationId = null
+            state.isNewConversation = true
           }),
           
         // Get recent message history for LLM context
@@ -299,9 +409,11 @@ export const useChatStore = create<ChatState>()(
 
 // Selectors for optimized subscriptions
 export const selectMessages = (state: ChatState) => state.messages
-export const selectStreamingMessage = (state: ChatState) => 
+export const selectStreamingMessage = (state: ChatState) =>
   state.streamingMessageId ? state.messages.find(m => m.id === state.streamingMessageId) : null
 export const selectSelectedFiles = (state: ChatState) => state.selectedFiles
 export const selectIsLoading = (state: ChatState) => state.isLoading
 export const selectAgentHealth = (state: ChatState) => state.agentHealth
-export const selectSettings = (state: ChatState) => state.settings 
+export const selectSettings = (state: ChatState) => state.settings
+export const selectCurrentConversationId = (state: ChatState) => state.currentConversationId
+export const selectIsNewConversation = (state: ChatState) => state.isNewConversation 

@@ -13,17 +13,22 @@ export interface WorkspaceTab {
 	isDirty?: boolean
 	path?: string
 	bufferId?: string
+	conversationId?: string // Links chat tab to a persisted conversation
 }
 
 interface TabState {
 	tabs: WorkspaceTab[]
 	activeTabId: string
-	openChatTab: (title?: string) => string
+	openChatTab: (title?: string, conversationId?: string) => string
+	openConversation: (conversationId: string, title: string) => string
 	openEditorTab: (args: { path: string; title?: string; bufferId?: string }) => string
 	closeTab: (id: string) => void
 	setActiveTab: (id: string) => void
 	markDirty: (id: string, dirty: boolean) => void
 	updateBufferId: (id: string, bufferId: string) => void
+	updateTabConversation: (tabId: string, conversationId: string) => void
+	updateTabTitle: (tabId: string, title: string) => void
+	getActiveTab: () => WorkspaceTab | undefined
 }
 
 function generateId(): string {
@@ -36,9 +41,27 @@ export const useTabStore = create<TabState>()(
 			{ id: 'chat-1', type: 'chat', title: 'Chat' },
 		],
 		activeTabId: 'chat-1',
-		openChatTab: (title?: string) => {
+		openChatTab: (title?: string, conversationId?: string) => {
 			const id = generateId()
-			set((state) => ({ tabs: [...state.tabs, { id, type: 'chat', title: title || 'Chat' }], activeTabId: id }))
+			set((state) => ({
+				tabs: [...state.tabs, { id, type: 'chat', title: title || 'Chat', conversationId }],
+				activeTabId: id
+			}))
+			return id
+		},
+		openConversation: (conversationId: string, title: string) => {
+			// Check if conversation is already open in a tab
+			const existing = get().tabs.find((t) => t.type === 'chat' && t.conversationId === conversationId)
+			if (existing) {
+				set({ activeTabId: existing.id })
+				return existing.id
+			}
+			// Open in new tab
+			const id = generateId()
+			set((state) => ({
+				tabs: [...state.tabs, { id, type: 'chat', title: title || 'Chat', conversationId }],
+				activeTabId: id
+			}))
 			return id
 		},
 		openEditorTab: ({ path, title, bufferId }) => {
@@ -64,6 +87,16 @@ export const useTabStore = create<TabState>()(
 		setActiveTab: (id) => set({ activeTabId: id }),
 		markDirty: (id, dirty) => set((state) => ({ tabs: state.tabs.map((t) => (t.id === id ? { ...t, isDirty: dirty } : t)) })),
 		updateBufferId: (id, bufferId) => set((state) => ({ tabs: state.tabs.map((t) => (t.id === id ? { ...t, bufferId } : t)) })),
+		updateTabConversation: (tabId, conversationId) => set((state) => ({
+			tabs: state.tabs.map((t) => (t.id === tabId ? { ...t, conversationId } : t))
+		})),
+		updateTabTitle: (tabId, title) => set((state) => ({
+			tabs: state.tabs.map((t) => (t.id === tabId ? { ...t, title } : t))
+		})),
+		getActiveTab: () => {
+			const state = get()
+			return state.tabs.find((t) => t.id === state.activeTabId)
+		},
 	}))
 )
 

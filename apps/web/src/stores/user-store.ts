@@ -3,8 +3,16 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
-import type { User } from '@supabase/supabase-js'
 import type { Role } from '@/lib/acl'
+
+// User type (previously from @supabase/supabase-js)
+export interface User {
+  id: string
+  email?: string
+  created_at: string
+  last_sign_in_at?: string
+  user_metadata?: Record<string, unknown>
+}
 
 export interface UserProfile {
   id: string
@@ -48,16 +56,17 @@ export const useUserStore = create<UserState>()(
           
           // Extract profile from user metadata if available
           if (user) {
+            const metadata = user.user_metadata || {}
             const profile: UserProfile = {
               id: user.id,
               email: user.email || '',
-              role: (user.user_metadata?.role || 'developer') as Role,
-              displayName: user.user_metadata?.full_name || 
-                          user.user_metadata?.name || 
-                          user.email?.split('@')[0] || 
+              role: (metadata.role as Role) || 'developer',
+              displayName: (metadata.full_name as string) ||
+                          (metadata.name as string) ||
+                          user.email?.split('@')[0] ||
                           'User',
-              avatarUrl: user.user_metadata?.avatar_url,
-              metadata: user.user_metadata,
+              avatarUrl: metadata.avatar_url as string | undefined,
+              metadata: metadata as Record<string, unknown>,
               createdAt: user.created_at,
               lastSignIn: user.last_sign_in_at || user.created_at,
             }

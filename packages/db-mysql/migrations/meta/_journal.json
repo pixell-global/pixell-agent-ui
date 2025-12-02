@@ -8,6 +8,20 @@
       "when": 1756287876359,
       "tag": "0000_ancient_junta",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1764065556727,
+      "tag": "0001_jazzy_doctor_doom",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1764653436650,
+      "tag": "0002_dusty_landau",
+      "breakpoints": true
     }
   ]
 }

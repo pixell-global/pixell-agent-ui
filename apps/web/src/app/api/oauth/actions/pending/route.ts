@@ -53,10 +53,10 @@ export async function GET(req: NextRequest) {
     const items = await db
       .select()
       .from(pendingActionItems)
-      .where(inArray(pendingActionItems.actionId, actionIds))
+      .where(inArray(pendingActionItems.pendingActionId, actionIds))
 
     // Get account info
-    const accountIds = [...new Set(actions.map((a) => a.accountId))]
+    const accountIds = [...new Set(actions.map((a) => a.externalAccountId).filter(Boolean))] as string[]
     const accounts = await db
       .select({
         id: externalAccounts.id,
@@ -74,8 +74,8 @@ export async function GET(req: NextRequest) {
     // Combine actions with items and account info
     const actionsWithItems = actions.map((action) => ({
       ...action,
-      items: items.filter((item) => item.actionId === action.id),
-      account: accountsMap.get(action.accountId),
+      items: items.filter((item) => item.pendingActionId === action.id),
+      account: action.externalAccountId ? accountsMap.get(action.externalAccountId) : null,
     }))
 
     return NextResponse.json({

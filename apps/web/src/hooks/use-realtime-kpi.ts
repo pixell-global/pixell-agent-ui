@@ -214,14 +214,16 @@ export function useRealtimeKPI(userId?: string) {
     // Subscribe to real-time changes on jobs table
     const subscription = client
       .channel('tenant-jobs')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'core', 
+      .on('postgres_changes',
+        {
+          event: '*',
+          schema: 'core',
           table: 'jobs'
         },
-        async (payload) => {
-          console.log('KPI: Received job update:', payload.eventType, (payload.new as any)?.name || (payload.old as any)?.name)
+        async (payload: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) => {
+          const newData = payload.new as { name?: string } | null
+          const oldData = payload.old as { name?: string } | null
+          console.log('KPI: Received job update:', payload.eventType, newData?.name || oldData?.name)
           
           // Refetch all data to recalculate metrics
           // In production, you might want to incrementally update instead

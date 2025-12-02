@@ -46,6 +46,7 @@ import { subscriptions, organizations, webhookEvents, creditPurchases } from '@p
 import { eq } from 'drizzle-orm'
 import { resetCreditsForNewPeriod, addTopupCredits } from '@/lib/billing/credit-manager'
 import Stripe from 'stripe'
+import { v4 as uuidv4 } from 'uuid'
 
 /**
  * Disable body parsing - Stripe requires raw body for signature verification
@@ -266,6 +267,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, db: Awa
   } else {
     // Create new subscription
     await db.insert(subscriptions).values({
+      id: uuidv4(),
       orgId,
       planTier: tier as any,
       status: sub.status as any,

@@ -4,6 +4,21 @@ import { useTaskStore } from '@/stores/task-store'
 import { useEffect } from 'react'
 import type { Task } from '@/stores/task-store'
 
+// Type for task rows from database
+type TaskRow = {
+  id: string
+  name: string
+  description?: string
+  status: Task['status']
+  progress: number
+  agent_id: string | null
+  user_id: string
+  parent_task_id?: string
+  metadata: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
 export function useRealtimeTasks(userId: string) {
   const { client } = useSupabase()
   const { setTasks, addTask, updateTask, removeTask, setLoading, setError } = useTaskStore()
@@ -27,9 +42,10 @@ export function useRealtimeTasks(userId: string) {
           .order('created_at', { ascending: false })
 
         if (error) throw error
-        
+
         // Transform database rows to Task interface
-        const tasks: Task[] = (data || []).map(row => ({
+        const rows = data as TaskRow[] | null
+        const tasks: Task[] = (rows || []).map(row => ({
           id: row.id,
           name: row.name,
           description: row.description,
@@ -42,7 +58,7 @@ export function useRealtimeTasks(userId: string) {
           createdAt: row.created_at,
           updatedAt: row.updated_at,
         }))
-        
+
         setTasks(tasks)
       } catch (error) {
         setError(error instanceof Error ? error.message : 'Failed to fetch tasks')
@@ -56,43 +72,46 @@ export function useRealtimeTasks(userId: string) {
     // Subscribe to real-time changes
     const subscription = client
       .channel('tasks')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
+      .on('postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
           table: 'tasks',
           filter: `user_id=eq.${userId}`
         },
-        (payload) => {
+        (payload: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) => {
+          const newData = payload.new as TaskRow
+          const oldData = payload.old as { id: string }
+
           if (payload.eventType === 'INSERT') {
             const newTask: Task = {
-              id: payload.new.id,
-              name: payload.new.name,
-              description: payload.new.description,
-              status: payload.new.status,
-              progress: payload.new.progress,
-              agentId: payload.new.agent_id,
-              userId: payload.new.user_id,
-              parentTaskId: payload.new.parent_task_id,
-              metadata: payload.new.metadata || {},
-              createdAt: payload.new.created_at,
-              updatedAt: payload.new.updated_at,
+              id: newData.id,
+              name: newData.name,
+              description: newData.description,
+              status: newData.status,
+              progress: newData.progress,
+              agentId: newData.agent_id,
+              userId: newData.user_id,
+              parentTaskId: newData.parent_task_id,
+              metadata: newData.metadata || {},
+              createdAt: newData.created_at,
+              updatedAt: newData.updated_at,
             }
             addTask(newTask)
           } else if (payload.eventType === 'UPDATE') {
             const updates: Partial<Task> = {
-              name: payload.new.name,
-              description: payload.new.description,
-              status: payload.new.status,
-              progress: payload.new.progress,
-              agentId: payload.new.agent_id,
-              parentTaskId: payload.new.parent_task_id,
-              metadata: payload.new.metadata || {},
-              updatedAt: payload.new.updated_at,
+              name: newData.name,
+              description: newData.description,
+              status: newData.status,
+              progress: newData.progress,
+              agentId: newData.agent_id,
+              parentTaskId: newData.parent_task_id,
+              metadata: newData.metadata || {},
+              updatedAt: newData.updated_at,
             }
-            updateTask(payload.new.id, updates)
+            updateTask(newData.id, updates)
           } else if (payload.eventType === 'DELETE') {
-            removeTask(payload.old.id)
+            removeTask(oldData.id)
           }
         }
       )

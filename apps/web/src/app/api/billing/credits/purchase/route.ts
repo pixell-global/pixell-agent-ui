@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Ensure organization has a Stripe customer
-    let customerId = org.stripeCustomerId
+    const customerId = org.stripeCustomerId
 
     if (!customerId) {
       return NextResponse.json(

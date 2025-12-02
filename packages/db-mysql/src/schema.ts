@@ -547,3 +547,305 @@ export type NewPendingAction = typeof pendingActions.$inferInsert
 export type PendingActionItem = typeof pendingActionItems.$inferSelect
 export type NewPendingActionItem = typeof pendingActionItems.$inferInsert
 
+// =============================================================================
+// ACTIVITIES SYSTEM (Activity Pane)
+// =============================================================================
+//
+// These tables support async operations, scheduled tasks, and workflows
+// displayed in the Activity Pane. Activities are org-scoped (not brand-scoped).
+//
+// Flow:
+// - Core Agent creates activities via API when user requests async operations
+// - Activities can be one-off tasks, scheduled (cron), or multi-step workflows
+// - Users can pause, cancel, retry failed activities from the Activity Pane
+// - Approval requests allow agents to request user permission before proceeding
+// =============================================================================
+
+// Activity type enum
+export const activityTypeEnum = mysqlEnum('activity_type', [
+  'task',       // One-off async task
+  'scheduled',  // Recurring scheduled task (cron-based)
+  'workflow',   // Multi-step workflow
+])
+
+// Activity status enum
+export const activityStatusEnum = mysqlEnum('activity_status', [
+  'pending',    // Waiting to start (or waiting for approval)
+  'running',    // Currently executing
+  'paused',     // Paused by user
+  'completed',  // Successfully finished
+  'failed',     // Failed with error
+  'cancelled',  // Cancelled by user
+])
+
+// Activity step status enum
+export const activityStepStatusEnum = mysqlEnum('activity_step_status', [
+  'pending',
+  'running',
+  'completed',
+  'failed',
+  'skipped',
+])
+
+// Approval request type enum
+export const approvalRequestTypeEnum = mysqlEnum('approval_request_type', [
+  'permission',    // Request for permission/scope access
+  'confirmation',  // Request for user confirmation before action
+  'input',         // Request for user input/decision
+])
+
+// Approval request status enum
+export const approvalRequestStatusEnum = mysqlEnum('approval_request_status', [
+  'pending',
+  'approved',
+  'denied',
+  'expired',
+])
+
+// Main activities table (org-scoped)
+export const activities = mysqlTable('activities', {
+  id: char('id', { length: 36 }).primaryKey(),
+  orgId: char('org_id', { length: 36 }).notNull(),
+  userId: varchar('user_id', { length: 128 }).notNull(),
+
+  // Optional references
+  conversationId: char('conversation_id', { length: 36 }), // Chat that spawned this activity
+  agentId: varchar('agent_id', { length: 255 }),           // Which agent is executing
+
+  // Activity identification
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  activityType: activityTypeEnum.default('task').notNull(),
+
+  // Status tracking
+  status: activityStatusEnum.default('pending').notNull(),
+  progress: int('progress').default(0).notNull(),          // 0-100
+  progressMessage: varchar('progress_message', { length: 500 }),
+
+  // Scheduling (for scheduled activities)
+  scheduleCron: varchar('schedule_cron', { length: 100 }),
+  scheduleNextRun: timestamp('schedule_next_run'),
+  scheduleLastRun: timestamp('schedule_last_run'),
+  scheduleTimezone: varchar('schedule_timezone', { length: 50 }).default('UTC'),
+
+  // Execution details
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
+  estimatedDurationMs: int('estimated_duration_ms'),
+  actualDurationMs: int('actual_duration_ms'),
+
+  // Result storage
+  result: json('result'),
+  errorMessage: text('error_message'),
+  errorCode: varchar('error_code', { length: 50 }),
+
+  // Metadata
+  metadata: json('metadata'),
+  tags: json('tags').$type<string[]>(),
+  priority: int('priority').default(0).notNull(),
+
+  // Timestamps
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  archivedAt: timestamp('archived_at'),
+}, (t) => ({
+  idxOrgStatus: index('idx_activities_org_status').on(t.orgId, t.status),
+  idxOrgCreated: index('idx_activities_org_created').on(t.orgId, t.createdAt),
+  idxScheduleNextRun: index('idx_activities_schedule_next_run').on(t.scheduleNextRun),
+  idxConversation: index('idx_activities_conversation').on(t.conversationId),
+  idxUser: index('idx_activities_user').on(t.userId),
+  idxArchived: index('idx_activities_archived').on(t.archivedAt),
+}))
+
+// Activity steps table (sub-tasks within an activity)
+export const activitySteps = mysqlTable('activity_steps', {
+  id: char('id', { length: 36 }).primaryKey(),
+  activityId: char('activity_id', { length: 36 }).notNull(),
+
+  // Step details
+  stepOrder: int('step_order').notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+
+  // Status tracking
+  status: activityStepStatusEnum.default('pending').notNull(),
+
+  // Execution details
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
+
+  // Result storage
+  result: json('result'),
+  errorMessage: text('error_message'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  idxActivityId: index('idx_activity_steps_activity').on(t.activityId),
+  idxActivityOrder: index('idx_activity_steps_order').on(t.activityId, t.stepOrder),
+}))
+
+// Activity approval requests table
+export const activityApprovalRequests = mysqlTable('activity_approval_requests', {
+  id: char('id', { length: 36 }).primaryKey(),
+  activityId: char('activity_id', { length: 36 }).notNull(),
+
+  // Request details
+  requestType: approvalRequestTypeEnum.notNull(),
+  title: varchar('title', { length: 255 }).notNull(),
+  description: text('description'),
+
+  // Permission scopes requested (for permission type)
+  requiredScopes: json('required_scopes').$type<string[]>(),
+
+  // Options for user to choose (for input type)
+  options: json('options'),
+
+  // Status tracking
+  status: approvalRequestStatusEnum.default('pending').notNull(),
+
+  // Response
+  respondedAt: timestamp('responded_at'),
+  response: json('response'),
+
+  // Expiration
+  expiresAt: timestamp('expires_at'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  idxActivityId: index('idx_approval_requests_activity').on(t.activityId),
+  idxStatus: index('idx_approval_requests_status').on(t.status),
+  idxExpires: index('idx_approval_requests_expires').on(t.expiresAt),
+}))
+
+// Type exports for activities
+export type Activity = typeof activities.$inferSelect
+export type NewActivity = typeof activities.$inferInsert
+
+export type ActivityStep = typeof activitySteps.$inferSelect
+export type NewActivityStep = typeof activitySteps.$inferInsert
+
+export type ActivityApprovalRequest = typeof activityApprovalRequests.$inferSelect
+export type NewActivityApprovalRequest = typeof activityApprovalRequests.$inferInsert
+
+// =============================================================================
+// CONVERSATIONS SYSTEM (Chat History)
+// =============================================================================
+//
+// These tables support persistent chat history with organization-wide visibility.
+//
+// Features:
+// - Conversations are auto-saved on first message
+// - AI-generated titles after 3 messages (user can rename)
+// - Public to organization by default, can be made private
+// - Users can hide public org conversations without deleting
+// - Soft delete for owner's private conversations
+// =============================================================================
+
+// Title source enum
+export const titleSourceEnum = mysqlEnum('title_source', ['auto', 'user'])
+
+// Conversation message role enum
+export const conversationMessageRoleEnum = mysqlEnum('conversation_message_role', [
+  'user',
+  'assistant',
+  'system',
+])
+
+// Conversations table
+export const conversations = mysqlTable('conversations', {
+  id: char('id', { length: 36 }).primaryKey(),
+  orgId: char('org_id', { length: 36 }).notNull(),
+  userId: varchar('user_id', { length: 128 }).notNull(),
+
+  // Conversation metadata
+  title: varchar('title', { length: 255 }),
+  titleSource: titleSourceEnum.default('auto'),
+
+  // Visibility
+  isPublic: boolean('is_public').default(true).notNull(),
+
+  // Message stats (denormalized for list performance)
+  messageCount: int('message_count').default(0).notNull(),
+  lastMessageAt: timestamp('last_message_at'),
+  lastMessagePreview: varchar('last_message_preview', { length: 500 }),
+
+  // Timestamps
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  deletedAt: timestamp('deleted_at'),
+}, (t) => ({
+  orgUserIdx: index('idx_conversations_org_user').on(t.orgId, t.userId),
+  orgPublicIdx: index('idx_conversations_org_public').on(t.orgId, t.isPublic),
+  lastMsgIdx: index('idx_conversations_last_msg').on(t.lastMessageAt),
+  deletedIdx: index('idx_conversations_deleted').on(t.deletedAt),
+}))
+
+// Type for conversation message metadata JSON
+export type ConversationMessageMetadata = {
+  messageType?: 'text' | 'plan' | 'progress' | 'alert' | 'file_context' | 'code'
+  fileReferences?: Array<{ id: string; name: string; path: string }>
+  thinkingSteps?: Array<{ id: string; content: string; isCompleted: boolean }>
+  attachments?: Array<{ id: string; name: string; path: string; mimeType?: string }>
+  model?: string
+}
+
+// Conversation messages table
+export const conversationMessages = mysqlTable('conversation_messages', {
+  id: char('id', { length: 36 }).primaryKey(),
+  conversationId: char('conversation_id', { length: 36 }).notNull(),
+
+  // Message content
+  role: conversationMessageRoleEnum.notNull(),
+  content: text('content').notNull(),
+
+  // Rich content metadata
+  metadata: json('metadata').$type<ConversationMessageMetadata>(),
+
+  // Timestamps
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  conversationIdx: index('idx_conv_messages_conversation').on(t.conversationId, t.createdAt),
+}))
+
+// Hidden conversations table (user preferences for hiding org conversations)
+export const hiddenConversations = mysqlTable('hidden_conversations', {
+  userId: varchar('user_id', { length: 128 }).notNull(),
+  conversationId: char('conversation_id', { length: 36 }).notNull(),
+  hiddenAt: timestamp('hidden_at').defaultNow().notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.userId, t.conversationId] }),
+  userIdx: index('idx_hidden_conversations_user').on(t.userId),
+}))
+
+// Type exports for conversations
+export type Conversation = typeof conversations.$inferSelect
+export type NewConversation = typeof conversations.$inferInsert
+
+export type ConversationMessage = typeof conversationMessages.$inferSelect
+export type NewConversationMessage = typeof conversationMessages.$inferInsert
+
+export type HiddenConversation = typeof hiddenConversations.$inferSelect
+export type NewHiddenConversation = typeof hiddenConversations.$inferInsert
+
+// =============================================================================
+// WAITLIST SYSTEM (Marketing)
+// =============================================================================
+//
+// Simple email waitlist for marketing landing pages.
+// Called from external marketing sites (pixellagents.com, pixell.global).
+// =============================================================================
+
+export const waitlist = mysqlTable('waitlist', {
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+  email: varchar('email', { length: 255 }).notNull(),
+  source: varchar('source', { length: 100 }),  // Origin domain (e.g., 'https://pixellagents.com')
+  ipAddress: varchar('ip_address', { length: 45 }),  // IPv6 compatible
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  uniqueEmail: unique('unique_waitlist_email').on(t.email),
+  idxCreatedAt: index('idx_waitlist_created_at').on(t.createdAt),
+}))
+
+export type Waitlist = typeof waitlist.$inferSelect
+export type NewWaitlist = typeof waitlist.$inferInsert
+
