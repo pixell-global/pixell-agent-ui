@@ -214,9 +214,72 @@ export async function streamChatHandler(req: Request, res: Response) {
             sseData = { type: 'complete' }
             console.log('📤 Sending final completion signal')
           } else if (currentEvent.event === 'EventType.ERROR') {
-            sseData = { 
-              type: 'error', 
+            sseData = {
+              type: 'error',
               error: currentEvent.data || 'Unknown error occurred'
+            }
+          } else if (currentEvent.event === 'clarification_needed') {
+            // Plan Mode: Handle clarification request from agent
+            try {
+              const clarificationData = JSON.parse(currentEvent.data)
+              sseData = {
+                type: 'clarification_needed',
+                clarification: clarificationData.clarification || clarificationData,
+                complexity: clarificationData.complexity,
+                request_id: clarificationData.request_id || currentEvent.id
+              }
+              console.log('📤 Sending clarification_needed event:', clarificationData.clarification?.clarificationId)
+            } catch {
+              // Fallback for non-JSON data
+              sseData = {
+                type: 'clarification_needed',
+                clarification: {
+                  clarificationId: currentEvent.id || `clarification_${Date.now()}`,
+                  message: currentEvent.data,
+                  questions: []
+                }
+              }
+            }
+          } else if (currentEvent.event === 'plan_proposed') {
+            // Plan Mode: Handle plan proposal from agent
+            try {
+              const planData = JSON.parse(currentEvent.data)
+              sseData = {
+                type: 'plan_proposed',
+                plan: planData.plan || planData,
+                request_id: planData.request_id || currentEvent.id
+              }
+              console.log('📤 Sending plan_proposed event:', planData.plan?.planId)
+            } catch {
+              sseData = {
+                type: 'plan_proposed',
+                plan: {
+                  planId: currentEvent.id || `plan_${Date.now()}`,
+                  title: 'Proposed Plan',
+                  summary: currentEvent.data,
+                  steps: []
+                }
+              }
+            }
+          } else if (currentEvent.event === 'plan_executing') {
+            // Plan Mode: Handle plan execution progress
+            try {
+              const stepData = JSON.parse(currentEvent.data)
+              sseData = {
+                type: 'plan_executing',
+                step: stepData.step || stepData,
+                plan_id: stepData.plan_id || stepData.planId
+              }
+              console.log('📤 Sending plan_executing event:', stepData.step?.stepId)
+            } catch {
+              sseData = {
+                type: 'plan_executing',
+                step: {
+                  stepId: currentEvent.id || `step_${Date.now()}`,
+                  status: 'in_progress',
+                  message: currentEvent.data
+                }
+              }
             }
           } else if (currentEvent.event.includes('upee') || currentEvent.event.includes('phase')) {
             // Handle various UPEE phase event formats
@@ -460,7 +523,7 @@ export async function statusHandler(req: Request, res: Response) {
 export async function modelsHandler(req: Request, res: Response) {
   try {
     const coreAgentUrl = await getCoreAgentUrl()
-    
+
     const response = await fetch(`${coreAgentUrl}/api/chat/models`, {
       method: 'GET',
       headers: {
@@ -478,16 +541,190 @@ export async function modelsHandler(req: Request, res: Response) {
 
     const modelsData = await response.json()
     res.json(modelsData)
-    
+
   } catch (error) {
     console.error('Models check error:', error)
-    
+
     const errorMessage = error instanceof Error && error.name === 'TimeoutError'
       ? 'PAF Core Agent models check timed out'
       : error instanceof Error && error.message.includes('fetch')
       ? 'Cannot connect to PAF Core Agent'
       : error instanceof Error ? error.message : 'Unknown error'
-    
+
     res.status(500).json({ error: errorMessage })
+  }
+}
+
+// =============================================================================
+// Plan Mode: Clarification Response Endpoint
+// =============================================================================
+
+/**
+ * POST /api/chat/respond - Send clarification response for plan mode
+ *
+ * This endpoint forwards clarification responses from the UI to PAF Core Agent
+ * (or directly to the target agent's /a2a/respond endpoint).
+ *
+ * Request body:
+ * {
+ *   clarificationId: string,
+ *   answers: Array<{ questionId: string, value: string }>,
+ *   agentUrl?: string  // Optional: direct agent URL for A2A routing
+ * }
+ */
+export async function respondHandler(req: Request, res: Response) {
+  try {
+    const { clarificationId, answers, agentUrl } = req.body
+
+    if (!clarificationId) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Missing clarificationId in request body'
+      })
+    }
+
+    if (!answers || !Array.isArray(answers)) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Missing or invalid answers array in request body'
+      })
+    }
+
+    console.log('📤 Sending clarification response:', {
+      clarificationId,
+      answersCount: answers.length,
+      agentUrl: agentUrl || 'paf-core-agent'
+    })
+
+    // Build the response payload
+    const responsePayload = {
+      type: 'clarification_response',
+      clarificationId,
+      answers
+    }
+
+    // Determine target URL
+    // If agentUrl is provided, send directly to that agent's /a2a/respond
+    // Otherwise, send to PAF Core Agent's /api/chat/respond (to be implemented)
+    let targetUrl: string
+    if (agentUrl) {
+      // Direct to agent's A2A respond endpoint
+      targetUrl = `${agentUrl}/a2a/respond`
+    } else {
+      // Send to PAF Core Agent
+      const coreAgentUrl = await getCoreAgentUrl()
+      targetUrl = `${coreAgentUrl}/api/chat/respond`
+    }
+
+    console.log('📤 Forwarding to:', targetUrl)
+
+    const response = await fetch(targetUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(responsePayload),
+      signal: AbortSignal.timeout(30000) // 30 second timeout
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      let errorJson
+      try {
+        errorJson = JSON.parse(errorText)
+      } catch {
+        errorJson = { error: errorText }
+      }
+
+      console.error('❌ Clarification response failed:', response.status, errorJson)
+
+      return res.status(response.status).json({
+        ok: false,
+        error: errorJson.error || `Failed to send clarification response: ${response.status}`
+      })
+    }
+
+    const result = await response.json()
+    console.log('✅ Clarification response accepted:', result)
+
+    res.json({
+      ok: true,
+      ...result
+    })
+
+  } catch (error) {
+    console.error('Respond handler error:', error)
+
+    const errorMessage = error instanceof Error && error.name === 'TimeoutError'
+      ? 'Clarification response timed out'
+      : error instanceof Error && error.message.includes('fetch')
+      ? 'Cannot connect to target agent'
+      : error instanceof Error ? error.message : 'Unknown error'
+
+    res.status(500).json({
+      ok: false,
+      error: errorMessage
+    })
+  }
+}
+
+/**
+ * GET /api/chat/clarifications - Get pending clarifications status
+ *
+ * Returns the count and IDs of pending clarifications.
+ * Useful for debugging and monitoring plan mode state.
+ */
+export async function clarificationsHandler(req: Request, res: Response) {
+  try {
+    const { agentUrl } = req.query
+
+    let targetUrl: string
+    if (agentUrl && typeof agentUrl === 'string') {
+      targetUrl = `${agentUrl}/a2a/clarifications`
+    } else {
+      const coreAgentUrl = await getCoreAgentUrl()
+      targetUrl = `${coreAgentUrl}/api/chat/clarifications`
+    }
+
+    const response = await fetch(targetUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(5000)
+    })
+
+    if (!response.ok) {
+      // If endpoint doesn't exist, return empty state
+      if (response.status === 404) {
+        return res.json({
+          ok: true,
+          pending_count: 0,
+          message: 'Clarifications endpoint not available'
+        })
+      }
+
+      const errorText = await response.text()
+      return res.status(response.status).json({
+        ok: false,
+        error: `Failed to get clarifications status: ${errorText}`
+      })
+    }
+
+    const result = await response.json()
+    res.json({
+      ok: true,
+      ...result
+    })
+
+  } catch (error) {
+    console.error('Clarifications status error:', error)
+
+    // Return empty state on connection errors (endpoint may not exist)
+    res.json({
+      ok: true,
+      pending_count: 0,
+      message: 'Clarifications status unavailable'
+    })
   }
 }

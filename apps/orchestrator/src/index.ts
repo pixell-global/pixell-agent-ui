@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
-import { streamChatHandler, healthHandler, statusHandler, modelsHandler } from './api/chat';
+import { streamChatHandler, healthHandler, statusHandler, modelsHandler, respondHandler, clarificationsHandler } from './api/chat';
 import { config } from 'dotenv';
 import { resolve } from 'path';
 
@@ -350,6 +350,30 @@ app.get('/api/chat/models', async (req, res) => {
   }
 });
 
+// Plan Mode: Clarification response endpoint
+app.post('/api/chat/respond', async (req, res) => {
+  try {
+    await respondHandler(req, res);
+  } catch (error) {
+    console.error('Respond handler error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Respond handler failed' });
+    }
+  }
+});
+
+// Plan Mode: Get pending clarifications status
+app.get('/api/chat/clarifications', async (req, res) => {
+  try {
+    await clarificationsHandler(req, res);
+  } catch (error) {
+    console.error('Clarifications status error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Clarifications status failed' });
+    }
+  }
+});
+
 // Create a simulated task with real-time progress
 const createTask = (name: string, description: string, agentId: string, agentName: string) => {
   const task = {
@@ -515,6 +539,10 @@ server.listen(port, () => {
   console.log(`   GET  /api/health - PAF Core Agent health status`)
   console.log(`   GET  /api/chat/status - Detailed PAF Core Agent status`)
   console.log(`   GET  /api/chat/models - Available AI models`)
+  console.log('')
+  console.log('📋 Plan Mode Endpoints:')
+  console.log(`   POST /api/chat/respond - Send clarification response`)
+  console.log(`   GET  /api/chat/clarifications - Pending clarifications status`)
   console.log('')
   console.log('✨ New Phase 2 Features:')
   console.log('   • Multi-agent orchestration')
