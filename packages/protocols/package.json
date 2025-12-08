@@ -20,6 +20,10 @@
     "./shared": {
       "types": "./dist/shared/index.d.ts",
       "default": "./dist/shared/index.js"
+    },
+    "./plan-mode": {
+      "types": "./dist/plan-mode/index.d.ts",
+      "default": "./dist/plan-mode/index.js"
     }
   },
   "scripts": {
