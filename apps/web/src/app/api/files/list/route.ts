@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { exec } from 'child_process'
-import { promisify } from 'util'
 import path from 'path'
-import fs from 'fs-extra'
+import fs from 'fs/promises'
 
-const execAsync = promisify(exec)
+// Helper to check if path exists
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await fs.access(p)
+    return true
+  } catch {
+    return false
+  }
+}
 
 
 // Get workspace path from environment or default
@@ -62,7 +68,7 @@ export async function GET(request: NextRequest) {
     const workspacePath = getWorkspacePath()
     
     // Check if workspace directory exists
-    if (!(await fs.pathExists(workspacePath))) {
+    if (!(await pathExists(workspacePath))) {
       return NextResponse.json({
         success: true,
         files: [],

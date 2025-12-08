@@ -37,6 +37,8 @@ function loadEnv() {
 loadEnv()
 
 const nextConfig: NextConfig = {
+  // Enable standalone output for Docker deployment
+  output: 'standalone',
   // Ensure Next resolves the correct monorepo root for tracing and dev/build artifacts
   outputFileTracingRoot: path.resolve(__dirname, "..", ".."),
   env: {

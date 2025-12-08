@@ -1,6 +1,24 @@
-import fs from 'fs-extra'
+import fs from 'fs/promises'
 import path from 'path'
 import { createHash } from 'crypto'
+
+// Helper functions to replace fs-extra methods
+async function ensureDir(dir: string): Promise<void> {
+  await fs.mkdir(dir, { recursive: true })
+}
+
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await fs.access(p)
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function remove(p: string): Promise<void> {
+  await fs.rm(p, { recursive: true, force: true })
+}
 
 export interface FileNode {
   id: string
@@ -33,7 +51,7 @@ export class LocalAdapter {
 
   async initialize(config: { rootPath: string }): Promise<void> {
     this.rootPath = config.rootPath
-    await fs.ensureDir(this.rootPath)
+    await ensureDir(this.rootPath)
     this.initialized = true
   }
 
@@ -42,7 +60,7 @@ export class LocalAdapter {
     
     const fullPath = path.join(this.rootPath, relativePath.startsWith('/') ? relativePath.slice(1) : relativePath)
     
-    if (!await fs.pathExists(fullPath)) {
+    if (!await pathExists(fullPath)) {
       return []
     }
 
@@ -88,7 +106,7 @@ export class LocalAdapter {
     
     const fullPath = path.join(this.rootPath, relativePath.startsWith('/') ? relativePath.slice(1) : relativePath)
     
-    if (!await fs.pathExists(fullPath)) {
+    if (!await pathExists(fullPath)) {
       throw new Error(`File not found: ${relativePath}`)
     }
 
@@ -111,7 +129,7 @@ export class LocalAdapter {
     
     const fullPath = path.join(this.rootPath, relativePath.startsWith('/') ? relativePath.slice(1) : relativePath)
     
-    await fs.ensureDir(path.dirname(fullPath))
+    await ensureDir(path.dirname(fullPath))
     await fs.writeFile(fullPath, content)
     
     const stats = await fs.stat(fullPath)
@@ -137,7 +155,7 @@ export class LocalAdapter {
     
     const fullPath = path.join(this.rootPath, relativePath.startsWith('/') ? relativePath.slice(1) : relativePath)
     
-    await fs.ensureDir(path.dirname(fullPath))
+    await ensureDir(path.dirname(fullPath))
     
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
@@ -166,7 +184,7 @@ export class LocalAdapter {
     
     const fullPath = path.join(this.rootPath, relativePath.startsWith('/') ? relativePath.slice(1) : relativePath)
     
-    await fs.ensureDir(fullPath)
+    await ensureDir(fullPath)
     const stats = await fs.stat(fullPath)
     
     return {
@@ -189,11 +207,11 @@ export class LocalAdapter {
     
     const fullPath = path.join(this.rootPath, relativePath.startsWith('/') ? relativePath.slice(1) : relativePath)
     
-    if (!await fs.pathExists(fullPath)) {
+    if (!await pathExists(fullPath)) {
       throw new Error(`File not found: ${relativePath}`)
     }
 
-    await fs.remove(fullPath)
+    await remove(fullPath)
   }
 
   async searchFiles(query: string, relativePath: string = '/'): Promise<FileNode[]> {

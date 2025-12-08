@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import path from 'path'
-import fs from 'fs-extra'
+import fs from 'fs/promises'
 
 const execAsync = promisify(exec)
+
+// Helper to ensure directory exists
+async function ensureDir(dir: string): Promise<void> {
+  await fs.mkdir(dir, { recursive: true })
+}
 
 
 // Get workspace path from environment or default
@@ -80,7 +85,7 @@ export async function POST(request: NextRequest) {
         // Create file using filesystem CLI
         // First ensure parent directory exists
         const parentDir = path.dirname(fullPath)
-        await fs.ensureDir(parentDir)
+        await ensureDir(parentDir)
         
         if (uploadedFile) {
           // Handle file upload

@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { exec } from 'child_process'
-import { promisify } from 'util'
 import path from 'path'
-import fs from 'fs-extra'
+import fs from 'fs/promises'
 
-const execAsync = promisify(exec)
+// Helper to check if path exists
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await fs.access(p)
+    return true
+  } catch {
+    return false
+  }
+}
 
 
 // Get workspace path from environment or default
@@ -33,13 +39,13 @@ export async function GET(request: NextRequest) {
     const normalizedFilePath = filePath.startsWith('/') ? filePath.substring(1) : filePath
     const fullPath = path.join(workspacePath, normalizedFilePath)
     
-    console.log('🔍 [API] 경로 정보:', { 
-      workspacePath, 
-      originalFilePath: filePath, 
-      normalizedFilePath, 
+    console.log('🔍 [API] 경로 정보:', {
+      workspacePath,
+      originalFilePath: filePath,
+      normalizedFilePath,
       fullPath,
-      workspaceExists: await fs.pathExists(workspacePath),
-      fileExists: await fs.pathExists(fullPath)
+      workspaceExists: await pathExists(workspacePath),
+      fileExists: await pathExists(fullPath)
     })
     
     // Ensure the path is within workspace (security check)
