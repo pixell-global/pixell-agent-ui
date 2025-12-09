@@ -273,14 +273,20 @@ export class CoreAgentService {
   }
 
   /**
-   * Acitivity 큐 가져오기
+   * Activity 큐 가져오기
+   * 클라이언트 사이드에서 실행되므로 API route를 통해 접근
    */
   async getActivity(): Promise<{
     message: string
     payload: any
   }> {
     try {
-      const response = await fetch(`http://localhost:8000/api/activity-manager?organization_id=5d1c6e27-852f-438b-8f69-82dd5b409f5a`, { /// TODO: ORGANIZATION_ID 처리
+      // TODO: ORGANIZATION_ID 처리 - 현재는 하드코딩된 값 사용
+      // 실제로는 사용자 세션에서 organization_id를 가져와야 함
+      const organizationId = '5d1c6e27-852f-438b-8f69-82dd5b409f5a'
+      
+      // Use local API route which has access to server-side environment variables
+      const response = await fetch(`/api/activity-manager?organization_id=${organizationId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
