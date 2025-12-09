@@ -26,6 +26,7 @@ interface UIStore {
   leftPanelVisible: boolean
   leftPanelCollapsed: boolean
   rightPanelVisible: boolean
+  rightPanelCollapsed: boolean
   leftPanelTab: 'files' | 'history'
   
   // Chat state
@@ -45,6 +46,7 @@ interface UIStore {
   toggleLeftPanel: () => void
   toggleLeftPanelCollapsed: () => void
   toggleRightPanel: () => void
+  toggleRightPanelCollapsed: () => void
   setLeftPanelTab: (tab: 'files' | 'history') => void
   setChatInputFocused: (focused: boolean) => void
   setIsStreaming: (streaming: boolean) => void
@@ -63,6 +65,7 @@ export const useUIStore = create<UIStore>()(
     leftPanelVisible: true,
     leftPanelCollapsed: false,
     rightPanelVisible: true,
+    rightPanelCollapsed: false,
     leftPanelTab: 'files',
     chatInputFocused: false,
     isStreaming: false,
@@ -83,6 +86,10 @@ export const useUIStore = create<UIStore>()(
     
     toggleRightPanel: () => set((state) => ({ 
       rightPanelVisible: !state.rightPanelVisible 
+    })),
+    
+    toggleRightPanelCollapsed: () => set((state) => ({ 
+      rightPanelCollapsed: !state.rightPanelCollapsed 
     })),
     
     setLeftPanelTab: (tab) => set({ leftPanelTab: tab }),

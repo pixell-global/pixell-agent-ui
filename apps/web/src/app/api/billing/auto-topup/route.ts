@@ -89,7 +89,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Update auto top-up settings
-    const [updated] = await db
+    // MySQL doesn't support returning(), so we update and then query
+    await db
       .update(creditBalances)
       .set({
         autoTopupEnabled,
@@ -98,7 +99,13 @@ export async function POST(request: NextRequest) {
         updatedAt: new Date(),
       })
       .where(eq(creditBalances.orgId, orgId))
-      .returning()
+
+    // Fetch the updated record
+    const [updated] = await db
+      .select()
+      .from(creditBalances)
+      .where(eq(creditBalances.orgId, orgId))
+      .limit(1)
 
     if (!updated) {
       return NextResponse.json(

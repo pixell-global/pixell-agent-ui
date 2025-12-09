@@ -3,7 +3,7 @@ import { verifySessionCookie } from '@pixell/auth-firebase/server'
 import { getDb, organizationMembers, organizations } from '@pixell/db-mysql'
 import { and, eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
-import { StorageManager, type StorageConfig } from '@pixell/file-storage/src/storage-manager'
+import { StorageManager, type StorageConfig } from '@pixell/file-storage'
 import { buildStoragePrefix, type StorageContext } from './storage-context'
 
 /**

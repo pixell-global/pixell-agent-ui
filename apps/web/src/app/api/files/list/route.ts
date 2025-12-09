@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { StorageManager } from '@pixell/file-storage/src/storage-manager'
+import { StorageManager } from '@pixell/file-storage'
 import { resolveUserAndOrg, buildStorageConfigForContext } from '@/lib/workspace-path'
 import { getDefaultContext, type StorageContext } from '@/lib/storage-context'
 

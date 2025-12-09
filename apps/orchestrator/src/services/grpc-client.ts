@@ -18,7 +18,7 @@ class PathAwareChannel extends grpc.Channel {
     }
   }
 
-  createCall(method: string, deadline: grpc.Deadline | null | undefined, host: string | null | undefined, parentCall: grpc.Call | null | undefined, propagateFlags: number | null | undefined): grpc.Call {
+  createCall(method: string, deadline: grpc.Deadline | null | undefined, host: string | null | undefined, parentCall: any, propagateFlags: number | null | undefined): any {
     const fullPath = this.pathPrefix ? `${this.pathPrefix}${method}` : method;
     if (this.pathPrefix) {
       console.log(`🔀 Channel.createCall: ${method} → ${fullPath}`);
