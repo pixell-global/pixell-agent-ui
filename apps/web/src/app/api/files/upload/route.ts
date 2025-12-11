@@ -4,6 +4,7 @@ import { createRateLimit, getClientIP } from '@/lib/security'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+
 // Rate limiting for file uploads
 const rateLimiter = createRateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

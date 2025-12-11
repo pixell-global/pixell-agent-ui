@@ -35,8 +35,18 @@ class SimpleWebSocketManager {
     this._isConnecting = true
     console.log('🔌 Connecting to WebSocket...')
 
+    // Get WebSocket URL from environment (default to orchestrator for backward compatibility)
+    const wsUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:3001/ws'
+    
+    // If WebSocket is disabled, don't connect
+    if (process.env.NEXT_PUBLIC_WEBSOCKET_ENABLED === 'false') {
+      console.log('🔌 WebSocket disabled via NEXT_PUBLIC_WEBSOCKET_ENABLED=false')
+      this._isConnecting = false
+      return
+    }
+
     try {
-      this.ws = new WebSocket('ws://localhost:3001/ws')
+      this.ws = new WebSocket(wsUrl)
       
       this.ws.onopen = () => {
         console.log('✅ WebSocket connected')

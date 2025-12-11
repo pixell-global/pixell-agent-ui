@@ -12,7 +12,7 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
+# package-lock.json - Keep in Git for reproducible builds
 
 
 # Build outputs
@@ -20,6 +20,18 @@ package-lock.json
 dist/
 out/
 build/
+
+# Lambda build artifacts
+lambda-build/
+lambda-deployment.zip
+*.zip
+
+# Shell scripts (dangerous - can contain credentials)
+*.sh
+bundle-lambda.js
+
+# Migration and test scripts
+apps/web/scripts/
 
 # Environment variables
 .env
@@ -31,6 +43,13 @@ build/
 # Environment-specific files (exclude from git, keep .env.example)
 .env.*
 !.env.example
+
+# Firebase credentials (Google Cloud Service Account)
+*firebase*.json
+*.json
+!package.json
+!tsconfig.json
+!**/tsconfig*.json
 
 # Pixell CLI configuration (contains sensitive environment data)
 .pixell/
@@ -114,3 +133,13 @@ coverage/
 
 # Implementation Docs
 implementation_docs/
+
+# Deployment files
+deploy*.sh
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+DEPLOYMENT.md
+
+# Infrastructure files
+infrastructure/

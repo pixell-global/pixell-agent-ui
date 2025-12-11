@@ -13,19 +13,30 @@ import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from './AuthProvider'
-import { 
-  User, 
-  Settings, 
-  LogOut, 
-  Shield, 
+import {
+  User,
+  Settings,
+  LogOut,
+  Shield,
   Bell,
-  HelpCircle 
+  HelpCircle,
+  Building2
 } from 'lucide-react'
+import dynamic from 'next/dynamic'
+import { useUIStore } from '@/stores/ui-store'
+import { useRouter } from 'next/navigation'
 
 export const UserMenu: React.FC = () => {
-  const { user, signOut, loading } = useAuth()
+  const { user, signOut, status } = useAuth()
+  const router = useRouter()
+  const BrandSelector = dynamic(async () => (await import('../brands/BrandSelector')).BrandSelector, { ssr: false })
+  const leftPanelVisible = useUIStore(state => state.leftPanelVisible)
+  const leftPanelCollapsed = useUIStore(state => state.leftPanelCollapsed)
+  const rightPanelVisible = useUIStore(state => state.rightPanelVisible)
+  const toggleLeftPanelCollapsed = useUIStore(state => state.toggleLeftPanelCollapsed)
+  const toggleRightPanel = useUIStore(state => state.toggleRightPanel)
 
-  if (loading || !user) {
+  if (status === 'loading' || !user) {
     return (
       <Button variant="ghost" size="sm" disabled>
         <User className="h-4 w-4" />
@@ -33,23 +44,10 @@ export const UserMenu: React.FC = () => {
     )
   }
 
-  // Get user role from metadata or default to 'developer'
-  const userRole = user.user_metadata?.role || 'developer'
-  const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
-  const avatarUrl = user.user_metadata?.avatar_url
+  const displayName = user.displayName || user.email?.split('@')[0] || 'User'
+  const avatarUrl = null
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return 'bg-red-100 text-red-800'
-      case 'developer':
-        return 'bg-blue-100 text-blue-800'
-      case 'viewer':
-        return 'bg-gray-100 text-gray-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
-    }
-  }
+  
 
   return (
     <DropdownMenu>
@@ -64,10 +62,7 @@ export const UserMenu: React.FC = () => {
               </div>
             )}
           </Avatar>
-          <div className="ml-2 hidden md:block text-left">
-            <div className="text-sm font-medium">{displayName}</div>
-            <div className="text-xs text-muted-foreground">{user.email}</div>
-          </div>
+          
         </Button>
       </DropdownMenuTrigger>
       
@@ -89,45 +84,53 @@ export const UserMenu: React.FC = () => {
                 <p className="text-xs text-muted-foreground">{user.email}</p>
               </div>
             </div>
-            <Badge 
-              variant="outline" 
-              className={`text-xs w-fit ${getRoleColor(userRole)}`}
-            >
-              {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
-            </Badge>
+            
           </div>
         </DropdownMenuLabel>
         
         <DropdownMenuSeparator />
-        
-        <DropdownMenuItem>
-          <User className="mr-2 h-4 w-4" />
-          Profile
-        </DropdownMenuItem>
-        
-        <DropdownMenuItem>
-          <Settings className="mr-2 h-4 w-4" />
-          Settings
-        </DropdownMenuItem>
-        
-        <DropdownMenuItem>
-          <Bell className="mr-2 h-4 w-4" />
-          Notifications
-        </DropdownMenuItem>
-        
-        {userRole === 'admin' && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <Shield className="mr-2 h-4 w-4" />
-              Admin Panel
-            </DropdownMenuItem>
-          </>
-        )}
+
+        {/* Brand selection inside user menu */}
+        <div className="px-2 py-1.5">
+          <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
+            <Building2 className="h-4 w-4" />
+            <span>Brand</span>
+          </div>
+          <BrandSelector />
+        </div>
         
         <DropdownMenuSeparator />
         
-        <DropdownMenuItem>
+        {/* Pane visibility controls */}
+        <DropdownMenuItem onClick={toggleLeftPanelCollapsed}>
+          {leftPanelCollapsed ? 'Show Navigator' : 'Hide Navigator'}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => { if (!rightPanelVisible) toggleRightPanel(); else toggleRightPanel(); }}>
+          {rightPanelVisible ? 'Hide Activity' : 'Show Activity'}
+        </DropdownMenuItem>
+        
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem onClick={() => router.push('/settings/profile')}>
+          <User className="mr-2 h-4 w-4" />
+          Profile
+        </DropdownMenuItem>
+
+        <DropdownMenuItem onClick={() => router.push('/settings/billing')}>
+          <Settings className="mr-2 h-4 w-4" />
+          Settings
+        </DropdownMenuItem>
+
+        <DropdownMenuItem onClick={() => router.push('/settings/notifications')}>
+          <Bell className="mr-2 h-4 w-4" />
+          Notifications
+        </DropdownMenuItem>
+
+
+
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem onClick={() => window.open('https://docs.pixell.ai', '_blank')}>
           <HelpCircle className="mr-2 h-4 w-4" />
           Help & Support
         </DropdownMenuItem>

@@ -288,27 +288,7 @@ export function ChatWorkspace({ className = '', activityPaneRef }: ChatWorkspace
         )}
       </div>
 
-      {/* AI Status Indicator - Following Design Guide */}
-      <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
-        <div className="max-w-3xl mx-auto flex items-center justify-center">
-          {agentHealth?.healthy ? (
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-              <span>AI Ready ({agentHealth.runtime} - {agentHealth.model})</span>
-            </div>
-          ) : agentHealth?.status === 'error' ? (
-            <div className="flex items-center space-x-2 text-sm text-red-600">
-              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-              <span>AI Error - Check configuration</span>
-            </div>
-          ) : (
-            <div className="flex items-center space-x-2 text-sm text-amber-600">
-              <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
-              <span>AI not available</span>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Removed AI status indicator per UX request */}
 
       {/* Input Area - Following Design Guide */}
       <div className="border-t border-gray-200 bg-white p-4">

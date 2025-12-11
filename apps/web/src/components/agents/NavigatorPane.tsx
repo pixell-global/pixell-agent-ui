@@ -20,9 +20,11 @@ interface FileItem {
 }
 
 export function NavigatorPane() {
+  console.log('🎯 NavigatorPane 컴포넌트 렌더링됨')
   const { leftPanelTab, setLeftPanelTab } = useUIStore()
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
   const [usedStorage, setUsedStorage] = useState(5.2) // Mock: 5.2GB used
+  
   // Storage limit is configurable via CLI: `pixell config-storage --limit <number>`
   const [storageLimit] = useState(() => {
     // In a real implementation, this would read from CLI config or environment
@@ -68,25 +70,73 @@ export function NavigatorPane() {
     }
   }
 
-  const handleUploadFile = () => {
+  const handleUploadFile = async () => {
+    console.log('🚀 handleUploadFile 함수 호출됨!')
     const input = document.createElement('input')
     input.type = 'file'
     input.multiple = true
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
+      console.log('📁 파일 선택됨!')
       const target = e.target as HTMLInputElement
       if (target.files) {
-        Array.from(target.files).forEach(file => {
-          const newFile: FileItem = {
-            id: Date.now().toString() + Math.random(),
-            name: file.name,
-            type: 'file',
-            parent: selectedFolder || undefined
+        const filesArray = Array.from(target.files)
+        
+        try {
+          // 각 파일을 workspace-files에 업로드
+          for (const file of filesArray) {
+            console.log('업로드할 파일:', file.name, '크기:', file.size)
+            
+            const formData = new FormData()
+            formData.append('file', file)
+            formData.append('path', selectedFolder || '')  // 빈 문자열로 변경하여 루트에 저장
+            
+            console.log('FormData 전송:', {
+              fileName: file.name,
+              path: selectedFolder || '',
+              fileSize: file.size
+            })
+            
+            const response = await fetch('/api/files/create', {
+              method: 'POST',
+              body: formData
+            })
+            
+            console.log('API 응답 상태:', response.status)
+            
+            if (response.ok) {
+              const result = await response.json()
+              console.log('API 응답 결과:', result)
+              
+              if (result.success) {
+                console.log('파일 업로드 성공:', result.path)
+                
+                // 성공적으로 업로드된 파일을 목록에 추가
+                const newFile: FileItem = {
+                  id: Date.now().toString() + Math.random(),
+                  name: file.name,
+                  type: 'file',
+                  parent: selectedFolder || undefined
+                }
+                setFiles(prev => [...prev, newFile])
+                
+                // 실제 파일 크기로 스토리지 사용량 업데이트
+                setUsedStorage(prev => prev + (file.size / (1024 * 1024 * 1024)))
+                
+                alert(`파일 업로드 성공: ${file.name}`)
+              } else {
+                console.error('업로드 실패:', result.error)
+                alert(`파일 업로드 실패: ${result.error}`)
+              }
+            } else {
+              const error = await response.json()
+              console.error('HTTP 에러:', response.status, error)
+              alert(`파일 업로드 실패 (${response.status}): ${error.error}`)
+            }
           }
-          setFiles(prev => [...prev, newFile])
-          
-          // Mock storage usage update
-          setUsedStorage(prev => prev + (file.size / (1024 * 1024 * 1024)))
-        })
+        } catch (error) {
+          console.error('File upload failed:', error)
+          alert(`파일 업로드 에러: ${error}`)
+        }
       }
     }
     input.click()

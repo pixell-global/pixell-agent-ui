@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Activity, CheckCircle, Clock, Zap, AlertCircle, Wifi, WifiOff, Wand2 } from 'lucide-react'
+import { Activity, CheckCircle, Clock, Zap, AlertCircle, Wifi, WifiOff, Wand2, ChevronRight } from 'lucide-react'
+import { useUIStore } from '@/stores/ui-store'
 import { useWorkspaceStore, selectKPIMetrics, selectRecentJobs } from '@/stores/workspace-store'
 import { useWebSocket } from '@/lib/websocket-manager'
 import { useRealtimeKPI } from '@/hooks/use-realtime-kpi'
@@ -21,6 +22,7 @@ export interface ActivityPaneRef {
 }
 
 export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
+  const toggleRightPanel = useUIStore(state => state.toggleRightPanel)
   const { 
     liveMetrics, 
     tasks, 
@@ -38,6 +40,7 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedUI, setGeneratedUI] = useState<{
     title: string
+    url: string
     html: string
   } | null>(null)
   const [uiSpec, setUiSpec] = useState<any | null>(null)
@@ -101,23 +104,9 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
             }
             return
           }
-          console.log('[ActivityPane] Making HTTP request to:', url, 'with body:', body)
-          try {
-            const resp = await fetch(url, { 
-              method, 
-              headers: { 'Content-Type': 'application/json', ...(headers || {}) }, 
-              body: body ? JSON.stringify(body) : undefined,
-              signal: AbortSignal.timeout(30000) // 30 second timeout
-            })
-            console.log('[ActivityPane] HTTP response status:', resp.status)
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-            const result = await resp.json()
-            console.log('[ActivityPane] HTTP response data:', result)
-            return result
-          } catch (error) {
-            console.error('[ActivityPane] HTTP request failed:', error)
-            throw error
-          }
+          const resp = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...(headers || {}) }, body: body ? JSON.stringify(body) : undefined })
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+          try { return await resp.json() } catch { return await resp.text() }
         },
       })
       
@@ -208,14 +197,27 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
         console.log('✅ Dynamic UI spec detected. Rendering via renderer.')
         setUiSpec(envelope)
         setUiData(envelope.data)
-      } else if (typeof dataObj?.html === 'string' || typeof contents?.html === 'string') {
-        console.log('✅ Raw HTML detected. Rendering in iframe.')
+      } else if (typeof dataObj?.url === 'string' || typeof contents?.url === 'string') {
+        console.log('✅ URL detected. Rendering in iframe.')
         setGeneratedUI({
-          title: dataObj?.title || contents?.title || 'Generated UI',
-          html: (dataObj?.html as string) || (contents?.html as string) || ''
+          title: result.contents.data.title || 'Generated UI',
+          url: result.contents.data.url || '',
+          html: result.contents.data.html || ''
         })
-      } else {
+      } 
+
+	  else if (typeof dataObj?.html === 'string') {
+        console.log('✅ HTML detected. Rendering in iframe.')
+        setGeneratedUI({
+          title: result.contents.data.title || 'Generated UI',
+          url: result.contents.data.url || '',
+          html: result.contents.data.html || ''
+        })
+      }
+
+	  else {
         console.log('❌ UI 데이터 파싱 실패 - 예상 구조와 다름')
+        console.log('기대하는 구조: result.contents.data.{url, title}')
         console.log('실제 구조:', result)
       }
     } catch (error) {
@@ -256,8 +258,9 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Connection Status */}
-      <div className="flex items-center gap-2 p-3 border-b">
+      {/* Pane header with collapse + Connection Status */}
+      <div className="flex items-center justify-between p-3 border-b">
+        <div className="flex items-center gap-2">
         {isConnected ? (
           <>
             <Wifi className="h-4 w-4 text-green-500" />
@@ -269,6 +272,15 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
             <span className="text-sm text-red-600">Disconnected</span>
           </>
         )}
+        </div>
+        <button
+          onClick={toggleRightPanel}
+          title="Collapse activity"
+          aria-label="Collapse activity"
+          className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
       </div>
 
       <div className="flex-1 p-4">
@@ -287,9 +299,10 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
                 <div className="h-full flex flex-col">
                   <div className="bg-white border rounded p-3 flex-1 overflow-hidden">
                     <iframe 
-                      srcDoc={generatedUI.html}
+                      src={generatedUI.html ? undefined : generatedUI.url}
+                      srcDoc={generatedUI.html || undefined}
                       className="w-full h-full border-0"
-                      sandbox="allow-scripts allow-same-origin"
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation allow-popups-to-escape-sandbox"
                       title={generatedUI.title}
                     />
                   </div>

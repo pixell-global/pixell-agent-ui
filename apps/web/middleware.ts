@@ -1,103 +1,98 @@
-import { createServerClient } from '@supabase/ssr'
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
+// Routes that don't require authentication
+const PUBLIC_ROUTES = ['/signin', '/signup'];
+
+// Routes that require auth but not subscription (onboarding flow)
+const AUTH_ONLY_ROUTES = ['/billing'];
 
 export async function middleware(req: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: req.headers,
-    },
-  })
+  const sessionCookieName = process.env.SESSION_COOKIE_NAME || 'session';
+  const sessionCookie = req.cookies.get(sessionCookieName)?.value;
+  const { pathname } = req.nextUrl;
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return req.cookies.get(name)?.value
-        },
-        set(name: string, value: string, options: any) {
-          req.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: req.headers,
-            },
-          })
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-        },
-        remove(name: string, options: any) {
-          req.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: req.headers,
-            },
-          })
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-        },
-      },
+  const isPublic = PUBLIC_ROUTES.includes(pathname);
+  const isAuthOnly = AUTH_ONLY_ROUTES.includes(pathname);
+
+  // Edge-safe check: do not use Node APIs here. Treat presence of session cookie as authenticated.
+  if (!sessionCookie) {
+    // No session: gate non-public routes
+    if (!isPublic) {
+      return NextResponse.redirect(new URL('/signin', req.url));
     }
-  )
-
-  // Refresh session if expired - required for Server Components
-  const { data: { session } } = await supabase.auth.getSession()
-
-  const isAuthRoute = req.nextUrl.pathname.startsWith('/signin') || 
-                     req.nextUrl.pathname.startsWith('/signup')
-  
-  const isApiRoute = req.nextUrl.pathname.startsWith('/api')
-  const isPublicFile = req.nextUrl.pathname.startsWith('/_next') ||
-                      req.nextUrl.pathname.startsWith('/favicon.ico') ||
-                      req.nextUrl.pathname.startsWith('/images') ||
-                      req.nextUrl.pathname.startsWith('/icons')
-
-  // Allow public files and API routes to pass through
-  if (isPublicFile || isApiRoute) {
-    return response
+    return NextResponse.next();
   }
 
-  // If user is not signed in and trying to access protected route
-  if (!session && !isAuthRoute) {
-    const redirectUrl = new URL('/signin', req.url)
-    // Add the current path as a redirect parameter
-    redirectUrl.searchParams.set('redirectTo', req.nextUrl.pathname)
-    return NextResponse.redirect(redirectUrl)
+  // Has a session cookie: if visiting a public page, redirect to app root
+  if (isPublic) {
+    return NextResponse.redirect(new URL('/', req.url));
   }
 
-  // If user is signed in and trying to access auth routes, redirect to dashboard
-  if (session && isAuthRoute) {
-    const redirectTo = req.nextUrl.searchParams.get('redirectTo') || '/dashboard'
-    return NextResponse.redirect(new URL(redirectTo, req.url))
+  // Has a session cookie: check if user has selected a billing plan
+  // Skip subscription check for billing page and other auth-only routes
+  if (!isAuthOnly) {
+    const hasSubscription = await checkUserSubscription(req, sessionCookie);
+
+    if (!hasSubscription) {
+      // Redirect to billing page to select a plan
+      const url = new URL('/billing', req.url);
+      // Remember where they were trying to go
+      if (pathname !== '/') {
+        url.searchParams.set('returnTo', pathname);
+      }
+      return NextResponse.redirect(url);
+    }
   }
 
-  return response
+  return NextResponse.next();
+}
+
+/**
+ * Check if user has a subscription
+ * This is a lightweight check - just verifies the subscription exists
+ */
+async function checkUserSubscription(req: NextRequest, sessionCookie: string): Promise<boolean> {
+  try {
+    const baseUrl = req.nextUrl.origin;
+    const cookieName = process.env.SESSION_COOKIE_NAME || 'session';
+
+    // Call internal API to check subscription
+    const response = await fetch(`${baseUrl}/api/billing/subscription`, {
+      headers: {
+        Cookie: `${cookieName}=${sessionCookie}`,
+      },
+      cache: 'no-store', // Don't cache subscription checks
+    });
+
+    if (!response.ok) {
+      // 404 = no subscription found
+      if (response.status === 404) {
+        return false;
+      }
+      // Other errors (401, 500, etc) - fail open to avoid blocking users
+      console.error('[Middleware] Error checking subscription:', response.status);
+      return true;
+    }
+
+    const data = await response.json();
+    return !!(data.success && data.subscription);
+  } catch (error) {
+    console.error('[Middleware] Error fetching subscription:', error);
+    // On error, assume they have subscription (fail open to avoid blocking users)
+    return true;
+  }
 }
 
 export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
+     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public files (images, icons, etc.)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
-}
+};

@@ -13,7 +13,9 @@ export const Textarea: React.FC<TextareaProps> = ({ text, onChange }) => {
       value={value}
       onChange={(e) => {
         console.log('[Textarea] onChange called with:', e.target.value)
-        onChange && onChange(e.target.value)
+        if (onChange) {
+          onChange(e.target.value)
+        }
       }}
       className="w-full min-h-[80px] border border-gray-300 rounded p-2"
     />

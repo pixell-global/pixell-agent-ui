@@ -6,7 +6,10 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Copy only manifests to maximize layer cache
-COPY package.json package-lock.json turbo.json ./
+# Note: package-lock.json should be committed to Git for reproducible builds
+COPY package.json turbo.json ./
+# Copy package-lock.json if it exists (will fail if not present - ensure it's in Git)
+COPY package-lock.json ./
 COPY apps/web/package.json ./apps/web/package.json
 COPY packages/protocols/package.json ./packages/protocols/package.json
 COPY packages/renderer/package.json ./packages/renderer/package.json

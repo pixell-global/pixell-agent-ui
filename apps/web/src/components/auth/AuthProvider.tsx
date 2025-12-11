@@ -1,113 +1,95 @@
-'use client'
+'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
-import type { User, SupabaseClient, Session } from '@supabase/supabase-js'
-import { useUserStore } from '@/stores/user-store'
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
+import { getAuth, onAuthStateChanged, User, Auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, fetchSignInMethodsForEmail } from 'firebase/auth';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { firebaseConfig } from '@/lib/firebase';
+import { AuthContext, useAuth as useCoreAuth } from '@pixell/auth-core';
+// Email link helpers removed in favor of email+password
 
-interface AuthContextType {
-  user: User | null
-  session: Session | null
-  loading: boolean
-  signOut: () => Promise<void>
-  supabase: SupabaseClient
-}
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
-}
-
-interface AuthProviderProps {
-  children: React.ReactNode
-  initialSession?: Session | null
-}
-
-export const AuthProvider: React.FC<AuthProviderProps> = ({ 
-  children, 
-  initialSession 
-}) => {
-  const [supabase] = useState(() => 
-    createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-  )
-  
-  const [session, setSession] = useState<Session | null>(initialSession || null)
-  const [user, setUser] = useState<User | null>(initialSession?.user || null)
-  const [loading, setLoading] = useState(!initialSession)
-  
-  // Use user store
-  const { setUser: setStoreUser, setLoading: setStoreLoading, clearUser } = useUserStore()
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [auth, setAuth] = useState<Auth | null>(null); // Use useState for auth
+  const router = useRouter();
 
   useEffect(() => {
-    // Get initial session if not provided
-    if (!initialSession) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        setSession(session)
-        setUser(session?.user || null)
-        setLoading(false)
-      })
+    const firebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    const firebaseAuth = getAuth(firebaseApp);
+    setAuth(firebaseAuth); // Set auth instance
+    const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
+      setUser(user);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const signIn = async (email: string, password: string) => {
+    if (!auth) throw new Error('Authentication not initialized');
+    try {
+      setLoading(true);
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const idToken = await cred.user.getIdToken();
+      await fetch('/api/auth/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) });
+      router.replace('/');
+    } catch (error) {
+      // Surface error to caller so UI can display message
+      console.error('Sign-in failed', error);
+      throw error;
+    } finally {
+      setLoading(false);
     }
+  };
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email)
-        setSession(session)
-        setUser(session?.user || null)
-        setLoading(false)
-        
-        // Update user store
-        setStoreUser(session?.user || null)
-        setStoreLoading(false)
-
-        // Handle sign in redirect
-        if (event === 'SIGNED_IN' && session) {
-          const redirectTo = process.env.NEXT_PUBLIC_AUTH_REDIRECT || '/dashboard'
-          window.location.href = redirectTo
-        }
-        
-        // Clear store on sign out
-        if (event === 'SIGNED_OUT') {
-          clearUser()
-        }
+  const signUp = async (email: string, password: string, displayName?: string) => {
+    if (!auth) throw new Error('Authentication not initialized');
+    try {
+      setLoading(true);
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      if (displayName) {
+        try { await updateProfile(cred.user, { displayName }); } catch {}
       }
-    )
+      const idToken = await cred.user.getIdToken();
+      await fetch('/api/auth/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) });
+      router.replace('/onboarding');
+    } catch (error) {
+      console.error('Sign-up failed', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    return () => subscription.unsubscribe()
-  }, [supabase, initialSession])
+  // Email link handler removed
 
   const signOut = async () => {
-    try {
-      setLoading(true)
-      await supabase.auth.signOut()
-      // Redirect to sign in page
-      window.location.href = '/signin'
-    } catch (error) {
-      console.error('Error signing out:', error)
-    } finally {
-      setLoading(false)
+    if (auth) { // Check if auth is initialized
+      await auth.signOut();
+      await fetch('/api/auth/session', { method: 'DELETE' });
     }
-  }
+  };
 
-  const value = {
-    user,
-    session,
-    loading,
-    signOut,
-    supabase
-  }
+  const getIdToken = async () => {
+    return auth?.currentUser ? auth.currentUser.getIdToken() : null;
+  };
+
+  // No email link handler
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{
+      user: user ? { id: user.uid, email: user.email || '', displayName: user.displayName || '' } : null,
+      status: loading ? 'loading' : user ? 'authenticated' : 'unauthenticated',
+      signIn,
+      signUp,
+      signOut,
+      getIdToken,
+    }}>
       {children}
     </AuthContext.Provider>
-  )
-}
+  );
+};
+
+export const useAuth = useCoreAuth;
