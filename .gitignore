@@ -6,7 +6,7 @@ docs/
 workspace-files/
 .temp/
 implementation_steps.md
-.github/
+
 # Dependencies
 node_modules/
 npm-debug.log*
