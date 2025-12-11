@@ -12,7 +12,7 @@ export class BrandsRepo extends BaseRepository {
     const orgId = await this.getOrgContext(userIdForCheck)
     const db = await getDb()
     const id = randomUUID()
-    await db.insert(brands).values({ id, orgId, name, primaryTeamId, metadata })
+    await db.insert(brands).values({ id, orgId, name, primaryTeamId, metadata } as any)
     return { id, orgId, name, primaryTeamId, metadata }
   }
 
@@ -26,27 +26,27 @@ export class BrandsRepo extends BaseRepository {
       if (brand[0].primaryTeamId !== teamId) throw new Error('In isolated mode, only primary team can access brand')
     }
 
-    await db.insert(teamBrandAccess).values({ teamId, brandId, role })
+    await db.insert(teamBrandAccess).values({ teamId, brandId, role } as any)
   }
 
   async revokeTeam(brandId: string, teamId: string) {
     const db = await getDb()
     await db
       .update(teamBrandAccess)
-      .set({ isDeleted: 1 })
+      .set({ isDeleted: 1 } as any)
       .where(and(eq(teamBrandAccess.brandId, brandId), eq(teamBrandAccess.teamId, teamId)))
   }
 
   async grantUser(brandId: string, userId: string, role: 'manager' | 'editor' | 'analyst' | 'viewer' = 'viewer') {
     const db = await getDb()
-    await db.insert(userBrandAccess).values({ brandId, userId, role })
+    await db.insert(userBrandAccess).values({ brandId, userId, role } as any)
   }
 
   async revokeUser(brandId: string, userId: string) {
     const db = await getDb()
     await db
       .update(userBrandAccess)
-      .set({ isDeleted: 1 })
+      .set({ isDeleted: 1 } as any)
       .where(and(eq(userBrandAccess.brandId, brandId), eq(userBrandAccess.userId, userId)))
   }
 

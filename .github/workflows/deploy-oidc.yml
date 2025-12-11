@@ -111,10 +111,12 @@ jobs:
             --query SecretString \
             --output text > taskdef.json
 
+          # Remove read-only fields that are not allowed in register-task-definition
           jq \
             --arg image "$IMAGE_URI" \
             --arg name "${{ env.CONTAINER_NAME }}" \
-            '.containerDefinitions |= map(if .name == $name then .image = $image else . end)' \
+            'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy) | 
+             .containerDefinitions |= map(if .name == $name then .image = $image else . end)' \
             taskdef.json > taskdef-updated.json
 
           echo "Updated task definition with image: $IMAGE_URI"

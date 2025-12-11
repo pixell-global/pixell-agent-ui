@@ -18,7 +18,7 @@ export class OrgSettingsRepo {
     if (existing) {
       await db.update(orgSettings).set(set).where(eq(orgSettings.orgId, orgId))
     } else {
-      await db.insert(orgSettings).values({ orgId, brandAccessMode: updates.brandAccessMode || 'shared', requireBrandContext: updates.requireBrandContext ? 1 : 0 })
+      await db.insert(orgSettings).values({ orgId, brandAccessMode: updates.brandAccessMode || 'shared', requireBrandContext: updates.requireBrandContext ? 1 : 0 } as any)
     }
   }
 }

@@ -1,4 +1,6 @@
 FROM node:20-alpine AS base
+# Enable Corepack to handle packageManager field in package.json
+RUN corepack enable
 
 # Stage 1: Install dependencies for the monorepo
 FROM base AS deps
@@ -34,6 +36,9 @@ RUN npm run build --workspace=@pixell/protocols --if-present \
  && npm run build --workspace=@pixell/db-mysql --if-present \
  && npm run build --workspace=@pixell/auth-core --if-present \
  && npm run build --workspace=@pixell/auth-firebase --if-present
+
+# Reinstall to update workspace links after building packages
+RUN npm install
 
 # Decide which env file to use for the web app build
 # APP_ENV should be one of: dev, prod (defaults to dev)
@@ -71,8 +76,6 @@ RUN set -e; \
     fi; \
   fi
 
-# Build Next.js app from its workspace to avoid hoisting/CLI resolution issues
-WORKDIR /app/apps/web
 # Set environment variables that will be available to the build process
 ENV NODE_ENV=production
 ENV PIXELL_ENV=${APP_ENV}
@@ -94,8 +97,11 @@ ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 ENV NEXT_PUBLIC_PAF_CORE_AGENT_URL=${NEXT_PUBLIC_PAF_CORE_AGENT_URL}
 ENV NEXT_PUBLIC_ORCHESTRATOR_URL=${NEXT_PUBLIC_ORCHESTRATOR_URL}
 
-# Build the Next.js app with environment variables loaded
-RUN npm install && npm run build
+# Build the Next.js app from root using workspace command
+# Add root node_modules/.bin to PATH so next binary can be found
+WORKDIR /app
+ENV PATH="/app/node_modules/.bin:$PATH"
+RUN npm run build --workspace=web
 
 # Stage 3: Runtime image
 FROM base AS runner
@@ -109,10 +115,19 @@ RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 nextjs
 
 # Copy the standalone build output
+# Without outputFileTracingRoot, server.js should be in the standalone root
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+
+# Copy static files to the correct location relative to server.js
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
-# Copy public assets where Next.js standalone server expects them (relative to server.js)
+
+# Copy public assets
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
+
+# Some ECS task definitions (or legacy docs) run `node /app/server.js`.
+# In Next.js standalone + monorepo, server.js may land under /app/apps/web/server.js,
+# so create a stable alias at /app/server.js.
+RUN if [ ! -f /app/server.js ] && [ -f /app/apps/web/server.js ]; then ln -s /app/apps/web/server.js /app/server.js; fi
 
 # Environment variables are set at build time via Docker build args
 # NEXT_PUBLIC_* variables are bundled into the client at build time
@@ -121,6 +136,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 
 USER nextjs
 EXPOSE 3000
-CMD ["node", "server.js"]
+# Next.js standalone output in a monorepo may place server.js either at:
+# - /app/server.js
+# - /app/apps/web/server.js
+# Pick whichever exists at runtime to avoid ECS startup failures.
+CMD ["sh", "-c", "if [ -f /app/server.js ]; then exec node /app/server.js; elif [ -f /app/apps/web/server.js ]; then exec node /app/apps/web/server.js; else echo \"ERROR: server.js not found in /app or /app/apps/web\" >&2; exit 1; fi"]
 
 
