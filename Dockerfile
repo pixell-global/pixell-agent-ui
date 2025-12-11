@@ -1,4 +1,6 @@
 FROM node:20-alpine AS base
+# Enable Corepack to handle packageManager field in package.json
+RUN corepack enable
 
 # Stage 1: Install dependencies for the monorepo
 FROM base AS deps
@@ -34,6 +36,9 @@ RUN npm run build --workspace=@pixell/protocols --if-present \
  && npm run build --workspace=@pixell/db-mysql --if-present \
  && npm run build --workspace=@pixell/auth-core --if-present \
  && npm run build --workspace=@pixell/auth-firebase --if-present
+
+# Reinstall to update workspace links after building packages
+RUN npm install
 
 # Decide which env file to use for the web app build
 # APP_ENV should be one of: dev, prod (defaults to dev)
@@ -71,8 +76,6 @@ RUN set -e; \
     fi; \
   fi
 
-# Build Next.js app from its workspace to avoid hoisting/CLI resolution issues
-WORKDIR /app/apps/web
 # Set environment variables that will be available to the build process
 ENV NODE_ENV=production
 ENV PIXELL_ENV=${APP_ENV}
@@ -94,8 +97,11 @@ ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 ENV NEXT_PUBLIC_PAF_CORE_AGENT_URL=${NEXT_PUBLIC_PAF_CORE_AGENT_URL}
 ENV NEXT_PUBLIC_ORCHESTRATOR_URL=${NEXT_PUBLIC_ORCHESTRATOR_URL}
 
-# Build the Next.js app with environment variables loaded
-RUN npm install && npm run build
+# Build the Next.js app from root using workspace command
+# Add root node_modules/.bin to PATH so next binary can be found
+WORKDIR /app
+ENV PATH="/app/node_modules/.bin:$PATH"
+RUN npm run build --workspace=web
 
 # Stage 3: Runtime image
 FROM base AS runner

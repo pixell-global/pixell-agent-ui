@@ -41,6 +41,21 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   // Ensure Next resolves the correct monorepo root for tracing and dev/build artifacts
   outputFileTracingRoot: path.resolve(__dirname, "..", ".."),
+  // Transpile local workspace packages
+  transpilePackages: [
+    '@pixell/renderer',
+    '@pixell/db-mysql',
+    '@pixell/file-storage',
+    '@pixell/auth-core',
+    '@pixell/auth-firebase',
+    '@pixell/protocols',
+  ],
+  // Configure Turbopack root for monorepo support
+  experimental: {
+    turbo: {
+      root: path.resolve(__dirname, "..", ".."),
+    },
+  },
   // Disable ESLint during build to avoid parser issues in monorepo
   eslint: {
     ignoreDuringBuilds: true,
