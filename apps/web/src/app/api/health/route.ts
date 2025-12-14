@@ -2,6 +2,13 @@ import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
+// Make sure ALB/ECS health checks are fast and reliable.
+// The load balancer health check should reflect *this web service* availability,
+// not downstream dependencies (Core Agent / Orchestrator).
+//
+// If downstream services are unavailable, we still return HTTP 200 with
+// status details in the JSON payload.
+
 
 /**
  * Get Core Agent health URL
@@ -24,32 +31,61 @@ function getCoreAgentHealthUrl(): string {
 }
 
 export async function GET() {
+  const startedAt = Date.now()
+  const basePayload: Record<string, unknown> = {
+    status: 'ok',
+    service: 'web',
+    timestamp: new Date().toISOString(),
+  }
+
+  // Optional deeper check: include core agent status but never fail the LB.
+  // Use a short timeout so ALB health checks don't time out.
   try {
-    // Check Core Agent health directly (bypassing Orchestrator)
     const healthUrl = getCoreAgentHealthUrl()
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 1500)
+
     const response = await fetch(healthUrl, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    })
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      // Prevent any caching for health checks
+      cache: 'no-store',
+    }).finally(() => clearTimeout(timeout))
 
     if (!response.ok) {
-      return NextResponse.json({
-        status: 'error',
-        error: `Core Agent not available: ${response.status}`,
-        runtime: { provider: 'unknown' }
-      }, { status: 503 })
+      return NextResponse.json(
+        {
+          ...basePayload,
+          status: 'degraded',
+          coreAgent: { ok: false, status: response.status },
+          latencyMs: Date.now() - startedAt,
+        },
+        { status: 200 },
+      )
     }
 
-    const data = await response.json()
-    return NextResponse.json(data)
-
+    const data = await response.json().catch(() => ({}))
+    return NextResponse.json(
+      {
+        ...basePayload,
+        coreAgent: { ok: true },
+        upstream: data,
+        latencyMs: Date.now() - startedAt,
+      },
+      { status: 200 },
+    )
   } catch (error) {
-    console.error('Health check error:', error)
-    
-    return NextResponse.json({
-      status: 'error',
-      error: 'Cannot connect to Core Agent',
-      runtime: { provider: 'unknown' }
-    }, { status: 503 })
+    // Don't spam logs for LB health checks; just report degraded.
+    return NextResponse.json(
+      {
+        ...basePayload,
+        status: 'degraded',
+        coreAgent: { ok: false, error: error instanceof Error ? error.message : 'unknown' },
+        latencyMs: Date.now() - startedAt,
+      },
+      { status: 200 },
+    )
   }
 } 
