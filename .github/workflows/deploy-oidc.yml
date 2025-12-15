@@ -184,6 +184,9 @@ jobs:
           # Convert environment variables to ECS task definition format
           ENV_ARRAY=$(jq -c 'to_entries | map({name: .key, value: .value})' env-vars.json)
 
+          # Prepare health check command
+          HEALTH_CHECK_CMD="node -e 'require(\"http\").get(\"http://localhost:3000/health\", (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on(\"error\", () => process.exit(1))' || exit 1"
+
           # Create task definition with environment variables
           jq -n \
             --argjson env "$ENV_ARRAY" \
@@ -192,6 +195,9 @@ jobs:
             --arg cpu "512" \
             --arg memory "1024" \
             --arg executionRole "arn:aws:iam::${{ steps.aws-account.outputs.account_id }}:role/ecsTaskExecutionRole" \
+            --arg healthCmd "$HEALTH_CHECK_CMD" \
+            --arg logsGroup "/ecs/${{ env.ECS_SERVICE }}" \
+            --arg logsRegion "${{ env.AWS_REGION }}" \
             '{
               family: $family,
               networkMode: "awsvpc",
@@ -209,11 +215,18 @@ jobs:
                   protocol: "tcp"
                 }],
                 environment: $env,
+                healthCheck: {
+                  command: ["CMD-SHELL", $healthCmd],
+                  interval: 30,
+                  timeout: 5,
+                  retries: 3,
+                  startPeriod: 60
+                },
                 logConfiguration: {
                   logDriver: "awslogs",
                   options: {
-                    "awslogs-group": "/ecs/${{ env.ECS_SERVICE }}",
-                    "awslogs-region": "${{ env.AWS_REGION }}",
+                    "awslogs-group": $logsGroup,
+                    "awslogs-region": $logsRegion,
                     "awslogs-stream-prefix": "web"
                   }
                 }

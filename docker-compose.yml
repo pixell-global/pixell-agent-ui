@@ -29,7 +29,7 @@ services:
       - AWS_REGION=${AWS_REGION:-us-east-2}
       - USE_AWS_SECRETS_MANAGER=${USE_AWS_SECRETS_MANAGER:-false}
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
