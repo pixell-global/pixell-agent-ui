@@ -60,22 +60,91 @@ jobs:
           echo "tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "Image tag: $IMAGE_TAG"
 
+      - name: Load Firebase environment variables from AWS Secrets Manager
+        id: firebase-secrets
+        run: |
+          echo "Loading Firebase environment variables from AWS Secrets Manager (pixell/taskdef/pixell-web-simple)..."
+          
+          # Get secrets from AWS Secrets Manager
+          SECRET_JSON=$(aws secretsmanager get-secret-value \
+            --secret-id pixell/taskdef/pixell-web-simple \
+            --region ${{ env.AWS_REGION }} \
+            --query SecretString \
+            --output text)
+          
+          if [ -z "$SECRET_JSON" ]; then
+            echo "ERROR: Failed to retrieve secret from AWS Secrets Manager"
+            exit 1
+          fi
+          
+          # Extract Firebase environment variables using jq
+          NEXT_PUBLIC_FIREBASE_API_KEY=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_FIREBASE_API_KEY // empty')
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN // empty')
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_FIREBASE_PROJECT_ID // empty')
+          NEXT_PUBLIC_FIREBASE_APP_ID=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_FIREBASE_APP_ID // empty')
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID // empty')
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET // empty')
+          
+          # Extract other environment variables
+          PAF_CORE_AGENT_URL=$(echo "$SECRET_JSON" | jq -r '.PAF_CORE_AGENT_URL // empty')
+          NEXT_PUBLIC_SITE_URL=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_SITE_URL // empty')
+          NEXT_PUBLIC_BASE_URL=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_BASE_URL // empty')
+          NEXT_PUBLIC_PAF_CORE_AGENT_URL=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_PAF_CORE_AGENT_URL // empty')
+          NEXT_PUBLIC_ORCHESTRATOR_URL=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_ORCHESTRATOR_URL // empty')
+          
+          # Verify Firebase environment variables
+          MISSING_VARS=()
+          if [ -z "$NEXT_PUBLIC_FIREBASE_API_KEY" ]; then MISSING_VARS+=("NEXT_PUBLIC_FIREBASE_API_KEY"); fi
+          if [ -z "$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" ]; then MISSING_VARS+=("NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN"); fi
+          if [ -z "$NEXT_PUBLIC_FIREBASE_PROJECT_ID" ]; then MISSING_VARS+=("NEXT_PUBLIC_FIREBASE_PROJECT_ID"); fi
+          if [ -z "$NEXT_PUBLIC_FIREBASE_APP_ID" ]; then MISSING_VARS+=("NEXT_PUBLIC_FIREBASE_APP_ID"); fi
+          if [ -z "$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID" ]; then MISSING_VARS+=("NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID"); fi
+          if [ -z "$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET" ]; then MISSING_VARS+=("NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET"); fi
+          
+          if [ ${#MISSING_VARS[@]} -gt 0 ]; then
+            echo "ERROR: Missing required Firebase environment variables in AWS Secrets Manager:"
+            printf '  - %s\n' "${MISSING_VARS[@]}"
+            echo ""
+            echo "Please ensure these variables are set in AWS Secrets Manager secret: pixell/taskdef/pixell-web-simple"
+            exit 1
+          fi
+          
+          # Save to GitHub output for use in build step
+          # Note: GitHub Actions has a 1MB limit for outputs, but these should be fine
+          echo "firebase_api_key=$NEXT_PUBLIC_FIREBASE_API_KEY" >> $GITHUB_OUTPUT
+          echo "firebase_auth_domain=$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" >> $GITHUB_OUTPUT
+          echo "firebase_project_id=$NEXT_PUBLIC_FIREBASE_PROJECT_ID" >> $GITHUB_OUTPUT
+          echo "firebase_app_id=$NEXT_PUBLIC_FIREBASE_APP_ID" >> $GITHUB_OUTPUT
+          echo "firebase_messaging_sender_id=$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID" >> $GITHUB_OUTPUT
+          echo "firebase_storage_bucket=$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET" >> $GITHUB_OUTPUT
+          echo "paf_core_agent_url=$PAF_CORE_AGENT_URL" >> $GITHUB_OUTPUT
+          echo "site_url=$NEXT_PUBLIC_SITE_URL" >> $GITHUB_OUTPUT
+          echo "base_url=$NEXT_PUBLIC_BASE_URL" >> $GITHUB_OUTPUT
+          echo "paf_core_agent_url_public=$NEXT_PUBLIC_PAF_CORE_AGENT_URL" >> $GITHUB_OUTPUT
+          echo "orchestrator_url=$NEXT_PUBLIC_ORCHESTRATOR_URL" >> $GITHUB_OUTPUT
+          
+          # Also export as environment variables for the build step
+          echo "NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID=$NEXT_PUBLIC_FIREBASE_PROJECT_ID" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET" >> $GITHUB_ENV
+          echo "PAF_CORE_AGENT_URL=$PAF_CORE_AGENT_URL" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_PAF_CORE_AGENT_URL=$NEXT_PUBLIC_PAF_CORE_AGENT_URL" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_ORCHESTRATOR_URL=$NEXT_PUBLIC_ORCHESTRATOR_URL" >> $GITHUB_ENV
+          
+          echo "✓ All Firebase environment variables loaded from AWS Secrets Manager"
+          echo "  NEXT_PUBLIC_FIREBASE_API_KEY: ${#NEXT_PUBLIC_FIREBASE_API_KEY} chars"
+          echo "  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${#NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN} chars"
+          echo "  NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${#NEXT_PUBLIC_FIREBASE_PROJECT_ID} chars"
+          echo "  NEXT_PUBLIC_FIREBASE_APP_ID: ${#NEXT_PUBLIC_FIREBASE_APP_ID} chars"
+          echo "  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${#NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID} chars"
+          echo "  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${#NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET} chars"
+
       - name: Build Docker image
-        env:
-          # Firebase environment variables (build-time, will be bundled into client)
-          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
-          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
-          # PAF Core Agent URL (server-side only)
-          PAF_CORE_AGENT_URL: ${{ secrets.PAF_CORE_AGENT_URL }}
-          # Other public environment variables
-          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
-          NEXT_PUBLIC_BASE_URL: ${{ secrets.NEXT_PUBLIC_BASE_URL }}
-          NEXT_PUBLIC_PAF_CORE_AGENT_URL: ${{ secrets.NEXT_PUBLIC_PAF_CORE_AGENT_URL }}
-          NEXT_PUBLIC_ORCHESTRATOR_URL: ${{ secrets.NEXT_PUBLIC_ORCHESTRATOR_URL }}
         run: |
           docker build \
             --platform linux/amd64 \

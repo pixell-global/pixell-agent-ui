@@ -97,6 +97,22 @@ ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 ENV NEXT_PUBLIC_PAF_CORE_AGENT_URL=${NEXT_PUBLIC_PAF_CORE_AGENT_URL}
 ENV NEXT_PUBLIC_ORCHESTRATOR_URL=${NEXT_PUBLIC_ORCHESTRATOR_URL}
 
+# Validate that required Firebase environment variables are set before build
+RUN echo "Validating Firebase environment variables..." && \
+    MISSING="" && \
+    [ -z "$NEXT_PUBLIC_FIREBASE_API_KEY" ] && MISSING="$MISSING NEXT_PUBLIC_FIREBASE_API_KEY" || true && \
+    [ -z "$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" ] && MISSING="$MISSING NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" || true && \
+    [ -z "$NEXT_PUBLIC_FIREBASE_PROJECT_ID" ] && MISSING="$MISSING NEXT_PUBLIC_FIREBASE_PROJECT_ID" || true && \
+    [ -z "$NEXT_PUBLIC_FIREBASE_APP_ID" ] && MISSING="$MISSING NEXT_PUBLIC_FIREBASE_APP_ID" || true && \
+    [ -z "$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID" ] && MISSING="$MISSING NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID" || true && \
+    [ -z "$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET" ] && MISSING="$MISSING NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET" || true && \
+    if [ -n "$MISSING" ]; then \
+      echo "ERROR: Missing required Firebase environment variables:$MISSING" >&2; \
+      echo "Please ensure these build args are provided with non-empty values." >&2; \
+      exit 1; \
+    fi && \
+    echo "✓ All required Firebase environment variables are set"
+
 # Build the Next.js app from root using workspace command
 # Add root node_modules/.bin to PATH so next binary can be found
 WORKDIR /app
