@@ -105,21 +105,54 @@ jobs:
         run: |
           IMAGE_URI="${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ steps.image-tag.outputs.tag }}"
           
+          # Get environment variables from secrets manager (key-value pairs)
           aws secretsmanager get-secret-value \
             --secret-id pixell/taskdef/pixell-web-simple \
             --region ${{ env.AWS_REGION }} \
             --query SecretString \
-            --output text > taskdef.json
+            --output text > env-vars.json
 
-          # Remove read-only fields that are not allowed in register-task-definition
-          jq \
+          # Convert environment variables to ECS task definition format
+          ENV_ARRAY=$(jq -c 'to_entries | map({name: .key, value: .value})' env-vars.json)
+
+          # Create task definition with environment variables
+          jq -n \
+            --argjson env "$ENV_ARRAY" \
             --arg image "$IMAGE_URI" \
-            --arg name "${{ env.CONTAINER_NAME }}" \
-            'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy) | 
-             .containerDefinitions |= map(if .name == $name then .image = $image else . end)' \
-            taskdef.json > taskdef-updated.json
+            --arg family "${{ env.TASK_FAMILY }}" \
+            --arg cpu "512" \
+            --arg memory "1024" \
+            --arg executionRole "arn:aws:iam::${{ steps.aws-account.outputs.account_id }}:role/ecsTaskExecutionRole" \
+            '{
+              family: $family,
+              networkMode: "awsvpc",
+              requiresCompatibilities: ["FARGATE"],
+              cpu: $cpu,
+              memory: $memory,
+              executionRoleArn: $executionRole,
+              containerDefinitions: [{
+                name: "web",
+                image: $image,
+                essential: true,
+                portMappings: [{
+                  containerPort: 3000,
+                  hostPort: 3000,
+                  protocol: "tcp"
+                }],
+                environment: $env,
+                logConfiguration: {
+                  logDriver: "awslogs",
+                  options: {
+                    "awslogs-group": "/ecs/${{ env.ECS_SERVICE }}",
+                    "awslogs-region": "${{ env.AWS_REGION }}",
+                    "awslogs-stream-prefix": "web"
+                  }
+                }
+              }]
+            }' > taskdef-updated.json
 
           echo "Updated task definition with image: $IMAGE_URI"
+          echo "Environment variables count: $(echo $ENV_ARRAY | jq length)"
 
       - name: Register new task definition
         id: register-task

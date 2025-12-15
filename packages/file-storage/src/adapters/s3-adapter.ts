@@ -69,17 +69,42 @@ export class S3Adapter implements FileStorageAdapter {
       }
 
       // Ensure bucket exists (create if missing) for per-org buckets
+      // This also verifies accessibility via ListObjects if HeadBucket fails
       await this.ensureBucketExists(this.bucket)
 
-      // Verify bucket is accessible
-      await this.s3Client.send(new ListObjectsV2Command({
-        Bucket: this.bucket,
-        MaxKeys: 1
-      }))
       this.initialized = true
       console.log(`☁️ S3 storage initialized: s3://${this.bucket}/${this.prefix}`)
-    } catch (error) {
-      throw new Error(`Failed to initialize S3 storage: ${getErrorMessage(error)}`)
+    } catch (error: any) {
+      // Enhanced error logging for debugging
+      const errorDetails = error instanceof Error 
+        ? `${error.name}: ${error.message}${error.stack ? `\n${error.stack}` : ''}`
+        : String(error)
+      
+      // Extract AWS SDK metadata if available
+      const awsMetadata = error.$metadata ? {
+        httpStatusCode: error.$metadata.httpStatusCode,
+        requestId: error.$metadata.requestId,
+        cfId: error.$metadata.cfId
+      } : null
+      
+      console.error('S3 initialization error details:', {
+        region,
+        bucket: this.bucket,
+        endpoint: config.endpoint || 'default',
+        hasCredentials: !!(config.accessKeyId || config.credentials),
+        awsMetadata,
+        errorDetails
+      })
+      
+      // Provide more helpful error message
+      let errorMessage = getErrorMessage(error)
+      if (awsMetadata?.httpStatusCode === 403) {
+        errorMessage = `Access denied (403) to S3 bucket: ${this.bucket}. Check IAM permissions.`
+      } else if (awsMetadata?.httpStatusCode) {
+        errorMessage = `S3 error (${awsMetadata.httpStatusCode}): ${errorMessage}`
+      }
+      
+      throw new Error(`Failed to initialize S3 storage: ${errorMessage}`)
     }
   }
 
@@ -548,12 +573,45 @@ export class S3Adapter implements FileStorageAdapter {
       await this.s3Client.send(new HeadBucketCommand({ Bucket: bucketName }))
       console.log(`✓ S3 bucket exists: ${bucketName}`)
     } catch (error: any) {
+      // Handle 403 Forbidden - bucket exists but no access, or no permission to check
+      if (error.$metadata?.httpStatusCode === 403 || error.name === 'Forbidden') {
+        const errorMsg = error.message || String(error)
+        console.warn(`⚠️  S3 bucket access denied (403) for: ${bucketName}`)
+        console.warn(`   This usually means:`)
+        console.warn(`   1. Bucket exists but your IAM user/role lacks s3:HeadBucket permission`)
+        console.warn(`   2. Bucket exists in a different AWS account`)
+        console.warn(`   3. Bucket policy blocks your access`)
+        console.warn(`   Attempting to continue - bucket may need to be created manually or permissions fixed`)
+        
+        // Try to proceed with ListObjects to verify access (less privileged operation)
+        try {
+          await this.s3Client.send(new ListObjectsV2Command({
+            Bucket: bucketName,
+            MaxKeys: 1
+          }))
+          console.log(`✓ Bucket is accessible via ListObjects (may lack HeadBucket permission)`)
+          return // Success - can proceed
+        } catch (listError: any) {
+          // If ListObjects also fails, throw a more helpful error
+          if (listError.$metadata?.httpStatusCode === 403) {
+            throw new Error(
+              `Access denied to S3 bucket: ${bucketName}\n` +
+              `Your AWS credentials lack the required permissions:\n` +
+              `  - s3:HeadBucket (to check bucket existence)\n` +
+              `  - s3:ListBucket (to list objects)\n` +
+              `Please ensure your IAM user/role has these permissions, or create the bucket manually.`
+            )
+          }
+          throw listError
+        }
+      }
+      
       if (error.name === 'NotFound' || error.name === 'NoSuchBucket') {
         // Bucket doesn't exist, create it
         console.log(`Creating S3 bucket: ${bucketName}`)
         await this.createBucket(bucketName)
       } else {
-        // Some other error (access denied, network issue, etc.)
+        // Some other error (network issue, etc.)
         throw error
       }
     }

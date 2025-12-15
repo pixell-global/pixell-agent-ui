@@ -2,6 +2,7 @@ import { FileStorageAdapter, FileNode, FileMetadata, StorageStats, AdapterStatus
 import { LocalAdapter } from './adapters/local-adapter'
 import { S3Adapter } from './adapters/s3-adapter'
 // Import { SupabaseAdapter } from './adapters/supabase-adapter' // Future implementation
+import path from 'path'
 
 // Utility function to safely extract error message
 const getErrorMessage = (error: unknown): string => {
@@ -79,6 +80,17 @@ export class StorageManager implements FileStorageAdapter {
     // Validate AWS credentials are present
     const accessKeyId = process.env.STORAGE_S3_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID
     const secretAccessKey = process.env.STORAGE_S3_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY
+
+    // Debug logging for environment variable detection
+    console.log('[StorageManager] Checking environment variables:', {
+      hasSTORAGE_S3_ACCESS_KEY_ID: !!process.env.STORAGE_S3_ACCESS_KEY_ID,
+      hasAWS_ACCESS_KEY_ID: !!process.env.AWS_ACCESS_KEY_ID,
+      hasSTORAGE_S3_SECRET_ACCESS_KEY: !!process.env.STORAGE_S3_SECRET_ACCESS_KEY,
+      hasAWS_SECRET_ACCESS_KEY: !!process.env.AWS_SECRET_ACCESS_KEY,
+      region: process.env.STORAGE_S3_REGION || process.env.AWS_DEFAULT_REGION || 'us-east-2',
+      endpoint: process.env.STORAGE_S3_ENDPOINT || 'not set',
+      bucket: process.env.STORAGE_S3_BUCKET || 'will be derived per org'
+    })
 
     if (!accessKeyId || !secretAccessKey) {
       throw new Error(
