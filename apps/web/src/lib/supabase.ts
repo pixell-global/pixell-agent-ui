@@ -1,9 +1,19 @@
 import { createBrowserClient } from '@supabase/ssr'
 
-const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL)!
-const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY)!
-
+// DISABLED: Supabase is legacy and no longer used
+// Return null or throw error if Supabase is attempted to be used
 export function createClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+  
+  // If environment variables are not set, return null instead of throwing
+  // This prevents errors during initialization
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('[Supabase] Supabase is disabled. Environment variables are not set.')
+    // Return a mock client that won't cause errors
+    return null as any
+  }
+  
   return createBrowserClient(supabaseUrl, supabaseAnonKey)
 }
 

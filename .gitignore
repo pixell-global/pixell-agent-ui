@@ -50,6 +50,7 @@ apps/web/scripts/
 !package.json
 !tsconfig.json
 !**/tsconfig*.json
+!aws/task-definition.json
 
 # Pixell CLI configuration (contains sensitive environment data)
 .pixell/

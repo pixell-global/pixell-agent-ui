@@ -36,10 +36,17 @@ export class ClientStorageManager {
   private bucket: string
 
   constructor() {
-    this.supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    // DISABLED: Supabase is legacy and no longer used
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (supabaseUrl && supabaseAnonKey) {
+      this.supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
+    } else {
+      // Set to null to prevent errors
+      this.supabase = null as any
+      console.warn('[ClientStorageManager] Supabase is disabled. Storage operations will fail.')
+    }
     this.bucket = process.env.NEXT_PUBLIC_SUPABASE_BUCKET || 'pixell-files'
   }
 

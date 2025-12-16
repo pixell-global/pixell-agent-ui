@@ -8,7 +8,8 @@ import { Activity, CheckCircle, Clock, Zap, AlertCircle, Wifi, WifiOff, Wand2, C
 import { useUIStore } from '@/stores/ui-store'
 import { useWorkspaceStore, selectKPIMetrics, selectRecentJobs } from '@/stores/workspace-store'
 import { useRealtimeKPI } from '@/hooks/use-realtime-kpi'
-import { useSupabase } from '@/hooks/use-supabase'
+// DISABLED: Supabase is legacy and no longer used
+// import { useSupabase } from '@/hooks/use-supabase'
 import { KPIWidget, ActiveJobsKPI, SuccessRateKPI, AverageRuntimeKPI, QueuedJobsKPI } from '@/components/kpi/KPIWidget'
 import { A2ATableDemo } from '@/components/a2a_task/a2a_task'
 import { JobsTable } from '@/components/kpi/JobsTable'
@@ -31,7 +32,8 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
     setRecentJobs
   } = useWorkspaceStore()
   
-  const { user } = useSupabase()
+  // DISABLED: Supabase is legacy and no longer used
+  // const { user } = useSupabase()
   
   // UI 생성 관련 상태
   const [uiQuery, setUiQuery] = useState('')
@@ -46,8 +48,8 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
   const rendererContainerRef = useRef<HTMLDivElement>(null)
   const rendererUnmountRef = useRef<null | (() => void)>(null)
   
-  // Use realtime KPI data
-  const kpiData = useRealtimeKPI(user?.id || 'demo-user')
+  // Use realtime KPI data - use demo user since Supabase is disabled
+  const kpiData = useRealtimeKPI('demo-user')
   const kpiMetrics = useWorkspaceStore(selectKPIMetrics)
   const recentJobs = useWorkspaceStore(selectRecentJobs)
 

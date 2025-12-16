@@ -3,6 +3,9 @@ import { useSupabase } from './use-supabase'
 import { useAgentStore } from '@/stores/agent-store'
 import { useEffect } from 'react'
 import type { Agent } from '@/stores/agent-store'
+import type { Database } from '@/lib/supabase'
+
+type AgentRow = Database['public']['Tables']['agents']['Row']
 
 export function useRealtimeAgents(userId: string) {
   const { client } = useSupabase()
@@ -29,7 +32,7 @@ export function useRealtimeAgents(userId: string) {
         if (error) throw error
         
         // Transform database rows to Agent interface
-        const agents: Agent[] = (data || []).map(row => ({
+        const agents: Agent[] = (data || []).map((row: AgentRow) => ({
           id: row.id,
           name: row.name,
           description: row.description,

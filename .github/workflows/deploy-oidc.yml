@@ -174,67 +174,34 @@ jobs:
         run: |
           IMAGE_URI="${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ steps.image-tag.outputs.tag }}"
           
-          # Get environment variables from secrets manager (key-value pairs)
-          aws secretsmanager get-secret-value \
-            --secret-id pixell/taskdef/pixell-web-simple \
-            --region ${{ env.AWS_REGION }} \
-            --query SecretString \
-            --output text > env-vars.json
-
-          # Convert environment variables to ECS task definition format
-          ENV_ARRAY=$(jq -c 'to_entries | map({name: .key, value: .value})' env-vars.json)
-
-          # Prepare health check command
-          HEALTH_CHECK_CMD="node -e 'require(\"http\").get(\"http://localhost:3000/health\", (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on(\"error\", () => process.exit(1))' || exit 1"
-
-          # Create task definition with environment variables
-          jq -n \
-            --argjson env "$ENV_ARRAY" \
+          # Read base task definition from file and update it
+          jq \
             --arg image "$IMAGE_URI" \
-            --arg family "${{ env.TASK_FAMILY }}" \
-            --arg cpu "512" \
-            --arg memory "1024" \
             --arg executionRole "arn:aws:iam::${{ steps.aws-account.outputs.account_id }}:role/ecsTaskExecutionRole" \
-            --arg healthCmd "$HEALTH_CHECK_CMD" \
-            --arg logsGroup "/ecs/${{ env.ECS_SERVICE }}" \
-            --arg logsRegion "${{ env.AWS_REGION }}" \
-            '{
-              family: $family,
-              networkMode: "awsvpc",
-              requiresCompatibilities: ["FARGATE"],
-              cpu: $cpu,
-              memory: $memory,
+            '.taskDefinition |
+            {
+              family: .family,
+              networkMode: .networkMode,
+              requiresCompatibilities: .requiresCompatibilities,
+              cpu: .cpu,
+              memory: .memory,
               executionRoleArn: $executionRole,
-              containerDefinitions: [{
-                name: "web",
-                image: $image,
-                essential: true,
-                portMappings: [{
-                  containerPort: 3000,
-                  hostPort: 3000,
-                  protocol: "tcp"
-                }],
-                environment: $env,
-                healthCheck: {
-                  command: ["CMD-SHELL", $healthCmd],
-                  interval: 30,
-                  timeout: 5,
-                  retries: 3,
-                  startPeriod: 60
-                },
-                logConfiguration: {
-                  logDriver: "awslogs",
-                  options: {
-                    "awslogs-group": $logsGroup,
-                    "awslogs-region": $logsRegion,
-                    "awslogs-stream-prefix": "web"
-                  }
+              containerDefinitions: [(
+                .containerDefinitions[0] |
+                {
+                  name: .name,
+                  image: $image,
+                  essential: .essential,
+                  portMappings: .portMappings,
+                  secrets: .secrets,
+                  logConfiguration: .logConfiguration
                 }
-              }]
-            }' > taskdef-updated.json
+              )],
+              volumes: .volumes
+            }' aws/task-definition.json > taskdef-updated.json
 
           echo "Updated task definition with image: $IMAGE_URI"
-          echo "Environment variables count: $(echo $ENV_ARRAY | jq length)"
+          echo "Secrets count: $(jq '.taskDefinition.containerDefinitions[0].secrets | length' aws/task-definition.json)"
 
       - name: Register new task definition
         id: register-task
