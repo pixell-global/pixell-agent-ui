@@ -16,83 +16,83 @@
                 "secrets": [
                     {
                         "name": "NEXT_PUBLIC_BASE_URL",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:NEXT_PUBLIC_BASE_URL::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:NEXT_PUBLIC_BASE_URL::"
                     },
                     {
                         "name": "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET::"
                     },
                     {
                         "name": "AWS_REGION",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:AWS_REGION::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:AWS_REGION::"
                     },
                     {
                         "name": "PIXELL_ENV",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:PIXELL_ENV::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:PIXELL_ENV::"
                     },
                     {
                         "name": "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:NEXT_PUBLIC_FIREBASE_PROJECT_ID::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:NEXT_PUBLIC_FIREBASE_PROJECT_ID::"
                     },
                     {
                         "name": "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN::"
                     },
                     {
                         "name": "NEXT_PUBLIC_SITE_URL",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:NEXT_PUBLIC_SITE_URL::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:NEXT_PUBLIC_SITE_URL::"
                     },
                     {
                         "name": "AWS_SECRET_ACCESS_KEY",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:AWS_SECRET_ACCESS_KEY::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:AWS_SECRET_ACCESS_KEY::"
                     },
                     {
                         "name": "NEXT_PUBLIC_PAF_CORE_AGENT_URL",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:NEXT_PUBLIC_PAF_CORE_AGENT_URL::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:NEXT_PUBLIC_PAF_CORE_AGENT_URL::"
                     },
                     {
                         "name": "AWS_DEFAULT_REGION",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:AWS_DEFAULT_REGION::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:AWS_DEFAULT_REGION::"
                     },
                     {
                         "name": "NEXT_PUBLIC_FIREBASE_API_KEY",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:NEXT_PUBLIC_FIREBASE_API_KEY::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:NEXT_PUBLIC_FIREBASE_API_KEY::"
                     },
                     {
                         "name": "FIREBASE_CREDENTIALS_PATH",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:FIREBASE_CREDENTIALS_PATH::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:FIREBASE_CREDENTIALS_PATH::"
                     },
                     {
                         "name": "AWS_ACCESS_KEY_ID",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:AWS_ACCESS_KEY_ID::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:AWS_ACCESS_KEY_ID::"
                     },
                     {
                         "name": "FIREBASE_CLIENT_EMAIL",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:FIREBASE_CLIENT_EMAIL::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:FIREBASE_CLIENT_EMAIL::"
                     },
                     {
                         "name": "FIREBASE_PRIVATE_KEY",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:FIREBASE_PRIVATE_KEY::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:FIREBASE_PRIVATE_KEY::"
                     },
                     {
                         "name": "AWS_ACCOUNT_ID",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:AWS_ACCOUNT_ID::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:AWS_ACCOUNT_ID::"
                     },
                     {
                         "name": "NODE_ENV",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:NODE_ENV::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:NODE_ENV::"
                     },
                     {
                         "name": "FIREBASE_PROJECT_ID",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:FIREBASE_PROJECT_ID::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:FIREBASE_PROJECT_ID::"
                     },
                     {
                         "name": "NEXT_PUBLIC_FIREBASE_APP_ID",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:NEXT_PUBLIC_FIREBASE_APP_ID::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:NEXT_PUBLIC_FIREBASE_APP_ID::"
                     },
                     {
                         "name": "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
-                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple:NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID::"
+                        "valueFrom": "arn:aws:secretsmanager:us-east-2:636212886452:secret:pixell/taskdef/pixell-web-simple-frp6UY:NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID::"
                     }
                 ],
                 "mountPoints": [],
