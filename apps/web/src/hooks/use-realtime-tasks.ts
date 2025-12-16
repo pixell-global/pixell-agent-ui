@@ -29,7 +29,7 @@ export function useRealtimeTasks(userId: string) {
         if (error) throw error
         
         // Transform database rows to Task interface
-        const tasks: Task[] = (data || []).map(row => ({
+        const tasks: Task[] = (data || []).map((row: any) => ({
           id: row.id,
           name: row.name,
           description: row.description,
@@ -63,7 +63,7 @@ export function useRealtimeTasks(userId: string) {
           table: 'tasks',
           filter: `user_id=eq.${userId}`
         },
-        (payload) => {
+        (payload: any) => {
           if (payload.eventType === 'INSERT') {
             const newTask: Task = {
               id: payload.new.id,

@@ -37,7 +37,7 @@ export function useSupabase() {
     getUser()
 
     try {
-      const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
+      const { data: { subscription } } = client.auth.onAuthStateChange((event: any, session: any) => {
         setUser(session?.user ?? null)
         setLoading(false)
       })

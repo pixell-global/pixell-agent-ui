@@ -65,7 +65,7 @@ export function useRealtimeAgents(userId: string) {
           table: 'agents',
           filter: `user_id=eq.${userId}`
         },
-        (payload) => {
+        (payload: any) => {
           if (payload.eventType === 'INSERT') {
             const newAgent: Agent = {
               id: payload.new.id,

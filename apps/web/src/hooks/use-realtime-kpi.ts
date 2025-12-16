@@ -220,7 +220,7 @@ export function useRealtimeKPI(userId?: string) {
           schema: 'core', 
           table: 'jobs'
         },
-        async (payload) => {
+        async (payload: any) => {
           console.log('KPI: Received job update:', payload.eventType, (payload.new as any)?.name || (payload.old as any)?.name)
           
           // Refetch all data to recalculate metrics

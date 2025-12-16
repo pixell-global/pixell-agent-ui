@@ -169,39 +169,54 @@ jobs:
           docker push ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ steps.image-tag.outputs.tag }}
           docker push ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
 
-      - name: Update task definition with new image
+      - name: Prepare task definition
         id: task-def
         run: |
-          IMAGE_URI="${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ steps.image-tag.outputs.tag }}"
+          # Verify task definition file exists and is valid JSON
+          if [ ! -f "aws/task-definition.json" ]; then
+            echo "ERROR: aws/task-definition.json not found"
+            echo "Current directory: $(pwd)"
+            echo "Files in aws/: $(ls -la aws/ 2>&1 || echo 'aws directory not found')"
+            exit 1
+          fi
           
-          # Read base task definition from file and update it
-          jq \
-            --arg image "$IMAGE_URI" \
+          echo "File exists. Checking file content..."
+          echo "File size: $(wc -c < aws/task-definition.json) bytes"
+          echo "First 200 characters:"
+          head -c 200 aws/task-definition.json
+          echo ""
+          echo ""
+          
+          # Read and validate JSON file, then prepare task definition
+          # Use jq to read, validate, and transform in one step
+          if ! jq \
             --arg executionRole "arn:aws:iam::${{ steps.aws-account.outputs.account_id }}:role/ecsTaskExecutionRole" \
-            '.taskDefinition |
-            {
-              family: .family,
-              networkMode: .networkMode,
-              requiresCompatibilities: .requiresCompatibilities,
-              cpu: .cpu,
-              memory: .memory,
-              executionRoleArn: $executionRole,
-              containerDefinitions: [(
-                .containerDefinitions[0] |
-                {
-                  name: .name,
-                  image: $image,
-                  essential: .essential,
-                  portMappings: .portMappings,
-                  secrets: .secrets,
-                  logConfiguration: .logConfiguration
-                }
-              )],
-              volumes: .volumes
-            }' aws/task-definition.json > taskdef-updated.json
-
-          echo "Updated task definition with image: $IMAGE_URI"
-          echo "Secrets count: $(jq '.taskDefinition.containerDefinitions[0].secrets | length' aws/task-definition.json)"
+            '.taskDefinition | 
+            .executionRoleArn = $executionRole |
+            del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .registeredAt, .registeredBy, .compatibilities)' \
+            aws/task-definition.json > taskdef-updated.json 2>&1; then
+            echo "ERROR: Failed to prepare task definition"
+            echo "File content (first 500 chars):"
+            head -c 500 aws/task-definition.json || cat aws/task-definition.json | head -20
+            echo ""
+            exit 1
+          fi
+          
+          # Verify output file was created and is valid
+          if [ ! -f "taskdef-updated.json" ] || [ ! -s "taskdef-updated.json" ]; then
+            echo "ERROR: taskdef-updated.json was not created or is empty"
+            exit 1
+          fi
+          
+          if ! jq empty taskdef-updated.json 2>&1; then
+            echo "ERROR: Generated task definition is not valid JSON"
+            cat taskdef-updated.json
+            exit 1
+          fi
+          
+          echo "JSON is valid. Task definition prepared successfully."
+          
+          echo "Task definition prepared (using latest image tag)"
 
       - name: Register new task definition
         id: register-task
