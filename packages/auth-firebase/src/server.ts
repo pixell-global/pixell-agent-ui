@@ -65,6 +65,19 @@ const resolveServiceAccount = (): { projectId: string; clientEmail: string; priv
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
     privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
   };
+  
+  // Debug logging for env triplet
+  if (!isProd) {
+    const missingEnv = [];
+    if (!fromEnv.projectId) missingEnv.push('FIREBASE_PROJECT_ID');
+    if (!fromEnv.clientEmail) missingEnv.push('FIREBASE_CLIENT_EMAIL');
+    if (!fromEnv.privateKey) missingEnv.push('FIREBASE_PRIVATE_KEY');
+    if (missingEnv.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log('[AuthFirebase] Env triplet check failed - missing:', missingEnv.join(', '));
+    }
+  }
+  
   if (fromEnv.projectId && fromEnv.clientEmail && fromEnv.privateKey) {
     if (!isProd) {
       // eslint-disable-next-line no-console
@@ -121,9 +134,28 @@ const resolveServiceAccount = (): { projectId: string; clientEmail: string; priv
           }
           lastCredentialDebug = { source: 'path', projectId: pj, clientEmail: ce, provided: credsPath, chosenPath, exists };
           return { projectId: pj, clientEmail: ce, privateKey: pk };
+        } else {
+          if (!isProd) {
+            const missingInJson = [];
+            if (!pj) missingInJson.push('project_id/projectId');
+            if (!ce) missingInJson.push('client_email/clientEmail');
+            if (!pk) missingInJson.push('private_key/privateKey');
+            // eslint-disable-next-line no-console
+            console.warn('[AuthFirebase] JSON file exists but missing required fields:', missingInJson.join(', '));
+          }
+        }
+      } else {
+        if (!isProd) {
+          // eslint-disable-next-line no-console
+          console.warn('[AuthFirebase] FIREBASE_CREDENTIALS_PATH file does not exist:', chosenPath);
         }
       }
-    } catch {}
+    } catch (error) {
+      if (!isProd) {
+        // eslint-disable-next-line no-console
+        console.error('[AuthFirebase] Error loading credentials from FIREBASE_CREDENTIALS_PATH:', error);
+      }
+    }
   }
 
   // 2b) Auto-discover a credentials JSON at repo root
@@ -168,8 +200,22 @@ const resolveServiceAccount = (): { projectId: string; clientEmail: string; priv
         }
         lastCredentialDebug = { source: 'json', projectId: pj, clientEmail: ce };
         return { projectId: pj, clientEmail: ce, privateKey: pk };
+      } else {
+        if (!isProd) {
+          const missingInJson = [];
+          if (!pj) missingInJson.push('project_id/projectId');
+          if (!ce) missingInJson.push('client_email/clientEmail');
+          if (!pk) missingInJson.push('private_key/privateKey');
+          // eslint-disable-next-line no-console
+          console.warn('[AuthFirebase] FIREBASE_CREDENTIALS_JSON exists but missing required fields:', missingInJson.join(', '));
+        }
       }
-    } catch {}
+    } catch (error) {
+      if (!isProd) {
+        // eslint-disable-next-line no-console
+        console.error('[AuthFirebase] Error parsing FIREBASE_CREDENTIALS_JSON:', error);
+      }
+    }
   }
 
   return null;
@@ -189,10 +235,28 @@ const adminApp = (): App => {
   // Strict mode: surface a clear error instead of silently returning a dummy app
   const hints: string[] = [];
   const missing: string[] = [];
-  if (!process.env.FIREBASE_PROJECT_ID) missing.push('FIREBASE_PROJECT_ID');
-  if (!process.env.FIREBASE_CLIENT_EMAIL) missing.push('FIREBASE_CLIENT_EMAIL');
-  if (!process.env.FIREBASE_PRIVATE_KEY) missing.push('FIREBASE_PRIVATE_KEY');
+  const envStatus: Record<string, { exists: boolean; hasValue: boolean; length?: number }> = {};
+  
+  // Check each environment variable
+  const envVars = ['FIREBASE_PROJECT_ID', 'FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRIVATE_KEY'];
+  for (const envVar of envVars) {
+    const value = process.env[envVar];
+    const exists = envVar in process.env;
+    const hasValue = !!value && value.trim().length > 0;
+    envStatus[envVar] = {
+      exists,
+      hasValue,
+      length: value ? value.length : 0,
+    };
+    if (!hasValue) {
+      missing.push(envVar);
+    }
+  }
+  
+  // Check alternative methods
   const credsPath = process.env.FIREBASE_CREDENTIALS_PATH;
+  const credsJson = process.env.FIREBASE_CREDENTIALS_JSON;
+  
   if (credsPath && !isProd) {
     const absCwd = path.isAbsolute(credsPath) ? credsPath : path.resolve(process.cwd(), credsPath);
     const absRepo = path.isAbsolute(credsPath) ? credsPath : path.resolve(process.cwd(), '..', '..', credsPath);
@@ -207,13 +271,65 @@ const adminApp = (): App => {
       existsRepo,
     });
   }
+  
+  // Build detailed error message
+  const errorDetails: string[] = [];
+  errorDetails.push('\n=== Firebase Admin 초기화 실패 ===');
+  errorDetails.push('\n[환경 변수 상태]:');
+  for (const [key, status] of Object.entries(envStatus)) {
+    if (status.hasValue) {
+      errorDetails.push(`  ✓ ${key}: 설정됨 (길이: ${status.length}자)`);
+    } else if (status.exists) {
+      errorDetails.push(`  ✗ ${key}: 설정되었지만 값이 비어있음`);
+    } else {
+      errorDetails.push(`  ✗ ${key}: 설정되지 않음`);
+    }
+  }
+  
+  if (credsPath) {
+    errorDetails.push(`\n[FIREBASE_CREDENTIALS_PATH]: ${credsPath}`);
+    const absCwd = path.isAbsolute(credsPath) ? credsPath : path.resolve(process.cwd(), credsPath);
+    const absRepo = path.isAbsolute(credsPath) ? credsPath : path.resolve(process.cwd(), '..', '..', credsPath);
+    errorDetails.push(`  - 절대 경로 (cwd 기준): ${absCwd} (존재: ${fs.existsSync(absCwd)})`);
+    errorDetails.push(`  - 절대 경로 (repo 기준): ${absRepo} (존재: ${fs.existsSync(absRepo)})`);
+  } else {
+    errorDetails.push(`\n[FIREBASE_CREDENTIALS_PATH]: 설정되지 않음`);
+  }
+  
+  if (credsJson) {
+    errorDetails.push(`\n[FIREBASE_CREDENTIALS_JSON]: 설정됨 (길이: ${credsJson.length}자)`);
+    try {
+      const parsed = JSON.parse(credsJson);
+      errorDetails.push(`  - project_id: ${parsed.project_id || parsed.projectId || '없음'}`);
+      errorDetails.push(`  - client_email: ${parsed.client_email || parsed.clientEmail || '없음'}`);
+      errorDetails.push(`  - private_key: ${parsed.private_key || parsed.privateKey ? '있음' : '없음'}`);
+    } catch (e) {
+      errorDetails.push(`  - JSON 파싱 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
+    }
+  } else {
+    errorDetails.push(`\n[FIREBASE_CREDENTIALS_JSON]: 설정되지 않음`);
+  }
+  
+  errorDetails.push('\n[해결 방법]:');
+  if (missing.length > 0) {
+    errorDetails.push(`  1. 다음 환경 변수를 설정하세요: ${missing.join(', ')}`);
+  }
+  errorDetails.push('  2. 또는 FIREBASE_CREDENTIALS_PATH로 JSON 파일 경로를 지정하세요');
+  errorDetails.push('  3. 또는 FIREBASE_CREDENTIALS_JSON에 JSON 문자열을 직접 제공하세요');
+  errorDetails.push('\n[참고]:');
+  errorDetails.push('  - FIREBASE_PRIVATE_KEY는 .env 파일에서 \\n을 사용하여 줄바꿈을 표현해야 합니다');
+  errorDetails.push('  - 예: FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n"');
+  errorDetails.push('=====================================\n');
+  
   hints.push(
     `Either set env triplet (${missing.join(', ') || 'all present'}) or provide FIREBASE_CREDENTIALS_PATH or FIREBASE_CREDENTIALS_JSON.`
   );
-  throw new Error(
-    `Firebase Admin not initialized. ${hints.join(' ')} ` +
-      'Private key in env must use \\n for newlines when provided via .env.'
-  );
+  
+  const errorMessage = `Firebase Admin not initialized. ${hints.join(' ')} ` +
+    'Private key in env must use \\n for newlines when provided via .env.' +
+    errorDetails.join('\n');
+  
+  throw new Error(errorMessage);
 };
 
 export const createSessionCookie = async (idToken: string, expiresIn: number) => {

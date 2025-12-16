@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input'
 import { Activity, CheckCircle, Clock, Zap, AlertCircle, Wifi, WifiOff, Wand2, ChevronRight } from 'lucide-react'
 import { useUIStore } from '@/stores/ui-store'
 import { useWorkspaceStore, selectKPIMetrics, selectRecentJobs } from '@/stores/workspace-store'
-import { useWebSocket } from '@/lib/websocket-manager'
 import { useRealtimeKPI } from '@/hooks/use-realtime-kpi'
 import { useSupabase } from '@/hooks/use-supabase'
 import { KPIWidget, ActiveJobsKPI, SuccessRateKPI, AverageRuntimeKPI, QueuedJobsKPI } from '@/components/kpi/KPIWidget'
@@ -33,7 +32,6 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
   } = useWorkspaceStore()
   
   const { user } = useSupabase()
-  const { connect } = useWebSocket()
   
   // UI 생성 관련 상태
   const [uiQuery, setUiQuery] = useState('')
@@ -121,11 +119,6 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
       }
     }
   }, [uiSpec?.view, uiSpec?.actions, uiSpec?.manifest, uiSpec?.theme])
-  
-  // Connect to WebSocket on mount
-  useEffect(() => {
-    connect()
-  }, [connect])
   
   // ref를 통해 외부에서 호출할 수 있는 함수들 노출
   useImperativeHandle(ref, () => ({

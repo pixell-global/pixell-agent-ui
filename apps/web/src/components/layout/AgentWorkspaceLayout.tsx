@@ -5,7 +5,6 @@ import { CollapsedNavigator } from '@/components/navigator/collapsed-navigator'
 import { WorkspaceTabs } from '@/components/workspace/WorkspaceTabs'
 import { WorkspaceContainer } from '@/components/workspace/WorkspaceContainer'
 import { ActivityPane, ActivityPaneRef } from '@/components/activity/activity-pane'
-import { useWebSocket } from '@/lib/websocket-manager'
 import { useWorkspaceStore } from '@/stores/workspace-store'
 import { designTokens } from '@/lib/design-tokens'
 import { cn } from '@/lib/utils'
@@ -25,17 +24,11 @@ export function AgentWorkspaceLayout() {
     toggleRightPanel
   } = useUIStore()
   
-  const { connect } = useWebSocket()
   const { isConnected } = useWorkspaceStore()
   
   // ActivityPane의 ref 생성
   const activityPaneRef = useRef<ActivityPaneRef>(null as any)
   const [mounted, setMounted] = useState(false)
-  
-  // Connect to WebSocket on mount
-  useEffect(() => {
-    connect()
-  }, [connect])
 
   useEffect(() => {
     setMounted(true)
