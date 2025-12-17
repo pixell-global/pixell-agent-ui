@@ -9,8 +9,8 @@ env:
   AWS_REGION: us-east-2
   ECR_REPOSITORY: pixell-web
   ECS_CLUSTER: pixell-web-cluster
-  ECS_SERVICE: pixell-web-simple
-  TASK_FAMILY: pixell-web-simple
+  ECS_SERVICE: pixell-agent-ui
+  TASK_FAMILY: pixell-agent-ui
   CONTAINER_NAME: web
 
 jobs:
