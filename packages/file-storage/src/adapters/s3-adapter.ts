@@ -11,6 +11,15 @@ const getErrorMessage = (error: unknown): string => {
 }
 
 /**
+ * Sanitize a string for use in S3 metadata (HTTP headers)
+ * HTTP headers only allow ASCII printable characters (0x20-0x7E) except certain special chars
+ * URL-encoding ensures any characters are safely represented
+ */
+const sanitizeMetadataValue = (value: string): string => {
+  return encodeURIComponent(value)
+}
+
+/**
  * S3Adapter - S3-compatible storage for production deployments
  * 
  * Works with AWS S3, MinIO, DigitalOcean Spaces, and other S3-compatible services.
@@ -34,15 +43,33 @@ export class S3Adapter implements FileStorageAdapter {
       throw new Error('S3 bucket name is required')
     }
 
-    this.s3Client = new S3Client({
+    // Only pass explicit credentials if we have them
+    // Otherwise, let the AWS SDK use its default credential chain (env vars, shared credentials, etc.)
+    const clientConfig: any = {
       region: config.region || 'us-east-1',
-      endpoint: config.endpoint, // For non-AWS S3 services
-      credentials: config.credentials || {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || config.accessKeyId,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || config.secretAccessKey
-      },
       forcePathStyle: config.forcePathStyle || false // For MinIO
-    })
+    }
+
+    if (config.endpoint) {
+      clientConfig.endpoint = config.endpoint
+    }
+
+    // If explicit credentials are provided in config, use them
+    // Otherwise, for explicit accessKeyId/secretAccessKey, create credentials object
+    // For env-based credentials, let the SDK handle them via its default credential provider
+    if (config.credentials) {
+      clientConfig.credentials = config.credentials
+    } else if (config.accessKeyId && config.secretAccessKey) {
+      // Use explicit credentials from config
+      clientConfig.credentials = {
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey
+      }
+    }
+    // If neither config.credentials nor config.accessKeyId is set,
+    // the SDK will use its default credential chain (which includes AWS_ACCESS_KEY_ID env var)
+
+    this.s3Client = new S3Client(clientConfig)
 
     // Test connection
     try {
@@ -140,6 +167,24 @@ export class S3Adapter implements FileStorageAdapter {
     }
   }
 
+  /**
+   * List files recursively, building a nested tree with all folder contents pre-loaded
+   */
+  async listFilesRecursive(relativePath: string = '/'): Promise<FileNode[]> {
+    // Get direct children first
+    const nodes = await this.listFiles(relativePath)
+
+    // Recursively load children for each folder
+    for (const node of nodes) {
+      if (node.type === 'folder') {
+        node.children = await this.listFilesRecursive(node.path)
+        node.isExpanded = true  // Pre-expand all folders
+      }
+    }
+
+    return nodes
+  }
+
   async readFile(relativePath: string): Promise<{ content: string; metadata: FileMetadata }> {
     this.ensureInitialized()
     
@@ -218,7 +263,7 @@ export class S3Adapter implements FileStorageAdapter {
         Body: content,
         ContentType: metadata?.mimeType || mime.lookup(fileName) || 'application/octet-stream',
         Metadata: {
-          originalName: fileName,
+          originalName: sanitizeMetadataValue(fileName),
           uploadedAt: new Date().toISOString()
         }
       })
@@ -331,7 +376,7 @@ export class S3Adapter implements FileStorageAdapter {
           Body: file instanceof File ? new Uint8Array(await file.arrayBuffer()) : file,
           ContentType: mime.lookup(fileName) || 'application/octet-stream',
           Metadata: {
-            originalName: fileName,
+            originalName: sanitizeMetadataValue(fileName),
             uploadedAt: new Date().toISOString()
           }
         }

@@ -17,6 +17,11 @@ export interface FileStorageAdapter {
   listFiles(path: string): Promise<FileNode[]>
 
   /**
+   * List files recursively, building a nested tree with all folder contents
+   */
+  listFilesRecursive(path: string): Promise<FileNode[]>
+
+  /**
    * Read file content
    */
   readFile(path: string): Promise<{ content: string; metadata: FileMetadata }>

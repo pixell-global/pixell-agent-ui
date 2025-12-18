@@ -93,6 +93,19 @@ export class LocalAdapter implements FileStorageAdapter {
     })
   }
 
+  async listFilesRecursive(relativePath: string = '/'): Promise<FileNode[]> {
+    const nodes = await this.listFiles(relativePath)
+
+    for (const node of nodes) {
+      if (node.type === 'folder') {
+        node.children = await this.listFilesRecursive(node.path)
+        node.isExpanded = true
+      }
+    }
+
+    return nodes
+  }
+
   async readFile(relativePath: string): Promise<{ content: string; metadata: FileMetadata }> {
     this.ensureInitialized()
     

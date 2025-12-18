@@ -12,6 +12,7 @@ interface FileTreeProps {
   allowedTypes?: string[]
   onFilesDownload?: (files: FileNode[]) => void
   searchTerm?: string
+  isLoading?: boolean
 }
 
 export const FileTree: React.FC<FileTreeProps> = ({
@@ -20,7 +21,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
   maxFileSize = 10 * 1024 * 1024, // 10MB
   allowedTypes = ['.txt', '.md', '.json', '.ts', '.js', '.py', '.yml', '.yaml'],
   onFilesDownload,
-  searchTerm = ''
+  searchTerm = '',
+  isLoading = false
 }) => {
   const fileTree = useWorkspaceStore(selectFileTree)
   const updateFileNode = useWorkspaceStore(state => state.updateFileNode)
@@ -736,7 +738,24 @@ export const FileTree: React.FC<FileTreeProps> = ({
         </div>
       )}
       
-      {fileTree.length === 0 && !searchTerm && (
+      {fileTree.length === 0 && !searchTerm && isLoading && (
+        <div className="space-y-2 py-4">
+          <div className="flex items-center gap-2 px-2">
+            <div className="w-4 h-4 bg-white/10 rounded animate-pulse" />
+            <div className="h-4 bg-white/10 rounded w-24 animate-pulse" />
+          </div>
+          <div className="flex items-center gap-2 px-2 pl-6">
+            <div className="w-4 h-4 bg-white/10 rounded animate-pulse" />
+            <div className="h-4 bg-white/10 rounded w-32 animate-pulse" />
+          </div>
+          <div className="flex items-center gap-2 px-2">
+            <div className="w-4 h-4 bg-white/10 rounded animate-pulse" />
+            <div className="h-4 bg-white/10 rounded w-20 animate-pulse" />
+          </div>
+        </div>
+      )}
+
+      {fileTree.length === 0 && !searchTerm && !isLoading && (
         <div className="text-center py-8 text-muted-foreground">
           <Upload className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p className="text-sm">No files yet</p>

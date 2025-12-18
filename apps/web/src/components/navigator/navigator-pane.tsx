@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react'
-import { Search, Folder, Plus, History, Files, RefreshCw, FileText, FolderPlus, Upload, HardDrive, X, RotateCcw, ChevronLeft } from 'lucide-react'
+import { Search, Folder, Plus, History, Files, RefreshCw, FileText, FolderPlus, Upload, HardDrive, X, RotateCcw, ChevronLeft, Brain } from 'lucide-react'
 import { useWorkspaceStore, FileNode } from '@/stores/workspace-store'
 import { FileTree } from './file-tree'
 import { HistoryPane } from './history-pane'
+import { MemoryPane } from './memory-pane'
 import { CreateFolderDialog } from './create-folder-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/ui-store'
-import { MOCK_FILE_TREE } from '@/lib/mock-data'
 
-// Enable mock data when real files aren't available
-const USE_MOCK_DATA = true
+// Use real files from S3 storage (mock data disabled)
+const USE_MOCK_DATA = false
 
 interface NavigatorPaneProps {
   className?: string
@@ -22,7 +22,7 @@ export const NavigatorPane: React.FC<NavigatorPaneProps> = ({ className }) => {
   const toggleLeftPanelCollapsed = useUIStore(state => state.toggleLeftPanelCollapsed)
   const [showCreateFolder, setShowCreateFolder] = useState(false)
   const [activeTab, setActiveTab] = useState('files')
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)  // Start loading immediately
   const [useRealFiles, setUseRealFiles] = useState(true)
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
   const [usedStorage, setUsedStorage] = useState(0) // Will be calculated from actual files
@@ -40,7 +40,10 @@ export const NavigatorPane: React.FC<NavigatorPaneProps> = ({ className }) => {
   const currentFolder = useWorkspaceStore(state => state.currentFolder)
   const setFileTree = useWorkspaceStore(state => state.setFileTree)
   const addFileNode = useWorkspaceStore(state => state.addFileNode)
+  const updateFileNode = useWorkspaceStore(state => state.updateFileNode)
   const fileTree = useWorkspaceStore(state => state.fileTree)
+  const fileTreeNeedsRefresh = useWorkspaceStore(state => state.fileTreeNeedsRefresh)
+  const clearFileTreeRefreshFlag = useWorkspaceStore(state => state.clearFileTreeRefreshFlag)
 
   // Calculate storage usage from file tree
   const calculateStorageUsage = (files: FileNode[]): number => {
@@ -61,25 +64,23 @@ export const NavigatorPane: React.FC<NavigatorPaneProps> = ({ className }) => {
     return totalBytes / (1024 * 1024 * 1024) // Convert to GB
   }
   
-  // Load real workspace files
+  // Load real workspace files from S3 storage
   const loadWorkspaceFiles = async () => {
     setIsLoading(true)
     try {
-      // Use mock data for demonstration
-      if (USE_MOCK_DATA) {
-        await new Promise(resolve => setTimeout(resolve, 300))
-        setFileTree(MOCK_FILE_TREE)
-        setUseRealFiles(true)
-        setUsedStorage(calculateStorageUsage(MOCK_FILE_TREE))
-        console.log('Loaded mock files for demonstration:', MOCK_FILE_TREE.length, 'root items')
-        setIsLoading(false)
-        return
-      }
-
       // Add timestamp to prevent caching
       const timestamp = new Date().getTime()
-      // Load from workspace root - the API will handle the workspace-files path
-      const response = await fetch(`/api/files/list?path=&_t=${timestamp}`)
+
+      // Create abort controller with 10 second timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000)
+
+      // Load from user's S3 storage path (recursive to pre-load all folder contents)
+      const response = await fetch(`/api/files/list?path=/&recursive=true&_t=${timestamp}`, {
+        signal: controller.signal
+      })
+      clearTimeout(timeoutId)
+
       if (response.ok) {
         const data = await response.json()
         console.log('API Response:', data)
@@ -103,7 +104,12 @@ export const NavigatorPane: React.FC<NavigatorPaneProps> = ({ className }) => {
         throw new Error(`API request failed: ${response.status}`)
       }
     } catch (error) {
-      console.error('Failed to load workspace files:', error)
+      // Handle specific error types for better debugging
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.warn('File list request timed out after 10 seconds')
+      } else {
+        console.error('Failed to load workspace files:', error)
+      }
       // Don't fallback to sample data - show real structure even if empty
       setFileTree([])
       setUseRealFiles(true)
@@ -126,6 +132,38 @@ export const NavigatorPane: React.FC<NavigatorPaneProps> = ({ className }) => {
       setUsedStorage(calculateStorageUsage(fileTree))
     }
   }, [fileTree])
+
+  // Auto-refresh file tree when triggered via WebSocket (e.g., agent creates file)
+  useEffect(() => {
+    if (fileTreeNeedsRefresh) {
+      console.log('🔄 Auto-refreshing file tree (triggered by WebSocket)')
+      loadWorkspaceFiles()
+      clearFileTreeRefreshFlag()
+    }
+  }, [fileTreeNeedsRefresh, clearFileTreeRefreshFlag])
+
+  // Load folder contents on demand (lazy loading)
+  const loadFolderContents = async (folder: FileNode) => {
+    if (!folder.path) return
+
+    try {
+      const timestamp = new Date().getTime()
+      const response = await fetch(`/api/files/list?path=${encodeURIComponent(folder.path)}&_t=${timestamp}`)
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.files) {
+          // Update the folder's children in the store
+          updateFileNode(folder.path, {
+            children: data.files,
+            isExpanded: true
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load folder contents:', error)
+    }
+  }
 
   const handleCreateFile = async () => {
     const fileName = prompt('Enter file name:')
@@ -254,14 +292,14 @@ export const NavigatorPane: React.FC<NavigatorPaneProps> = ({ className }) => {
   const storagePercentage = (usedStorage / storageLimit) * 100
 
   return (
-    <div className={cn("flex flex-col h-full bg-background border-r", className)}>
+    <div className={cn("flex flex-col h-full bg-background border-r border-white/10", className)}>
       {/* Pane header with collapse */}
-      <div className="flex items-center justify-between px-4 h-9 border-b bg-card/60">
-        <span className="text-sm font-medium">Navigator</span>
+      <div className="flex items-center justify-between px-4 h-9 border-b border-white/10 bg-background">
+        <span className="text-sm font-medium text-white/90">Navigator</span>
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 w-7 p-0"
+          className="h-7 w-7 p-0 text-white/50 hover:text-white hover:bg-white/10"
           onClick={toggleLeftPanelCollapsed}
           title="Collapse navigator"
           aria-label="Collapse navigator"
@@ -272,15 +310,19 @@ export const NavigatorPane: React.FC<NavigatorPaneProps> = ({ className }) => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-        <div className="flex justify-center mt-2 mb-2">
-          <TabsList className="grid grid-cols-2 w-auto min-w-48">
-            <TabsTrigger value="files" className="flex items-center justify-center gap-2 px-4">
-              <Files className="h-4 w-4" />
+        <div className="flex justify-center mt-2 mb-2 px-2">
+          <TabsList className="grid grid-cols-3 w-full bg-white/[0.02] border border-white/10">
+            <TabsTrigger value="files" className="flex items-center justify-center gap-1.5 data-[state=active]:bg-white/10 data-[state=active]:text-white text-xs">
+              <Files className="h-3.5 w-3.5" />
               Files
             </TabsTrigger>
-            <TabsTrigger value="history" className="flex items-center justify-center gap-2 px-4">
-              <History className="h-4 w-4" />
+            <TabsTrigger value="history" className="flex items-center justify-center gap-1.5 data-[state=active]:bg-white/10 data-[state=active]:text-white text-xs">
+              <History className="h-3.5 w-3.5" />
               History
+            </TabsTrigger>
+            <TabsTrigger value="memory" className="flex items-center justify-center gap-1.5 data-[state=active]:bg-white/10 data-[state=active]:text-white text-xs">
+              <Brain className="h-3.5 w-3.5" />
+              Memory
             </TabsTrigger>
           </TabsList>
         </div>
@@ -288,52 +330,52 @@ export const NavigatorPane: React.FC<NavigatorPaneProps> = ({ className }) => {
         {/* Toolbar - Only show for Files tab */}
         {activeTab === 'files' && (
           <div className="w-full py-2">
-            <div className="bg-muted/5 px-4 py-1 border-b mx-4">
-              <div className="flex items-center justify-center gap-2">              
-                <Button 
-                  variant="ghost" 
+            <div className="px-4 py-1 border-b border-white/10 mx-2">
+              <div className="flex items-center justify-center gap-1">
+                <Button
+                  variant="ghost"
                   size="sm"
                   onClick={handleCreateFolder}
-                  className="h-8 w-8 p-0"
+                  className="h-8 w-8 p-0 text-white/50 hover:text-white hover:bg-white/10"
                   title="Create Folder"
                 >
                   <FolderPlus className="h-4 w-4" />
                 </Button>
-                
+
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleUploadFile}
-                  className="h-8 w-8 p-0"
+                  className="h-8 w-8 p-0 text-white/50 hover:text-white hover:bg-white/10"
                   title="Upload Files"
                 >
                   <Upload className="h-4 w-4" />
                 </Button>
-                
+
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowSearchPanel(!showSearchPanel)}
-                  className={`h-8 w-8 p-0 ${showSearchPanel ? 'bg-accent' : ''}`}
+                  className={`h-8 w-8 p-0 text-white/50 hover:text-white hover:bg-white/10 ${showSearchPanel ? 'bg-white/10 text-white' : ''}`}
                   title="Search Files"
                 >
                   <Search className="h-4 w-4" />
                 </Button>
-                
+
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleRefresh}
-                  className="h-8 w-8 p-0"
+                  className="h-8 w-8 p-0 text-white/50 hover:text-white hover:bg-white/10"
                   title="Refresh Files"
                   disabled={isLoading}
                 >
                   <RotateCcw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                 </Button>
               </div>
-              
+
               {selectedFolder && (
-                <div className="mt-2 text-xs text-muted-foreground">
+                <div className="mt-2 text-xs text-white/50">
                   Creating in: {selectedFolder}
                 </div>
               )}
@@ -343,7 +385,7 @@ export const NavigatorPane: React.FC<NavigatorPaneProps> = ({ className }) => {
         
         {/* Search Panel - Only show for Files tab */}
         {activeTab === 'files' && showSearchPanel && (
-          <div className="w-full border-b bg-background px-4 py-2">
+          <div className="w-full border-b border-white/10 px-4 py-2">
             <div className="relative">
               <Input
                 placeholder="Search files by name..."
@@ -366,7 +408,14 @@ export const NavigatorPane: React.FC<NavigatorPaneProps> = ({ className }) => {
                   } else {
                     const ext = file.name.split('.').pop()?.toLowerCase() || ''
                     const textLike = ['txt','csv','rtf','md','json','ts','js','yml','yaml']
-                    if (textLike.includes(ext)) {
+                    const viewerTypes = ['html', 'htm']
+
+                    if (viewerTypes.includes(ext)) {
+                      // Open HTML files in viewer tab
+                      import('@/stores/tab-store').then(({ useTabStore }) => {
+                        useTabStore.getState().openViewerTab({ path: file.path, title: file.name })
+                      })
+                    } else if (textLike.includes(ext)) {
                       // Open as editor tab
                       import('@/stores/tab-store').then(({ useTabStore }) => {
                         useTabStore.getState().openEditorTab({ path: file.path, title: file.name })
@@ -375,12 +424,16 @@ export const NavigatorPane: React.FC<NavigatorPaneProps> = ({ className }) => {
                   }
                 }}
                 onFolderToggle={(folder) => {
-                  console.log('Folder toggled:', folder)
+                  // Lazy load folder contents if not already loaded
+                  if (!folder.children || folder.children.length === 0) {
+                    loadFolderContents(folder)
+                  }
                 }}
                 onFilesDownload={(files) => {
                   // Keep download logging for non-text files only
                 }}
                 searchTerm={searchTerm}
+                isLoading={isLoading}
               />
             </div>
           </div>
@@ -390,33 +443,38 @@ export const NavigatorPane: React.FC<NavigatorPaneProps> = ({ className }) => {
         <TabsContent value="history" className="flex-1 overflow-hidden m-0">
           <HistoryPane className="h-full" />
         </TabsContent>
+
+        {/* Memory Tab */}
+        <TabsContent value="memory" className="flex-1 overflow-hidden m-0">
+          <MemoryPane className="h-full" />
+        </TabsContent>
       </Tabs>
 
       {/* Storage Info */}
-      <div className="p-4 border-t bg-muted/5">
+      <div className="p-4 border-t border-white/10">
         <div className="flex items-center gap-2 mb-2">
-          <HardDrive className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Storage</span>
+          <HardDrive className="h-4 w-4 text-white/50" />
+          <span className="text-sm font-medium text-white/90">Storage</span>
         </div>
-        
+
         <div className="space-y-1">
-          <div className="flex justify-between text-xs text-muted-foreground">
+          <div className="flex justify-between text-xs text-white/50">
             <span>{usedStorage.toFixed(1)} GB used</span>
             <span>{storageLimit} GB total</span>
           </div>
-          
-          <div className="w-full bg-muted rounded-full h-2">
-            <div 
-              className={`h-2 rounded-full transition-all duration-300 ${
-                storagePercentage > 90 ? 'bg-red-500' : 
-                storagePercentage > 75 ? 'bg-yellow-500' : 
-                'bg-blue-500'
+
+          <div className="w-full bg-white/10 rounded-full h-1.5">
+            <div
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                storagePercentage > 90 ? 'bg-red-500' :
+                storagePercentage > 75 ? 'bg-yellow-500' :
+                'bg-pixell-yellow'
               }`}
               style={{ width: `${Math.min(storagePercentage, 100)}%` }}
             />
           </div>
-          
-          <div className="text-xs text-muted-foreground">
+
+          <div className="text-xs text-white/40">
             {(storageLimit - usedStorage).toFixed(1)} GB available
           </div>
         </div>

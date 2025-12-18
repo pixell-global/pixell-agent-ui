@@ -1,14 +1,13 @@
 import { FileStorageAdapter, FileNode, FileMetadata, StorageStats, AdapterStatus } from './adapters/storage-adapter'
 import { LocalAdapter } from './adapters/local-adapter'
 import { S3Adapter } from './adapters/s3-adapter'
-// Import { SupabaseAdapter } from './adapters/supabase-adapter' // Future implementation
 
 // Utility function to safely extract error message
 const getErrorMessage = (error: unknown): string => {
   return error instanceof Error ? error.message : String(error)
 }
 
-export type StorageProvider = 'local' | 's3' | 'supabase'
+export type StorageProvider = 'local' | 's3'
 
 export interface StorageConfig {
   provider: StorageProvider
@@ -68,6 +67,43 @@ export class StorageManager implements FileStorageAdapter {
   }
 
   /**
+   * Create a storage manager scoped to a specific user's S3 path
+   * This ensures all file operations are isolated to the user's storage area
+   *
+   * @param userId - The user's ID
+   * @param orgId - The organization ID
+   * @param userStoragePath - Optional explicit path; if not provided, uses orgs/{orgId}/users/{userId}
+   */
+  static async createForUser(
+    userId: string,
+    orgId: string,
+    userStoragePath?: string
+  ): Promise<StorageManager> {
+    const manager = new StorageManager()
+    const config = StorageManager.getConfigFromEnv()
+
+    // Calculate the user's storage path
+    const basePath = userStoragePath || `orgs/${orgId}/users/${userId}`
+
+    // Override the prefix for S3 or rootPath for local storage
+    if (config.provider === 's3') {
+      config.config.prefix = basePath
+    } else if (config.provider === 'local') {
+      const originalRoot = config.config.rootPath || './workspace-files'
+      config.config.rootPath = `${originalRoot}/${basePath}`
+    }
+
+    // Also update fallback if present
+    if (config.fallback?.provider === 'local') {
+      const fallbackRoot = config.fallback.config.rootPath || './workspace-files'
+      config.fallback.config.rootPath = `${fallbackRoot}/${basePath}`
+    }
+
+    await manager.initialize(config)
+    return manager
+  }
+
+  /**
    * Get storage configuration from environment variables
    */
   static getConfigFromEnv(): StorageConfig {
@@ -109,28 +145,6 @@ export class StorageManager implements FileStorageAdapter {
           }
         }
         break
-
-      case 'supabase':
-        config = {
-          url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-          anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-          serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-          bucket: process.env.STORAGE_SUPABASE_BUCKET || 'workspace-files',
-          maxFileSize: parseInt(process.env.STORAGE_MAX_FILE_SIZE || '52428800'), // 50MB
-          allowedTypes: process.env.STORAGE_ALLOWED_TYPES?.split(',') || []
-        }
-
-        if (!config.url || !config.anonKey) {
-          console.warn('Supabase not configured, falling back to local storage')
-          fallback = {
-            provider: 'local',
-            config: {
-              rootPath: './workspace-files',
-              maxFileSize: 52428800
-            }
-          }
-        }
-        break
     }
 
     return { provider, config, fallback }
@@ -139,6 +153,10 @@ export class StorageManager implements FileStorageAdapter {
   // FileStorageAdapter implementation with fallback support
   async listFiles(path: string): Promise<FileNode[]> {
     return this.executeWithFallback(adapter => adapter.listFiles(path))
+  }
+
+  async listFilesRecursive(path: string): Promise<FileNode[]> {
+    return this.executeWithFallback(adapter => adapter.listFilesRecursive(path))
   }
 
   async readFile(path: string): Promise<{ content: string; metadata: FileMetadata }> {
@@ -244,9 +262,6 @@ export class StorageManager implements FileStorageAdapter {
         return new LocalAdapter()
       case 's3':
         return new S3Adapter()
-      case 'supabase':
-        // return new SupabaseAdapter() // Future implementation
-        throw new Error('Supabase adapter not yet implemented')
       default:
         throw new Error(`Unsupported storage provider: ${provider}`)
     }

@@ -1,102 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server'
-import path from 'path'
-import fs from 'fs/promises'
+import { getUserScopedStorage } from '@/lib/user-storage'
 
-// Helper to check if path exists
-async function pathExists(p: string): Promise<boolean> {
-  try {
-    await fs.access(p)
-    return true
-  } catch {
-    return false
-  }
-}
-
-
-// Get workspace path from environment or default
-const getWorkspacePath = () => {
-  return process.env.STORAGE_LOCAL_PATH || path.join(process.cwd(), 'workspace-files')
-}
-
-// Recursively read directory structure
-const readDirectoryRecursive = async (dirPath: string, relativePath: string = ''): Promise<any[]> => {
-  const files = []
-  
-  try {
-    const items = await fs.readdir(dirPath, { withFileTypes: true })
-    
-    for (const item of items) {
-      if (item.name.startsWith('.') && item.name !== '.temp') continue // Skip hidden files except .temp
-      
-      const itemPath = path.join(dirPath, item.name)
-      const itemRelativePath = relativePath ? `${relativePath}/${item.name}` : item.name
-      const stats = await fs.stat(itemPath)
-      
-      const fileNode = {
-        id: Buffer.from(itemRelativePath).toString('base64'),
-        name: item.name,
-        path: `/${itemRelativePath}`,
-        type: item.isDirectory() ? 'folder' : 'file',
-        size: item.isDirectory() ? undefined : stats.size,
-        lastModified: stats.mtime.toISOString(),
-        isExpanded: false,
-        children: undefined as any
-      }
-      
-      // Recursively load children for directories
-      if (item.isDirectory()) {
-        try {
-          const children = await readDirectoryRecursive(itemPath, itemRelativePath)
-          fileNode.children = children
-        } catch (error) {
-          console.error(`Error reading directory ${itemPath}:`, error)
-          fileNode.children = []
-        }
-      }
-      
-      files.push(fileNode)
-    }
-  } catch (error) {
-    console.error(`Error reading directory ${dirPath}:`, error)
-  }
-  
-  return files
-}
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    const workspacePath = getWorkspacePath()
-    
-    // Check if workspace directory exists
-    if (!(await pathExists(workspacePath))) {
+    const { searchParams } = new URL(request.url)
+    const requestPath = searchParams.get('path') || '/'
+    const recursive = searchParams.get('recursive') === 'true'
+
+    // Get user-scoped storage (authenticated only)
+    // Anonymous users get an empty file list since they have no storage allocation
+    const userContext = await getUserScopedStorage(request)
+
+    if (!userContext) {
+      // User not authenticated or no org - return empty file list
       return NextResponse.json({
         success: true,
         files: [],
-        path: '/'
+        path: requestPath,
+        storagePath: null,
+        message: 'No storage available - please sign in and create an organization'
       })
     }
-    
+
     try {
-      const files = await readDirectoryRecursive(workspacePath)
-      
+      // Use recursive listing to pre-load all folder contents
+      const files = recursive
+        ? await userContext.storage.listFilesRecursive(requestPath)
+        : await userContext.storage.listFiles(requestPath)
+
       return NextResponse.json({
         success: true,
         files,
-        path: '/'
+        path: requestPath,
+        storagePath: userContext.storagePath
       })
     } catch (error) {
-      console.error('Error reading workspace directory:', error)
+      console.error('Error reading storage:', error)
+      // Return empty array on storage read error (e.g., bucket doesn't have files yet)
       return NextResponse.json({
         success: true,
         files: [],
-        path: '/'
+        path: requestPath,
+        storagePath: userContext.storagePath
       })
     }
   } catch (error) {
     console.error('Error listing files:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to list files' },
-      { status: 500 }
-    )
+    // Return empty files on any error instead of 500
+    return NextResponse.json({
+      success: true,
+      files: [],
+      path: '/',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    })
   }
 } 
