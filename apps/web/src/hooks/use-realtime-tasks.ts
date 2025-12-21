@@ -48,12 +48,12 @@ export function useRealtimeTasks(userId: string) {
         const tasks: Task[] = (rows || []).map(row => ({
           id: row.id,
           name: row.name,
-          description: row.description,
+          description: row.description ?? undefined,
           status: row.status,
           progress: row.progress,
           agentId: row.agent_id,
           userId: row.user_id,
-          parentTaskId: row.parent_task_id,
+          parentTaskId: row.parent_task_id ?? undefined,
           metadata: row.metadata || {},
           createdAt: row.created_at,
           updatedAt: row.updated_at,
@@ -87,12 +87,12 @@ export function useRealtimeTasks(userId: string) {
             const newTask: Task = {
               id: newData.id,
               name: newData.name,
-              description: newData.description,
+              description: newData.description ?? undefined,
               status: newData.status,
               progress: newData.progress,
               agentId: newData.agent_id,
               userId: newData.user_id,
-              parentTaskId: newData.parent_task_id,
+              parentTaskId: newData.parent_task_id ?? undefined,
               metadata: newData.metadata || {},
               createdAt: newData.created_at,
               updatedAt: newData.updated_at,
@@ -101,11 +101,11 @@ export function useRealtimeTasks(userId: string) {
           } else if (payload.eventType === 'UPDATE') {
             const updates: Partial<Task> = {
               name: newData.name,
-              description: newData.description,
+              description: newData.description ?? undefined,
               status: newData.status,
               progress: newData.progress,
               agentId: newData.agent_id,
-              parentTaskId: newData.parent_task_id,
+              parentTaskId: newData.parent_task_id ?? undefined,
               metadata: newData.metadata || {},
               updatedAt: newData.updated_at,
             }

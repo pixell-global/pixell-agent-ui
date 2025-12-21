@@ -10,14 +10,11 @@ import {
   selectLiveMetrics,
   selectActiveTasks 
 } from '@/stores/workspace-store'
-import { useWebSocket, webSocketActions } from '@/lib/websocket-manager'
 import type { WorkerAgentStatus } from '@/types'
 import type { ChatMessage } from '@/stores/workspace-store'
 
 // Demo component to showcase Phase 1 implementation
 export const WorkspaceDemo: React.FC = () => {
-  // Temporarily disable WebSocket to prevent connection loop
-  // const { isConnected, connectionState } = useWebSocket()
   const isConnected = false
   const connectionState = 'disabled'
   
@@ -72,8 +69,7 @@ export const WorkspaceDemo: React.FC = () => {
   }
   
   const sendDemoWebSocketMessage = () => {
-    // webSocketActions.sendChatMessage('Demo WebSocket message from client')
-    console.log('WebSocket demo disabled to prevent connection loop')
+    console.log('WebSocket functionality removed')
   }
   
   return (

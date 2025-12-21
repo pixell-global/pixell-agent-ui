@@ -253,26 +253,70 @@ export const NavigatorPane: React.FC<NavigatorPaneProps> = ({ className }) => {
     }
   }
 
-  const handleUploadFile = () => {
+  const handleUploadFile = async () => {
+    console.log('🚀 handleUploadFile 함수 호출됨!')
     const input = document.createElement('input')
     input.type = 'file'
     input.multiple = true
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
+      console.log('📁 파일 선택됨!')
       const target = e.target as HTMLInputElement
       if (target.files) {
-        Array.from(target.files).forEach(file => {
-          // Add to file tree using proper store method
-          // Storage usage will be automatically calculated via useEffect
-          const newFile: FileNode = {
-            id: Date.now().toString() + Math.random(),
-            name: file.name,
-            type: 'file',
-            path: selectedFolder ? `${selectedFolder}/${file.name}` : file.name,
-            size: file.size,
-            lastModified: new Date().toISOString()
+        const filesArray = Array.from(target.files)
+        
+        try {
+          // 각 파일을 workspace-files에 업로드
+          for (const file of filesArray) {
+            console.log('업로드할 파일:', file.name, '크기:', file.size)
+            
+            const formData = new FormData()
+            formData.append('file', file)
+            formData.append('path', selectedFolder || '')  // 빈 문자열로 변경하여 루트에 저장
+            
+            console.log('FormData 전송:', {
+              fileName: file.name,
+              path: selectedFolder || '',
+              fileSize: file.size
+            })
+            
+            const response = await fetch('/api/files/create', {
+              method: 'POST',
+              body: formData
+            })
+            
+            console.log('API 응답 상태:', response.status)
+            
+            if (response.ok) {
+              const result = await response.json()
+              console.log('API 응답 결과:', result)
+              
+              if (result.success) {
+                console.log('파일 업로드 성공:', result.path)
+                
+                // Add to file tree using proper store method
+                const newFile: FileNode = {
+                  id: Date.now().toString() + Math.random(),
+                  name: file.name,
+                  type: 'file',
+                  path: selectedFolder ? `${selectedFolder}/${file.name}` : file.name,
+                  size: file.size,
+                  lastModified: new Date().toISOString()
+                }
+                addFileNode(selectedFolder || '/', newFile)
+              } else {
+                console.error('업로드 실패:', result.error)
+                alert(`파일 업로드 실패: ${result.error}`)
+              }
+            } else {
+              const error = await response.json()
+              console.error('HTTP 에러:', response.status, error)
+              alert(`파일 업로드 실패 (${response.status}): ${error.error}`)
+            }
           }
-          addFileNode(selectedFolder || '/', newFile)
-        })
+        } catch (error) {
+          console.error('File upload failed:', error)
+          alert(`파일 업로드 에러: ${error}`)
+        }
       }
     }
     input.click()

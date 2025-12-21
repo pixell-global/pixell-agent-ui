@@ -59,7 +59,7 @@ export async function loadSecretsToEnv(): Promise<void> {
 
   // Map environment to secret name
   let secretName: string | null = null
-  if (pixellEnv === 'production') {
+  if (pixellEnv === 'production' || pixellEnv === 'prod') {
     secretName = 'pixell/prod'
   } else if (pixellEnv === 'development' || pixellEnv === 'dev') {
     secretName = 'pixell/dev'

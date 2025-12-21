@@ -7,9 +7,9 @@ import { Input } from '@/components/ui/input'
 import { Activity, CheckCircle, Clock, Zap, AlertCircle, Wifi, WifiOff, Wand2, ChevronRight } from 'lucide-react'
 import { useUIStore } from '@/stores/ui-store'
 import { useWorkspaceStore, selectKPIMetrics, selectRecentJobs } from '@/stores/workspace-store'
-import { useWebSocket } from '@/lib/websocket-manager'
 import { useRealtimeKPI } from '@/hooks/use-realtime-kpi'
-import { useSupabase } from '@/hooks/use-supabase'
+// DISABLED: Supabase is legacy and no longer used
+// import { useSupabase } from '@/hooks/use-supabase'
 import { KPIWidget, ActiveJobsKPI, SuccessRateKPI, AverageRuntimeKPI, QueuedJobsKPI } from '@/components/kpi/KPIWidget'
 import { A2ATableDemo } from '@/components/a2a_task/a2a_task'
 import { JobsTable } from '@/components/kpi/JobsTable'
@@ -32,14 +32,15 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
     setRecentJobs
   } = useWorkspaceStore()
   
-  const { user } = useSupabase()
-  const { connect } = useWebSocket()
+  // DISABLED: Supabase is legacy and no longer used
+  // const { user } = useSupabase()
   
   // UI 생성 관련 상태
   const [uiQuery, setUiQuery] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedUI, setGeneratedUI] = useState<{
     title: string
+    url: string
     html: string
   } | null>(null)
   const [uiSpec, setUiSpec] = useState<any | null>(null)
@@ -47,8 +48,8 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
   const rendererContainerRef = useRef<HTMLDivElement>(null)
   const rendererUnmountRef = useRef<null | (() => void)>(null)
   
-  // Use realtime KPI data
-  const kpiData = useRealtimeKPI(user?.id || 'demo-user')
+  // Use realtime KPI data - use demo user since Supabase is disabled
+  const kpiData = useRealtimeKPI('demo-user')
   const kpiMetrics = useWorkspaceStore(selectKPIMetrics)
   const recentJobs = useWorkspaceStore(selectRecentJobs)
 
@@ -121,11 +122,6 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
     }
   }, [uiSpec?.view, uiSpec?.actions, uiSpec?.manifest, uiSpec?.theme])
   
-  // Connect to WebSocket on mount
-  useEffect(() => {
-    connect()
-  }, [connect])
-  
   // ref를 통해 외부에서 호출할 수 있는 함수들 노출
   useImperativeHandle(ref, () => ({
     triggerUIGeneration: handleGenerateUI
@@ -196,14 +192,27 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
         console.log('✅ Dynamic UI spec detected. Rendering via renderer.')
         setUiSpec(envelope)
         setUiData(envelope.data)
-      } else if (typeof dataObj?.html === 'string' || typeof contents?.html === 'string') {
-        console.log('✅ Raw HTML detected. Rendering in iframe.')
+      } else if (typeof dataObj?.url === 'string' || typeof contents?.url === 'string') {
+        console.log('✅ URL detected. Rendering in iframe.')
         setGeneratedUI({
-          title: dataObj?.title || contents?.title || 'Generated UI',
-          html: (dataObj?.html as string) || (contents?.html as string) || ''
+          title: result.contents.data.title || 'Generated UI',
+          url: result.contents.data.url || '',
+          html: result.contents.data.html || ''
         })
-      } else {
+      } 
+
+	  else if (typeof dataObj?.html === 'string') {
+        console.log('✅ HTML detected. Rendering in iframe.')
+        setGeneratedUI({
+          title: result.contents.data.title || 'Generated UI',
+          url: result.contents.data.url || '',
+          html: result.contents.data.html || ''
+        })
+      }
+
+	  else {
         console.log('❌ UI 데이터 파싱 실패 - 예상 구조와 다름')
+        console.log('기대하는 구조: result.contents.data.{url, title}')
         console.log('실제 구조:', result)
       }
     } catch (error) {
@@ -273,9 +282,10 @@ export const ActivityPane = forwardRef<ActivityPaneRef>((props, ref) => {
                 <div className="h-full flex flex-col">
                   <div className="bg-white border rounded p-3 flex-1 overflow-hidden">
                     <iframe 
-                      srcDoc={generatedUI.html}
+                      src={generatedUI.html ? undefined : generatedUI.url}
+                      srcDoc={generatedUI.html || undefined}
                       className="w-full h-full border-0"
-                      sandbox="allow-scripts allow-same-origin"
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation allow-popups-to-escape-sandbox"
                       title={generatedUI.title}
                     />
                   </div>

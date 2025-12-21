@@ -9,6 +9,7 @@ export interface MockUser {
   user_metadata?: Record<string, unknown>
 }
 
+// DISABLED: Supabase is legacy and no longer used
 export function useSupabase() {
   const [client] = useState<MockSupabaseClient>(() => createClient())
 

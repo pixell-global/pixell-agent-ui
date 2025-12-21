@@ -87,6 +87,7 @@ export const handler: ScheduledHandler = async (
 
 /**
  * Get Stripe secret key from AWS Secrets Manager or environment variable
+ * DISABLED: AWS Secrets Manager fetching
  */
 async function getStripeSecretKey(): Promise<string> {
   // Try environment variable first (for local testing)
@@ -95,32 +96,34 @@ async function getStripeSecretKey(): Promise<string> {
     return STRIPE_SECRET_KEY;
   }
 
-  // Fetch from Secrets Manager
-  try {
-    console.log(`[Lambda] Fetching secrets from Secrets Manager: ${SECRET_NAME}`);
-    const client = new SecretsManagerClient({ region: REGION });
-    const response = await client.send(
-      new GetSecretValueCommand({
-        SecretId: SECRET_NAME,
-      })
-    );
+  // DISABLED: Fetch from Secrets Manager
+  // try {
+  //   console.log(`[Lambda] Fetching secrets from Secrets Manager: ${SECRET_NAME}`);
+  //   const client = new SecretsManagerClient({ region: REGION });
+  //   const response = await client.send(
+  //     new GetSecretValueCommand({
+  //       SecretId: SECRET_NAME,
+  //     })
+  //   );
 
-    if (!response.SecretString) {
-      throw new Error('Secret value is empty');
-    }
+  //   if (!response.SecretString) {
+  //     throw new Error('Secret value is empty');
+  //   }
 
-    const secrets = JSON.parse(response.SecretString);
+  //   const secrets = JSON.parse(response.SecretString);
 
-    if (!secrets.STRIPE_SECRET_KEY) {
-      throw new Error('STRIPE_SECRET_KEY not found in secrets');
-    }
+  //   if (!secrets.STRIPE_SECRET_KEY) {
+  //     throw new Error('STRIPE_SECRET_KEY not found in secrets');
+  //   }
 
-    console.log('[Lambda] Successfully retrieved Stripe key from Secrets Manager');
-    return secrets.STRIPE_SECRET_KEY;
-  } catch (error) {
-    console.error('[Lambda] Failed to retrieve secrets from Secrets Manager:', error);
-    throw new Error('Could not retrieve Stripe secret key');
-  }
+  //   console.log('[Lambda] Successfully retrieved Stripe key from Secrets Manager');
+  //   return secrets.STRIPE_SECRET_KEY;
+  // } catch (error) {
+  //   console.error('[Lambda] Failed to retrieve secrets from Secrets Manager:', error);
+  //   throw new Error('Could not retrieve Stripe secret key');
+  // }
+  
+  throw new Error('STRIPE_SECRET_KEY environment variable is required (AWS Secrets Manager is disabled)');
 }
 
 /**

@@ -17,23 +17,26 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     console.log('[Instrumentation] Server starting - loading environment variables...')
 
+	// TODO: 환경변수 주입 정책 결정 필요
+    // DISABLED: AWS Secrets Manager loading 
     // Check if we should load from AWS Secrets Manager
-    const useAwsSecrets = process.env.USE_AWS_SECRETS_MANAGER === 'true' ||
-                          process.env.PIXELL_ENV === 'dev' ||
-                          process.env.PIXELL_ENV === 'prod' ||
-                          process.env.PIXELL_ENV === 'production'
+    // const useAwsSecrets = process.env.USE_AWS_SECRETS_MANAGER === 'true' ||
+    //                       process.env.PIXELL_ENV === 'dev' ||
+    //                       process.env.PIXELL_ENV === 'prod' ||
+    //                       process.env.PIXELL_ENV === 'production'
 
-    if (useAwsSecrets) {
-      try {
-        console.log('[Instrumentation] Loading secrets from AWS Secrets Manager...')
-        await loadSecretsToEnv()
-        console.log('[Instrumentation] Successfully loaded secrets from AWS Secrets Manager')
-      } catch (error) {
-        console.error('[Instrumentation] Failed to load from AWS Secrets Manager:', error)
-        console.log('[Instrumentation] Server will use existing environment variables')
-      }
-    } else {
-      console.log('[Instrumentation] Using local .env files (PIXELL_ENV not set to dev/prod)')
-    }
+    // if (useAwsSecrets) {
+    //   try {
+    //     console.log('[Instrumentation] Loading secrets from AWS Secrets Manager...')
+    //     await loadSecretsToEnv()
+    //     console.log('[Instrumentation] Successfully loaded secrets from AWS Secrets Manager')
+    //   } catch (error) {
+    //     console.error('[Instrumentation] Failed to load from AWS Secrets Manager:', error)
+    //     console.log('[Instrumentation] Server will use existing environment variables')
+    //   }
+    // } else {
+    //   console.log('[Instrumentation] Using local .env files (PIXELL_ENV not set to dev/prod)')
+    // }
+    console.log('[Instrumentation] AWS Secrets Manager loading is disabled - using local .env files')
   }
 }

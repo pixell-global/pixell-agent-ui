@@ -3,20 +3,10 @@ import { useSupabase } from './use-supabase'
 import { useAgentStore } from '@/stores/agent-store'
 import { useEffect } from 'react'
 import type { Agent } from '@/stores/agent-store'
+import type { Database } from '@/lib/supabase'
 
 // Type for agent rows from database
-type AgentRow = {
-  id: string
-  name: string
-  description?: string
-  type: Agent['type']
-  status: Agent['status']
-  capabilities: Record<string, unknown>
-  config: Record<string, unknown>
-  user_id: string
-  created_at: string
-  updated_at: string
-}
+type AgentRow = Database['public']['Tables']['agents']['Row']
 
 export function useRealtimeAgents(userId: string) {
   const { client } = useSupabase()
@@ -49,7 +39,7 @@ export function useRealtimeAgents(userId: string) {
         const agents: Agent[] = (rows || []).map(row => ({
           id: row.id,
           name: row.name,
-          description: row.description,
+          description: row.description ?? undefined,
           type: row.type,
           status: row.status,
           capabilities: row.capabilities || {},
@@ -87,7 +77,7 @@ export function useRealtimeAgents(userId: string) {
             const newAgent: Agent = {
               id: newData.id,
               name: newData.name,
-              description: newData.description,
+              description: newData.description ?? undefined,
               type: newData.type,
               status: newData.status,
               capabilities: newData.capabilities || {},
@@ -100,7 +90,7 @@ export function useRealtimeAgents(userId: string) {
           } else if (payload.eventType === 'UPDATE') {
             const updates: Partial<Agent> = {
               name: newData.name,
-              description: newData.description,
+              description: newData.description ?? undefined,
               type: newData.type,
               status: newData.status,
               capabilities: newData.capabilities || {},

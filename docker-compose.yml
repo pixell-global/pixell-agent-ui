@@ -1,199 +1,41 @@
-version: '3.8'
-
 services:
-  # PAF Core Agent - Python microservice with UPEE loop
-  paf-core-agent:
+  # Next.js Web Application
+  web:
     build:
-      context: ./paf-core-agent
+      context: .
       dockerfile: Dockerfile
-    container_name: paf-core-agent
+      args:
+        - APP_ENV=${APP_ENV:-prod}
+        - PAF_CORE_AGENT_URL=${PAF_CORE_AGENT_URL:-http://paf-core-agent:8000}
+        - NEXT_PUBLIC_FIREBASE_API_KEY=${NEXT_PUBLIC_FIREBASE_API_KEY}
+        - NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}
+        - NEXT_PUBLIC_FIREBASE_PROJECT_ID=${NEXT_PUBLIC_FIREBASE_PROJECT_ID}
+        - NEXT_PUBLIC_FIREBASE_APP_ID=${NEXT_PUBLIC_FIREBASE_APP_ID}
+        - NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}
+        - NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}
+        - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+        - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
+        - NEXT_PUBLIC_PAF_CORE_AGENT_URL=${NEXT_PUBLIC_PAF_CORE_AGENT_URL:-http://localhost:8000}
+        - NEXT_PUBLIC_ORCHESTRATOR_URL=${NEXT_PUBLIC_ORCHESTRATOR_URL:-http://localhost:3001}
+    container_name: pixell-web
     ports:
-      - "8000:8000"
+      - "3000:3000"
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - AWS_REGION=${AWS_REGION:-us-east-1}
-      - DEBUG=${DEBUG:-false}
-      - MAX_CONTEXT_TOKENS=${MAX_CONTEXT_TOKENS:-4000}
-      - DEFAULT_MODEL=${DEFAULT_MODEL:-gpt-3.5-turbo}
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - PAF_CORE_AGENT_URL=${PAF_CORE_AGENT_URL:-http://paf-core-agent:8000}
+      - PIXELL_ENV=${APP_ENV:-prod}
+      - AWS_REGION=${AWS_REGION:-us-east-2}
+      - USE_AWS_SECRETS_MANAGER=${USE_AWS_SECRETS_MANAGER:-false}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-    depends_on:
-      - supabase-db
     networks:
       - pixell-network
-
-  # Supabase Database
-  supabase-db:
-    image: postgres:15
-    container_name: supabase-db
-    ports:
-      - "54322:5432"
-    environment:
-      - POSTGRES_DB=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_HOST=supabase-db
-    volumes:
-      - supabase-db-data:/var/lib/postgresql/data
-      - ./supabase/migrations:/docker-entrypoint-initdb.d
-    networks:
-      - pixell-network
-
-  # Supabase Auth
-  supabase-auth:
-    image: supabase/gotrue:v2.99.0
-    container_name: supabase-auth
-    ports:
-      - "54323:9999"
-    environment:
-      - GOTRUE_API_HOST=0.0.0.0
-      - GOTRUE_API_PORT=9999
-      - GOTRUE_DB_DRIVER=postgres
-      - GOTRUE_DB_DATABASE_URL=postgres://postgres:postgres@supabase-db:5432/postgres?search_path=auth
-      - GOTRUE_SITE_URL=http://localhost:3003
-      - GOTRUE_URI_ALLOW_LIST=http://localhost:3003,http://localhost:3001
-      - GOTRUE_JWT_SECRET=your-jwt-secret-here
-      - GOTRUE_JWT_EXP=3600
-      - GOTRUE_DISABLE_SIGNUP=false
-      - GOTRUE_EXTERNAL_EMAIL_ENABLED=true
-      - GOTRUE_MAILER_AUTOCONFIRM=true
-    depends_on:
-      - supabase-db
-    networks:
-      - pixell-network
-
-  # Supabase Storage
-  supabase-storage:
-    image: supabase/storage-api:v0.40.4
-    container_name: supabase-storage
-    ports:
-      - "54324:5000"
-    environment:
-      - ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
-      - SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
-      - POSTGREST_URL=http://supabase-rest:3000
-      - PGRST_JWT_SECRET=your-jwt-secret-here
-      - DATABASE_URL=postgres://postgres:postgres@supabase-db:5432/postgres
-      - STORAGE_BACKEND=file
-      - FILE_SIZE_LIMIT=52428800
-      - STORAGE_S3_BUCKET=workspace-files
-      - ENABLE_IMAGE_TRANSFORMATION=true
-      - IMGPROXY_URL=http://supabase-imgproxy:5001
-    volumes:
-      - supabase-storage-data:/var/lib/storage
-    depends_on:
-      - supabase-db
-      - supabase-rest
-    networks:
-      - pixell-network
-
-  # Supabase REST API
-  supabase-rest:
-    image: postgrest/postgrest:v11.2.0
-    container_name: supabase-rest
-    ports:
-      - "54321:3000"
-    environment:
-      - PGRST_DB_URI=postgres://postgres:postgres@supabase-db:5432/postgres
-      - PGRST_DB_SCHEMAS=public,storage,graphql_public
-      - PGRST_DB_ANON_ROLE=anon
-      - PGRST_JWT_SECRET=your-jwt-secret-here
-      - PGRST_DB_USE_LEGACY_GUCS=false
-      - PGRST_APP_SETTINGS_JWT_SECRET=your-jwt-secret-here
-      - PGRST_APP_SETTINGS_JWT_EXP=3600
-    depends_on:
-      - supabase-db
-    networks:
-      - pixell-network
-
-  # Supabase Realtime
-  supabase-realtime:
-    image: supabase/realtime:v2.25.50
-    container_name: supabase-realtime
-    ports:
-      - "54325:4000"
-    environment:
-      - DB_HOST=supabase-db
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=postgres
-      - DB_AFTER_CONNECT_QUERY=SET search_path TO _realtime
-      - DB_ENC_KEY=supabaserealtime
-      - API_JWT_SECRET=your-jwt-secret-here
-      - FLY_ALLOC_ID=fly123
-      - FLY_APP_NAME=realtime
-      - SECRET_KEY_BASE=UpNVntn3cDxHJpq99YMc1T1AQgQpc8kfYTuRgBiYa15BLrx8etQoXz3gZv1/u2oq
-      - ERL_AFLAGS=-proto_dist inet_tcp
-      - ENABLE_TAILSCALE=false
-      - DNS_NODES=''
-    depends_on:
-      - supabase-db
-    networks:
-      - pixell-network
-
-  # Supabase Studio (Database Admin Interface)
-  supabase-studio:
-    image: supabase/studio:20240326-5e5586d
-    container_name: supabase-studio
-    ports:
-      - "54323:3000"
-    environment:
-      - SUPABASE_URL=http://supabase-rest:3000
-      - SUPABASE_REST_URL=http://supabase-rest:3000
-      - SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
-      - SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
-      - STUDIO_PG_META_URL=http://supabase-meta:8080
-      - POSTGRES_PASSWORD=postgres
-    depends_on:
-      - supabase-rest
-    networks:
-      - pixell-network
-
-  # Supabase Meta (Database Schema Management)
-  supabase-meta:
-    image: supabase/postgres-meta:v0.68.0
-    container_name: supabase-meta
-    ports:
-      - "54326:8080"
-    environment:
-      - PG_META_PORT=8080
-      - PG_META_DB_HOST=supabase-db
-      - PG_META_DB_PORT=5432
-      - PG_META_DB_NAME=postgres
-      - PG_META_DB_USER=postgres
-      - PG_META_DB_PASSWORD=postgres
-    depends_on:
-      - supabase-db
-    networks:
-      - pixell-network
-
-  # Image Proxy for Supabase Storage
-  supabase-imgproxy:
-    image: darthsim/imgproxy:v3.8.0
-    container_name: supabase-imgproxy
-    ports:
-      - "54327:5001"
-    environment:
-      - IMGPROXY_BIND=0.0.0.0:5001
-      - IMGPROXY_LOCAL_FILESYSTEM_ROOT=/var/lib/storage
-      - IMGPROXY_USE_ETAG=true
-      - IMGPROXY_ENABLE_WEBP_DETECTION=true
-    volumes:
-      - supabase-storage-data:/var/lib/storage:ro
-    networks:
-      - pixell-network
-
-volumes:
-  supabase-db-data:
-    driver: local
-  supabase-storage-data:
-    driver: local
 
 networks:
   pixell-network:
