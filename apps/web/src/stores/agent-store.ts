@@ -5,7 +5,7 @@ import { subscribeWithSelector } from 'zustand/middleware'
 export interface Agent {
   id: string
   name: string
-  description?: string
+  description?: string | null
   type: 'creator' | 'keyword' | 'analytics' | 'custom'
   status: 'idle' | 'running' | 'paused' | 'error'
   capabilities: Record<string, any>

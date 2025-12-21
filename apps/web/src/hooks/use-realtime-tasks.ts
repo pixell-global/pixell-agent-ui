@@ -48,7 +48,7 @@ export function useRealtimeTasks(userId: string) {
         const tasks: Task[] = (rows || []).map(row => ({
           id: row.id,
           name: row.name,
-          description: row.description ?? undefined,
+          description: row.description,
           status: row.status,
           progress: row.progress,
           agentId: row.agent_id,
@@ -87,7 +87,7 @@ export function useRealtimeTasks(userId: string) {
             const newTask: Task = {
               id: newData.id,
               name: newData.name,
-              description: newData.description ?? undefined,
+              description: newData.description,
               status: newData.status,
               progress: newData.progress,
               agentId: newData.agent_id,
@@ -101,7 +101,7 @@ export function useRealtimeTasks(userId: string) {
           } else if (payload.eventType === 'UPDATE') {
             const updates: Partial<Task> = {
               name: newData.name,
-              description: newData.description ?? undefined,
+              description: newData.description,
               status: newData.status,
               progress: newData.progress,
               agentId: newData.agent_id,

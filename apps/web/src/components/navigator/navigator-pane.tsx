@@ -455,9 +455,9 @@ export const NavigatorPane: React.FC<NavigatorPaneProps> = ({ className }) => {
                     const viewerTypes = ['html', 'htm']
 
                     if (viewerTypes.includes(ext)) {
-                      // Open HTML files in viewer tab
+                      // Open HTML files in editor tab (viewer tab is not implemented in TabState)
                       import('@/stores/tab-store').then(({ useTabStore }) => {
-                        useTabStore.getState().openViewerTab({ path: file.path, title: file.name })
+                        useTabStore.getState().openEditorTab({ path: file.path, title: file.name })
                       })
                     } else if (textLike.includes(ext)) {
                       // Open as editor tab

@@ -5,5 +5,6 @@ export * from './repositories/teams'
 export * from './repositories/brands'
 export * from './repositories/org-settings'
 export * from './repositories/conversations'
+export * from './repositories/user-storage'
 
 

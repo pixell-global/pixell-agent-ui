@@ -4,6 +4,9 @@ export const users = mysqlTable('users', {
   id: varchar('id', { length: 128 }).primaryKey(),
   email: varchar('email', { length: 320 }).notNull().unique(),
   displayName: varchar('display_name', { length: 120 }),
+  // S3 storage base path allocated per user (org-scoped prefix)
+  // e.g. orgs/<orgId>/users/<userId>
+  s3StoragePath: varchar('s3_storage_path', { length: 500 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
   isDeleted: int('is_deleted').default(0).notNull(),

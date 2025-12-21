@@ -39,7 +39,7 @@ export function useRealtimeAgents(userId: string) {
         const agents: Agent[] = (rows || []).map(row => ({
           id: row.id,
           name: row.name,
-          description: row.description ?? undefined,
+          description: row.description,
           type: row.type,
           status: row.status,
           capabilities: row.capabilities || {},
@@ -77,7 +77,7 @@ export function useRealtimeAgents(userId: string) {
             const newAgent: Agent = {
               id: newData.id,
               name: newData.name,
-              description: newData.description ?? undefined,
+              description: newData.description,
               type: newData.type,
               status: newData.status,
               capabilities: newData.capabilities || {},
@@ -90,7 +90,7 @@ export function useRealtimeAgents(userId: string) {
           } else if (payload.eventType === 'UPDATE') {
             const updates: Partial<Agent> = {
               name: newData.name,
-              description: newData.description ?? undefined,
+              description: newData.description,
               type: newData.type,
               status: newData.status,
               capabilities: newData.capabilities || {},
