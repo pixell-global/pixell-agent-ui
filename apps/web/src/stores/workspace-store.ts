@@ -257,7 +257,6 @@ interface WorkspaceState {
   currentFolder: string
   searchQuery: string
   isLoading: boolean
-  fileTreeNeedsRefresh: boolean
 
   // UI State
   activePanel: 'chat' | 'activity' | 'navigator'
@@ -332,7 +331,6 @@ interface WorkspaceState {
   updateUploadProgress: (id: string, progress: number) => void
   removeUploadProgress: (id: string) => void
   triggerFileTreeRefresh: () => void
-  clearFileTreeRefreshFlag: () => void
 
   setCurrentFolder: (path: string) => void
   setSearchQuery: (query: string) => void
@@ -382,7 +380,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         activePanel: 'chat',
         isConnected: false,
         isLoading: false,
-        fileTreeNeedsRefresh: false,
 
         // Chat actions
         addMessage: (message) =>
@@ -878,11 +875,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         triggerFileTreeRefresh: () =>
           set((state) => {
             state.fileTreeNeedsRefresh = true
-          }),
-
-        clearFileTreeRefreshFlag: () =>
-          set((state) => {
-            state.fileTreeNeedsRefresh = false
           }),
 
         // UI actions

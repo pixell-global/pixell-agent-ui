@@ -83,8 +83,6 @@ const nextConfig: NextConfig = {
   // Explicitly mark firebase-admin as server external to avoid the "no name or version" warning
   // when importing from internal packages via tsconfig path mappings
   serverExternalPackages: ['firebase-admin'],
-  // Transpile internal packages that use firebase-admin
-  transpilePackages: ['@pixell/auth-firebase', '@pixell/auth-core'],
 };
 
 export default nextConfig;
