@@ -47,6 +47,10 @@ async function main() {
   }
 
   const db = await getDb()
+  // Some environments/types may represent the DB handle as nullable; fail fast with a clear error.
+  if (!db) {
+    throw new Error('Database connection was not initialized. Check DB_* env vars and try again.')
+  }
 
   // Resolve entities
   const userRows = await db.select().from(users).where(eq(users.email, userEmail)).limit(1)

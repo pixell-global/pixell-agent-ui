@@ -34,6 +34,30 @@ export interface QuotaRecordResult {
   newUsage?: number
 }
 
+function getErrorMessage(value: unknown): string | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const v = value as Record<string, unknown>
+  return typeof v.message === 'string' ? v.message : undefined
+}
+
+function isQuotaCheckResult(value: unknown): value is QuotaCheckResult {
+  if (!value || typeof value !== 'object') return false
+  const v = value as Record<string, unknown>
+  return (
+    typeof v.allowed === 'boolean' &&
+    typeof v.featureAvailable === 'boolean' &&
+    (typeof v.limit === 'number' || v.limit === null) &&
+    typeof v.used === 'number' &&
+    typeof v.remaining === 'number'
+  )
+}
+
+function isQuotaRecordResult(value: unknown): value is QuotaRecordResult {
+  if (!value || typeof value !== 'object') return false
+  const v = value as Record<string, unknown>
+  return typeof v.success === 'boolean'
+}
+
 // Get the web app base URL (same host, port 3003)
 function getWebAppBaseUrl(): string {
   return process.env.WEB_APP_URL || 'http://localhost:3003'
@@ -123,11 +147,11 @@ export async function checkQuota(
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      console.error('❌ Quota check failed:', error)
+      const errorBody = (await response.json().catch(() => null)) as unknown
+      console.error('❌ Quota check failed:', errorBody)
       return {
         allowed: false,
-        reason: error.message || 'Quota check failed',
+        reason: getErrorMessage(errorBody) || 'Quota check failed',
         featureAvailable: false,
         limit: null,
         used: 0,
@@ -135,7 +159,18 @@ export async function checkQuota(
       }
     }
 
-    return await response.json()
+    const data = (await response.json()) as unknown
+    if (isQuotaCheckResult(data)) return data
+
+    console.warn('⚠️ Unexpected quota check response shape:', data)
+    // On unexpected response shape, allow by default to avoid blocking.
+    return {
+      allowed: true,
+      featureAvailable: true,
+      limit: null,
+      used: 0,
+      remaining: Infinity,
+    }
   } catch (error) {
     console.error('❌ Quota check error:', error)
     // On error, allow by default to prevent blocking users
@@ -186,15 +221,20 @@ export async function recordUsage(
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      console.error('❌ Usage record failed:', error)
+      const errorBody = (await response.json().catch(() => null)) as unknown
+      console.error('❌ Usage record failed:', errorBody)
       return {
         success: false,
-        error: error.message || 'Failed to record usage',
+        error: getErrorMessage(errorBody) || 'Failed to record usage',
       }
     }
 
-    return await response.json()
+    const data = (await response.json()) as unknown
+    if (isQuotaRecordResult(data)) return data
+
+    console.warn('⚠️ Unexpected usage record response shape:', data)
+    // Non-blocking fallback
+    return { success: true }
   } catch (error) {
     console.error('❌ Usage record error:', error)
     // On error, return failure but don't block
