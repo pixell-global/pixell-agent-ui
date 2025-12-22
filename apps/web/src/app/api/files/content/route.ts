@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserScopedStorage } from '@/lib/user-storage'
+import { StorageManager } from '@pixell/file-storage'
+import { resolveUserAndOrg, buildStorageConfigForContext } from '@/lib/workspace-path'
+import { getDefaultContext, type StorageContext } from '@/lib/storage-context'
 
 export const dynamic = 'force-dynamic'
 
@@ -7,6 +9,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const filePath = searchParams.get('path')
+    const format = searchParams.get('format') // 'base64' for binary files (not used for adapters)
 
     if (!filePath) {
       return NextResponse.json(
@@ -15,22 +18,45 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get user-scoped storage (authenticated only)
-    const userContext = await getUserScopedStorage(request)
+    const { userId, orgId } = await resolveUserAndOrg(request)
 
-    if (!userContext) {
+    if (!userId) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
         { status: 401 }
       )
     }
 
-    const storage = userContext.storage
+    // Get storage context
+    const contextType = searchParams.get('context') || 'user'
+    const contextId = searchParams.get('contextId')
 
-    // Normalize path (remove leading slash)
-    const normalizedPath = filePath.startsWith('/') ? filePath.substring(1) : filePath
+    let context: StorageContext
+    switch (contextType) {
+      case 'team':
+        if (!contextId) throw new Error('teamId required for team context')
+        context = { type: 'team', teamId: contextId }
+        break
+      case 'brand':
+        if (!contextId) throw new Error('brandId required for brand context')
+        context = { type: 'brand', brandId: contextId }
+        break
+      case 'shared':
+        context = { type: 'shared' }
+        break
+      case 'user':
+      default:
+        context = getDefaultContext(userId)
+        break
+    }
+
+    const config = buildStorageConfigForContext(orgId, context)
+    const storage = new StorageManager()
+    await storage.initialize(config)
 
     try {
+      // Read via adapter; S3Adapter already handles size checks
+      const normalizedPath = filePath.startsWith('/') ? filePath : `/${filePath}`
       const { content, metadata } = await storage.readFile(normalizedPath)
 
       return NextResponse.json({
@@ -38,32 +64,31 @@ export async function GET(request: NextRequest) {
         content,
         path: filePath,
         size: metadata.size,
-        format: 'text',
+        format: format || 'text',
         encoding: 'utf8',
         lastModified: metadata.lastModified
       })
     } catch (error) {
-      console.error('File read error:', error)
-
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-
-      if (errorMessage.includes('not found') || errorMessage.includes('ENOENT') || errorMessage.includes('NoSuchKey')) {
+      if (
+        errorMessage.includes('not found') ||
+        errorMessage.includes('ENOENT') ||
+        errorMessage.includes('NoSuchKey')
+      ) {
         return NextResponse.json(
           { success: false, error: `File not found: ${filePath}` },
           { status: 404 }
         )
       }
-
       return NextResponse.json(
         { success: false, error: `Failed to read file: ${errorMessage}` },
         { status: 500 }
       )
     }
   } catch (error) {
-    console.error('Request processing error:', error)
     return NextResponse.json(
-      { success: false, error: 'Invalid request' },
-      { status: 400 }
+      { success: false, error: error instanceof Error ? error.message : 'Failed to read file' },
+      { status: 500 }
     )
   }
-} 
+}

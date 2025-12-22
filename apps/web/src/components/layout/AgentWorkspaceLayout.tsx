@@ -6,7 +6,7 @@ import { CollapsedActivityPane } from '@/components/activity/collapsed-activity-
 import { WorkspaceTabs } from '@/components/workspace/WorkspaceTabs'
 import { WorkspaceContainer } from '@/components/workspace/WorkspaceContainer'
 import { ActivityPane } from '@/components/activity/activity-pane'
-import { useWebSocket } from '@/lib/websocket-manager'
+import { useWebSocketLifecycle } from '@/lib/websocket-manager'
 import { useWorkspaceStore } from '@/stores/workspace-store'
 import { cn } from '@/lib/utils'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
@@ -19,14 +19,10 @@ export function AgentWorkspaceLayout() {
     rightPanelCollapsed,
   } = useUIStore()
 
-  const { connect } = useWebSocket()
+  // Establish websocket connection once for the whole workspace
+  useWebSocketLifecycle()
 
   const [mounted, setMounted] = useState(false)
-
-  // Connect to WebSocket on mount
-  useEffect(() => {
-    connect()
-  }, [connect])
 
   useEffect(() => {
     setMounted(true)

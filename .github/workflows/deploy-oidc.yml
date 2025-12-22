@@ -1,0 +1,321 @@
+name: Deploy to ECS (OIDC)
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-2
+  ECR_REPOSITORY: pixell-web
+  ECS_CLUSTER: pixell-web-cluster
+  ECS_SERVICE: pixell-agent-ui
+  TASK_FAMILY: pixell-agent-ui
+  CONTAINER_NAME: web
+
+jobs:
+  deploy:
+    name: Deploy to ECS Fargate
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::636212886452:role/GithubActionsEcsDeployRole
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get AWS Account ID
+        id: aws-account
+        run: |
+          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "account_id=$AWS_ACCOUNT_ID" >> $GITHUB_OUTPUT
+          echo "AWS Account ID: $AWS_ACCOUNT_ID"
+
+      - name: Check ECR repository
+        run: |
+          if ! aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} --region ${{ env.AWS_REGION }} >/dev/null 2>&1; then
+            echo "Creating ECR repository: ${{ env.ECR_REPOSITORY }}"
+            aws ecr create-repository --repository-name ${{ env.ECR_REPOSITORY }} --region ${{ env.AWS_REGION }}
+          else
+            echo "ECR repository already exists"
+          fi
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Generate image tag
+        id: image-tag
+        run: |
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          IMAGE_TAG="${TIMESTAMP}-${SHORT_SHA}"
+          echo "tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "Image tag: $IMAGE_TAG"
+
+      - name: Load Firebase environment variables from AWS Secrets Manager
+        id: firebase-secrets
+        run: |
+          echo "Loading Firebase environment variables from AWS Secrets Manager (pixell/taskdef/pixell-web-simple)..."
+          
+          # Get secrets from AWS Secrets Manager
+          SECRET_JSON=$(aws secretsmanager get-secret-value \
+            --secret-id pixell/taskdef/pixell-web-simple \
+            --region ${{ env.AWS_REGION }} \
+            --query SecretString \
+            --output text)
+          
+          if [ -z "$SECRET_JSON" ]; then
+            echo "ERROR: Failed to retrieve secret from AWS Secrets Manager"
+            exit 1
+          fi
+          
+          # Extract Firebase environment variables using jq
+          NEXT_PUBLIC_FIREBASE_API_KEY=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_FIREBASE_API_KEY // empty')
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN // empty')
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_FIREBASE_PROJECT_ID // empty')
+          NEXT_PUBLIC_FIREBASE_APP_ID=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_FIREBASE_APP_ID // empty')
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID // empty')
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET // empty')
+          
+          # Extract other environment variables
+          PAF_CORE_AGENT_URL=$(echo "$SECRET_JSON" | jq -r '.PAF_CORE_AGENT_URL // empty')
+          NEXT_PUBLIC_SITE_URL=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_SITE_URL // empty')
+          NEXT_PUBLIC_BASE_URL=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_BASE_URL // empty')
+          NEXT_PUBLIC_PAF_CORE_AGENT_URL=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_PAF_CORE_AGENT_URL // empty')
+          NEXT_PUBLIC_ORCHESTRATOR_URL=$(echo "$SECRET_JSON" | jq -r '.NEXT_PUBLIC_ORCHESTRATOR_URL // empty')
+          
+          # Verify Firebase environment variables
+          MISSING_VARS=()
+          if [ -z "$NEXT_PUBLIC_FIREBASE_API_KEY" ]; then MISSING_VARS+=("NEXT_PUBLIC_FIREBASE_API_KEY"); fi
+          if [ -z "$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" ]; then MISSING_VARS+=("NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN"); fi
+          if [ -z "$NEXT_PUBLIC_FIREBASE_PROJECT_ID" ]; then MISSING_VARS+=("NEXT_PUBLIC_FIREBASE_PROJECT_ID"); fi
+          if [ -z "$NEXT_PUBLIC_FIREBASE_APP_ID" ]; then MISSING_VARS+=("NEXT_PUBLIC_FIREBASE_APP_ID"); fi
+          if [ -z "$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID" ]; then MISSING_VARS+=("NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID"); fi
+          if [ -z "$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET" ]; then MISSING_VARS+=("NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET"); fi
+          
+          if [ ${#MISSING_VARS[@]} -gt 0 ]; then
+            echo "ERROR: Missing required Firebase environment variables in AWS Secrets Manager:"
+            printf '  - %s\n' "${MISSING_VARS[@]}"
+            echo ""
+            echo "Please ensure these variables are set in AWS Secrets Manager secret: pixell/taskdef/pixell-web-simple"
+            exit 1
+          fi
+          
+          # Save to GitHub output for use in build step
+          # Note: GitHub Actions has a 1MB limit for outputs, but these should be fine
+          echo "firebase_api_key=$NEXT_PUBLIC_FIREBASE_API_KEY" >> $GITHUB_OUTPUT
+          echo "firebase_auth_domain=$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" >> $GITHUB_OUTPUT
+          echo "firebase_project_id=$NEXT_PUBLIC_FIREBASE_PROJECT_ID" >> $GITHUB_OUTPUT
+          echo "firebase_app_id=$NEXT_PUBLIC_FIREBASE_APP_ID" >> $GITHUB_OUTPUT
+          echo "firebase_messaging_sender_id=$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID" >> $GITHUB_OUTPUT
+          echo "firebase_storage_bucket=$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET" >> $GITHUB_OUTPUT
+          echo "paf_core_agent_url=$PAF_CORE_AGENT_URL" >> $GITHUB_OUTPUT
+          echo "site_url=$NEXT_PUBLIC_SITE_URL" >> $GITHUB_OUTPUT
+          echo "base_url=$NEXT_PUBLIC_BASE_URL" >> $GITHUB_OUTPUT
+          echo "paf_core_agent_url_public=$NEXT_PUBLIC_PAF_CORE_AGENT_URL" >> $GITHUB_OUTPUT
+          echo "orchestrator_url=$NEXT_PUBLIC_ORCHESTRATOR_URL" >> $GITHUB_OUTPUT
+          
+          # Also export as environment variables for the build step
+          echo "NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID=$NEXT_PUBLIC_FIREBASE_PROJECT_ID" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET" >> $GITHUB_ENV
+          echo "PAF_CORE_AGENT_URL=$PAF_CORE_AGENT_URL" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_PAF_CORE_AGENT_URL=$NEXT_PUBLIC_PAF_CORE_AGENT_URL" >> $GITHUB_ENV
+          echo "NEXT_PUBLIC_ORCHESTRATOR_URL=$NEXT_PUBLIC_ORCHESTRATOR_URL" >> $GITHUB_ENV
+          
+          echo "✓ All Firebase environment variables loaded from AWS Secrets Manager"
+          echo "  NEXT_PUBLIC_FIREBASE_API_KEY: ${#NEXT_PUBLIC_FIREBASE_API_KEY} chars"
+          echo "  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${#NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN} chars"
+          echo "  NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${#NEXT_PUBLIC_FIREBASE_PROJECT_ID} chars"
+          echo "  NEXT_PUBLIC_FIREBASE_APP_ID: ${#NEXT_PUBLIC_FIREBASE_APP_ID} chars"
+          echo "  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${#NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID} chars"
+          echo "  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${#NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET} chars"
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            --build-arg APP_ENV=prod \
+            --build-arg PAF_CORE_AGENT_URL="${PAF_CORE_AGENT_URL:-}" \
+            --build-arg NEXT_PUBLIC_FIREBASE_API_KEY="${NEXT_PUBLIC_FIREBASE_API_KEY:-}" \
+            --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:-}" \
+            --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID="${NEXT_PUBLIC_FIREBASE_PROJECT_ID:-}" \
+            --build-arg NEXT_PUBLIC_FIREBASE_APP_ID="${NEXT_PUBLIC_FIREBASE_APP_ID:-}" \
+            --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:-}" \
+            --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:-}" \
+            --build-arg NEXT_PUBLIC_SITE_URL="${NEXT_PUBLIC_SITE_URL:-}" \
+            --build-arg NEXT_PUBLIC_BASE_URL="${NEXT_PUBLIC_BASE_URL:-}" \
+            --build-arg NEXT_PUBLIC_PAF_CORE_AGENT_URL="${NEXT_PUBLIC_PAF_CORE_AGENT_URL:-}" \
+            --build-arg NEXT_PUBLIC_ORCHESTRATOR_URL="${NEXT_PUBLIC_ORCHESTRATOR_URL:-}" \
+            -t ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ steps.image-tag.outputs.tag }} \
+            -t ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest \
+            .
+
+      - name: Push Docker image to ECR
+        run: |
+          docker push ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ steps.image-tag.outputs.tag }}
+          docker push ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
+
+      - name: Prepare task definition
+        id: task-def
+        run: |
+          # Verify task definition file exists and is valid JSON
+          if [ ! -f "aws/task-definition.json" ]; then
+            echo "ERROR: aws/task-definition.json not found"
+            echo "Current directory: $(pwd)"
+            echo "Files in aws/: $(ls -la aws/ 2>&1 || echo 'aws directory not found')"
+            exit 1
+          fi
+          
+          echo "File exists. Checking file content..."
+          echo "File size: $(wc -c < aws/task-definition.json) bytes"
+          echo "First 200 characters:"
+          head -c 200 aws/task-definition.json
+          echo ""
+          echo ""
+          
+          # Read and validate JSON file, then prepare task definition
+          # Use jq to read, validate, and transform in one step
+          if ! jq \
+            --arg executionRole "arn:aws:iam::${{ steps.aws-account.outputs.account_id }}:role/ecsTaskExecutionRole" \
+            '.taskDefinition | 
+            .executionRoleArn = $executionRole |
+            del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .registeredAt, .registeredBy, .compatibilities)' \
+            aws/task-definition.json > taskdef-updated.json 2>&1; then
+            echo "ERROR: Failed to prepare task definition"
+            echo "File content (first 500 chars):"
+            head -c 500 aws/task-definition.json || cat aws/task-definition.json | head -20
+            echo ""
+            exit 1
+          fi
+          
+          # Verify output file was created and is valid
+          if [ ! -f "taskdef-updated.json" ] || [ ! -s "taskdef-updated.json" ]; then
+            echo "ERROR: taskdef-updated.json was not created or is empty"
+            exit 1
+          fi
+          
+          if ! jq empty taskdef-updated.json 2>&1; then
+            echo "ERROR: Generated task definition is not valid JSON"
+            cat taskdef-updated.json
+            exit 1
+          fi
+          
+          echo "JSON is valid. Task definition prepared successfully."
+          
+          echo "Task definition prepared (using latest image tag)"
+
+      - name: Register new task definition
+        id: register-task
+        run: |
+          # Register the new task definition
+          TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://taskdef-updated.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          
+          if [ -z "$TASK_DEF_ARN" ] || [[ "$TASK_DEF_ARN" == *"Error"* ]]; then
+            echo "Failed to register task definition"
+            exit 1
+          fi
+          
+          echo "task-def-arn=$TASK_DEF_ARN" >> $GITHUB_OUTPUT
+          echo "Registered task definition: $TASK_DEF_ARN"
+          
+          # Clean up temporary file
+          rm -f taskdef-updated.json
+
+      - name: Update ECS service
+        run: |
+          echo "Updating ECS service with new task definition..."
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE }} \
+            --task-definition ${{ steps.register-task.outputs.task-def-arn }} \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for deployment to stabilize
+        run: |
+          echo "Waiting for ECS service to stabilize..."
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE }} \
+            --region ${{ env.AWS_REGION }}
+          echo "Deployment stabilized"
+
+      - name: Verify deployment
+        run: |
+          echo "Verifying deployment..."
+          
+          # Check service status
+          SERVICE_STATUS=$(aws ecs describe-services \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE }} \
+            --region ${{ env.AWS_REGION }} \
+            --query 'services[0].status' \
+            --output text)
+          
+          echo "Service status: $SERVICE_STATUS"
+          
+          if [ "$SERVICE_STATUS" != "ACTIVE" ]; then
+            echo "Error: Service is not ACTIVE"
+            exit 1
+          fi
+          
+          # Get running task count
+          RUNNING_COUNT=$(aws ecs describe-services \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE }} \
+            --region ${{ env.AWS_REGION }} \
+            --query 'services[0].runningCount' \
+            --output text)
+          
+          DESIRED_COUNT=$(aws ecs describe-services \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE }} \
+            --region ${{ env.AWS_REGION }} \
+            --query 'services[0].desiredCount' \
+            --output text)
+          
+          echo "Running tasks: $RUNNING_COUNT/$DESIRED_COUNT"
+          
+          if [ "$RUNNING_COUNT" -lt "$DESIRED_COUNT" ]; then
+            echo "Warning: Not all tasks are running"
+          fi
+          
+          echo "Deployment verification completed"
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: \`${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ steps.image-tag.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Task Definition**: \`${{ steps.register-task.outputs.task-def-arn }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Cluster**: \`${{ env.ECS_CLUSTER }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service**: \`${{ env.ECS_SERVICE }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Monitoring Commands" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# View logs" >> $GITHUB_STEP_SUMMARY
+          echo "aws logs tail /ecs/${{ env.ECS_SERVICE }} --follow --region ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Service status" >> $GITHUB_STEP_SUMMARY
+          echo "aws ecs describe-services --cluster ${{ env.ECS_CLUSTER }} --services ${{ env.ECS_SERVICE }} --region ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+

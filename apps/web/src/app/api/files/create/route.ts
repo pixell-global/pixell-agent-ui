@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserScopedStorage } from '@/lib/user-storage'
+import { StorageManager } from '@pixell/file-storage'
+import { resolveUserAndOrg, buildStorageConfigForContext } from '@/lib/workspace-path'
+import { getDefaultContext, type StorageContext } from '@/lib/storage-context'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
-    // Get user-scoped storage (authenticated only)
-    const userContext = await getUserScopedStorage(request)
+    const { userId, orgId } = await resolveUserAndOrg(request)
 
-    if (!userContext) {
+    // Check if user is authenticated
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'Authentication required' },
+        { success: false, error: 'Authentication required to create files' },
         { status: 401 }
       )
     }
-
-    const storage = userContext.storage
 
     let filePath: string
     let content: string = ''
@@ -23,20 +23,20 @@ export async function POST(request: NextRequest) {
     let uploadedFile: File | null = null
 
     const contentType = request.headers.get('content-type')
-
     if (contentType?.includes('multipart/form-data')) {
       // Handle FormData for file uploads
       const formData = await request.formData()
       const file = formData.get('file') as File
-      const pathFromForm = formData.get('path') as string
+      const pathFromForm = (formData.get('path') as string) || ''
 
-      if (file && pathFromForm) {
+      if (file) {
         uploadedFile = file
-        filePath = pathFromForm.endsWith('/') ? `${pathFromForm}${file.name}` : `${pathFromForm}/${file.name}`
+        const base = pathFromForm.replace(/\/+$/g, '')
+        filePath = base ? `${base}/${file.name}` : file.name
         type = 'file'
       } else {
         return NextResponse.json(
-          { success: false, error: 'File and path are required for file upload' },
+          { success: false, error: 'File is required for upload' },
           { status: 400 }
         )
       }
@@ -54,54 +54,63 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    // Normalize path (remove leading slash)
-    const normalizedPath = filePath.startsWith('/') ? filePath.substring(1) : filePath
-
     try {
+      // Get storage context from query params or request body (defaults to user context)
+      const searchParams = request.nextUrl.searchParams
+      const contextType = searchParams.get('context') || 'user'
+      const contextId = searchParams.get('contextId')
+
+      let context: StorageContext
+      switch (contextType) {
+        case 'team':
+          if (!contextId) {
+            return NextResponse.json({ success: false, error: 'teamId required for team context' }, { status: 400 })
+          }
+          context = { type: 'team', teamId: contextId }
+          break
+        case 'brand':
+          if (!contextId) {
+            return NextResponse.json({ success: false, error: 'brandId required for brand context' }, { status: 400 })
+          }
+          context = { type: 'brand', brandId: contextId }
+          break
+        case 'shared':
+          context = { type: 'shared' }
+          break
+        case 'user':
+        default:
+          context = getDefaultContext(userId)
+          break
+      }
+
+      const config = buildStorageConfigForContext(orgId, context)
+      const storage = new StorageManager()
+      await storage.initialize(config)
+
+      // Normalize leading slash for adapter API
+      const normalizedPath = filePath.startsWith('/') ? filePath : `/${filePath}`
+
       if (type === 'folder') {
-        const folder = await storage.createFolder(normalizedPath)
-
-        return NextResponse.json({
-          success: true,
-          message: `Folder created: ${filePath}`,
-          path: filePath,
-          type: 'folder',
-          file: folder
-        })
+        const node = await storage.createFolder(normalizedPath.replace(/\/+$/g, ''))
+        return NextResponse.json({ success: true, ...node })
+      } else if (uploadedFile) {
+        const node = await storage.uploadFile(normalizedPath, uploadedFile)
+        return NextResponse.json({ success: true, ...node })
       } else {
-        let createdFile
-
-        if (uploadedFile) {
-          // Handle file upload
-          createdFile = await storage.uploadFile(normalizedPath, uploadedFile)
-        } else {
-          // Create file with text content (or empty)
-          createdFile = await storage.writeFile(normalizedPath, content)
-        }
-
-        return NextResponse.json({
-          success: true,
-          message: `File created: ${filePath}`,
-          path: filePath,
-          type: 'file',
-          size: createdFile.size,
-          lastModified: createdFile.lastModified,
-          file: createdFile
-        })
+        const node = await storage.writeFile(normalizedPath, content)
+        return NextResponse.json({ success: true, ...node })
       }
     } catch (error) {
-      console.error('Error creating file/folder:', error)
+      console.error('File creation error:', error)
       return NextResponse.json(
-        { success: false, error: `Failed to create ${type}: ${error instanceof Error ? error.message : 'Unknown error'}` },
-        { status: 500 }
+        { success: false, error: `File storage temporarily unavailable` },
+        { status: 503 }
       )
     }
   } catch (error) {
-    console.error('Error parsing request:', error)
     return NextResponse.json(
       { success: false, error: 'Invalid request body' },
       { status: 400 }
     )
   }
-} 
+}

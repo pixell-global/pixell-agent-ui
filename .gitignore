@@ -8,13 +8,13 @@ scripts/
 workspace-files/
 .temp/
 implementation_steps.md
-.github/
+
 # Dependencies
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
+# package-lock.json - Keep in Git for reproducible builds
 
 
 # Build outputs
@@ -52,6 +52,7 @@ apps/web/scripts/
 !package.json
 !tsconfig.json
 !**/tsconfig*.json
+!aws/task-definition.json
 
 # Pixell CLI configuration (contains sensitive environment data)
 .pixell/

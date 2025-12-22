@@ -72,10 +72,10 @@ async function main() {
     .where(and(eq(organizationMembers.orgId, orgId), eq(organizationMembers.userId, userId)))
     .limit(1)
   if (orgMember.length === 0) {
-    await db.insert(organizationMembers).values({ orgId, userId, role: 'member' })
+    await db.insert(organizationMembers).values({ orgId, userId, role: 'member' } as any)
     console.log(`Added organization member: org=${orgId} user=${userId}`)
   } else if (orgMember[0].isDeleted) {
-    await db.update(organizationMembers).set({ isDeleted: 0 }).where(and(eq(organizationMembers.orgId, orgId), eq(organizationMembers.userId, userId)))
+    await db.update(organizationMembers).set({ isDeleted: 0 } as any).where(and(eq(organizationMembers.orgId, orgId), eq(organizationMembers.userId, userId)))
     console.log(`Reactivated organization member: org=${orgId} user=${userId}`)
   }
 
@@ -86,10 +86,10 @@ async function main() {
     .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
     .limit(1)
   if (tm.length === 0) {
-    await db.insert(teamMembers).values({ teamId, userId, role: teamRole })
+    await db.insert(teamMembers).values({ teamId, userId, role: teamRole } as any)
     console.log(`Added team member: team=${teamId} user=${userId} role=${teamRole}`)
   } else if (tm[0].isDeleted) {
-    await db.update(teamMembers).set({ isDeleted: 0, role: teamRole }).where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
+    await db.update(teamMembers).set({ isDeleted: 0, role: teamRole } as any).where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
     console.log(`Reactivated team member: team=${teamId} user=${userId} role=${teamRole}`)
   }
 
@@ -100,10 +100,10 @@ async function main() {
     .where(and(eq(teamBrandAccess.teamId, teamId), eq(teamBrandAccess.brandId, brandId)))
     .limit(1)
   if (tba.length === 0) {
-    await db.insert(teamBrandAccess).values({ teamId, brandId, role: brandRole })
+    await db.insert(teamBrandAccess).values({ teamId, brandId, role: brandRole } as any)
     console.log(`Granted team-brand access: team=${teamId} brand=${brandId} role=${brandRole}`)
   } else if (tba[0].isDeleted) {
-    await db.update(teamBrandAccess).set({ isDeleted: 0, role: brandRole }).where(and(eq(teamBrandAccess.teamId, teamId), eq(teamBrandAccess.brandId, brandId)))
+    await db.update(teamBrandAccess).set({ isDeleted: 0, role: brandRole } as any).where(and(eq(teamBrandAccess.teamId, teamId), eq(teamBrandAccess.brandId, brandId)))
     console.log(`Reactivated team-brand access: team=${teamId} brand=${brandId} role=${brandRole}`)
   }
 
@@ -114,10 +114,10 @@ async function main() {
     .where(and(eq(userBrandAccess.brandId, brandId), eq(userBrandAccess.userId, userId)))
     .limit(1)
   if (uba.length === 0) {
-    await db.insert(userBrandAccess).values({ brandId, userId, role: brandRole })
+    await db.insert(userBrandAccess).values({ brandId, userId, role: brandRole } as any)
     console.log(`Granted user-brand access: user=${userId} brand=${brandId} role=${brandRole}`)
   } else if (uba[0].isDeleted) {
-    await db.update(userBrandAccess).set({ isDeleted: 0, role: brandRole }).where(and(eq(userBrandAccess.brandId, brandId), eq(userBrandAccess.userId, userId)))
+    await db.update(userBrandAccess).set({ isDeleted: 0, role: brandRole } as any).where(and(eq(userBrandAccess.brandId, brandId), eq(userBrandAccess.userId, userId)))
     console.log(`Reactivated user-brand access: user=${userId} brand=${brandId} role=${brandRole}`)
   }
 

@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
   try {
     const body: ChatRequest = await request.json()
 
+
     if (!body.message?.trim()) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }

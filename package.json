@@ -71,6 +71,7 @@
   "dependencies": {
     "@pixell/agent-ui": "^0.1.2",
     "build": "^0.1.4",
+    "drizzle-orm": "^0.44.7",
     "mustache": "^4.2.0",
     "zod": "^3.25.75",
     "zustand": "^5.0.6"

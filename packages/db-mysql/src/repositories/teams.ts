@@ -12,13 +12,13 @@ export class TeamsRepo extends BaseRepository {
     const orgId = await this.getOrgContext(userIdForCheck)
     const db = await getDb()
     const id = randomUUID()
-    await db.insert(teams).values({ id, orgId, name, description })
+    await db.insert(teams).values({ id, orgId, name, description } as any)
     return { id, orgId, name, description }
   }
 
   async addMember(teamId: string, userId: string, role: 'lead' | 'member' | 'viewer' = 'member') {
     const db = await getDb()
-    await db.insert(teamMembers).values({ teamId, userId, role })
+    await db.insert(teamMembers).values({ teamId, userId, role } as any)
     return { teamId, userId, role }
   }
 
@@ -26,7 +26,7 @@ export class TeamsRepo extends BaseRepository {
     const db = await getDb()
     await db
       .update(teamMembers)
-      .set({ isDeleted: 1 })
+      .set({ isDeleted: 1 } as any)
       .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
   }
 

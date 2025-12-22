@@ -19,13 +19,16 @@
     "mime-types": "^2.1.35"
   },
   "devDependencies": {
+    "@smithy/smithy-client": "^4.9.0",
     "@types/fs-extra": "^11.0.4",
     "@types/mime-types": "^2.1.4",
     "@types/node": "^20.0.0",
+    "@vitest/ui": "^3.2.4",
+    "aws-sdk-client-mock": "^4.1.0",
     "typescript": "^5.0.0",
-    "vitest": "^1.6.0"
+    "vitest": "^3.2.4"
   },
   "files": [
     "dist/**/*"
   ]
-} 
+}

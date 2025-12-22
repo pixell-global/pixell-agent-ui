@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useShallow } from 'zustand/shallow'
 import { ChevronRight, RefreshCw } from 'lucide-react'
 import { useUIStore } from '@/stores/ui-store'
@@ -12,7 +12,6 @@ import {
   selectActivityOutputs,
   selectActivityPaneState,
 } from '@/stores/workspace-store'
-import { useWebSocket } from '@/lib/websocket-manager'
 import { ActivityFeed } from './ActivityFeed'
 import type { ActivityOutput } from '@/types'
 
@@ -28,13 +27,6 @@ export function ActivityPane() {
   const activitiesLoading = useWorkspaceStore((state) => state.activitiesLoading)
   const setActivitiesLoading = useWorkspaceStore((state) => state.setActivitiesLoading)
   const activityPaneState = useWorkspaceStore(selectActivityPaneState)
-
-  const { connect } = useWebSocket()
-
-  // Connect to WebSocket on mount
-  useEffect(() => {
-    connect()
-  }, [connect])
 
   // Manual refresh handler
   const handleRefresh = useCallback(async () => {
@@ -125,6 +117,3 @@ export function ActivityPane() {
     </div>
   )
 }
-
-// Keep display name for compatibility
-ActivityPane.displayName = 'ActivityPane'

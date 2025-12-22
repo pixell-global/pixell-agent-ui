@@ -248,6 +248,11 @@ interface WorkspaceState {
 
   // Navigator State
   fileTree: FileNode[]
+  /**
+   * WebSocket/외부 이벤트로 파일 트리를 다시 불러와야 할 때 사용하는 플래그.
+   * NavigatorPane에서 이 값을 감시하고 true면 /api/files/list를 다시 호출합니다.
+   */
+  fileTreeNeedsRefresh: boolean
   uploadProgress: Record<string, { name: string; progress: number }>
   currentFolder: string
   searchQuery: string
@@ -316,6 +321,8 @@ interface WorkspaceState {
   updateScheduleStatus: (id: string, status: ScheduleStatus) => void
 
   setFileTree: (tree: FileNode[]) => void
+  markFileTreeNeedsRefresh: () => void
+  clearFileTreeRefreshFlag: () => void
   updateFileNode: (path: string, updates: Partial<FileNode>) => void
   addFileNode: (parentPath: string, node: FileNode) => void
   removeFileNode: (path: string) => void
@@ -368,6 +375,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         schedulesLoading: false,
         pendingScheduleProposals: {},
         fileTree: [],
+        fileTreeNeedsRefresh: false,
         uploadProgress: {},
         currentFolder: '/',
         searchQuery: '',
@@ -746,6 +754,16 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         setFileTree: (tree) =>
           set((state) => {
             state.fileTree = tree
+          }),
+
+        markFileTreeNeedsRefresh: () =>
+          set((state) => {
+            state.fileTreeNeedsRefresh = true
+          }),
+
+        clearFileTreeRefreshFlag: () =>
+          set((state) => {
+            state.fileTreeNeedsRefresh = false
           }),
           
         updateFileNode: (path, updates) =>

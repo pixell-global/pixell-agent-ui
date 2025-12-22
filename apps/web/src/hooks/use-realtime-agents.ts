@@ -3,20 +3,10 @@ import { useSupabase } from './use-supabase'
 import { useAgentStore } from '@/stores/agent-store'
 import { useEffect } from 'react'
 import type { Agent } from '@/stores/agent-store'
+import type { Database } from '@/lib/supabase'
 
 // Type for agent rows from database
-type AgentRow = {
-  id: string
-  name: string
-  description?: string
-  type: Agent['type']
-  status: Agent['status']
-  capabilities: Record<string, unknown>
-  config: Record<string, unknown>
-  user_id: string
-  created_at: string
-  updated_at: string
-}
+type AgentRow = Database['public']['Tables']['agents']['Row']
 
 export function useRealtimeAgents(userId: string) {
   const { client } = useSupabase()

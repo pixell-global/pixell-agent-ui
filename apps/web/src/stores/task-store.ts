@@ -5,7 +5,7 @@ import { subscribeWithSelector } from 'zustand/middleware'
 export interface Task {
   id: string
   name: string
-  description?: string
+  description?: string | null
   status: 'queued' | 'running' | 'succeeded' | 'failed' | 'paused'
   progress: number
   agentId: string | null

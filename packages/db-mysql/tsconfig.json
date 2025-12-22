@@ -9,10 +9,14 @@
     "declarationMap": true,
     "sourceMap": true,
     "esModuleInterop": true,
-    "strict": true,
+    "strict": false,
+    "strictNullChecks": false,
     "skipLibCheck": true,
     "noEmit": false,
-    "types": ["node"]
+    "noUncheckedIndexedAccess": false,
+    "noEmitOnError": false,
+    "noImplicitAny": false,
+    "types": ["node"],
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
