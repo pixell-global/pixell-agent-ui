@@ -259,12 +259,27 @@ export class CoreAgentService {
       }
 
       const data = await response.json()
-      
+
+      // NOTE:
+      // `/api/health` is primarily a *web service* health endpoint (LB-friendly).
+      // In this repo, it may return `status: "degraded"` when downstream services
+      // (Core Agent / orchestrator) are unavailable, while still returning HTTP 200.
+      // We treat `degraded` as "healthy enough" for the UI welcome banner so we
+      // don't show a scary "Agent Unavailable" warning just because an optional
+      // upstream check failed.
+      const statusValue = typeof data?.status === 'string' ? data.status : 'unknown'
+      const isOk = statusValue === 'healthy' || statusValue === 'ok'
+      const isDegraded = statusValue === 'degraded'
+      const uiHealthy = isOk || isDegraded
+
       return {
-        healthy: data.status === 'healthy' || data.status === 'ok',
-        runtime: data.runtime?.provider || data.orchestrator?.status || 'unknown',
+        healthy: uiHealthy,
+        runtime:
+          data.runtime?.provider ||
+          data.orchestrator?.status ||
+          (isDegraded ? 'degraded' : 'unknown'),
         model: data.runtime?.model,
-        status: data.status === 'healthy' || data.status === 'ok' ? 'connected' : 'error',
+        status: uiHealthy ? 'connected' : 'error',
         lastCheck: new Date().toISOString()
       }
       

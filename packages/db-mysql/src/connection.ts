@@ -32,7 +32,7 @@ export async function getDb(): Promise<MySql2DrizzleDb> {
     keepAliveInitialDelay: 0,
   })
 
-  cachedDb = drizzle(cachedPool) as MySql2Database<Record<string, unknown>>
+  cachedDb = drizzle(cachedPool)
   return cachedDb
 }
 
