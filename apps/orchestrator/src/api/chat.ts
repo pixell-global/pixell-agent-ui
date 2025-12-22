@@ -1016,10 +1016,17 @@ export async function clarificationsHandler(req: Request, res: Response) {
       })
     }
 
-    const result = await response.json()
+    const result = (await response.json()) as unknown
+    // `fetch().json()` may be typed as `unknown` in Node/undici typings.
+    // Spread only when we actually have an object.
+    const resultObj =
+      result && typeof result === 'object'
+        ? (result as Record<string, unknown>)
+        : { result }
+
     res.json({
       ok: true,
-      ...result
+      ...resultObj,
     })
 
   } catch (error) {
