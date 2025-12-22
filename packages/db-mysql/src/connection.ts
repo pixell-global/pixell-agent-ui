@@ -1,11 +1,16 @@
 import { drizzle } from 'drizzle-orm/mysql2'
-import mysql from 'mysql2/promise'
-import type { MySql2Database } from 'drizzle-orm/mysql2'
+import mysql from 'mysql2'
 
-let cachedDb: MySql2Database<Record<string, unknown>> | null = null
-let cachedPool: mysql.Pool | null = null
+type MySql2DrizzleDb = ReturnType<typeof drizzle>
 
-export async function getDb(): Promise<MySql2Database<Record<string, unknown>>> {
+let cachedDb: MySql2DrizzleDb | undefined
+let cachedPool: mysql.Pool | undefined
+
+/**
+ * Lazily creates and returns a singleton Drizzle DB instance.
+ * Note: Return type is intentionally non-null to keep repository code simple under `strict` mode.
+ */
+export async function getDb(): Promise<MySql2DrizzleDb> {
   if (cachedDb) return cachedDb
 
   const port = process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 3306
