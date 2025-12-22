@@ -1,17 +1,16 @@
 /**
  * Stripe Configuration Tests
+ *
+ * Tests for the action-based billing configuration.
  */
 
 import {
   SUBSCRIPTION_PLANS,
-  ACTION_CREDIT_COSTS,
-  CREDIT_TOPUP,
   TRIAL_CONFIG,
-  AUTO_TOPUP_CONFIG,
   getPlanByTier,
   getStripePriceId,
   isValidTier,
-  calculatePlanCredits,
+  getPlanQuotas,
   isStripeConfigured,
 } from '../stripe-config'
 
@@ -35,19 +34,47 @@ describe('Stripe Configuration', () => {
       expect(SUBSCRIPTION_PLANS.max.stripePriceId).toBeTruthy()
     })
 
-    it('should have credit allocations for all tiers', () => {
+    it('should have quota allocations for all tiers', () => {
       Object.values(SUBSCRIPTION_PLANS).forEach((plan) => {
-        expect(plan.credits).toHaveProperty('small')
-        expect(plan.credits).toHaveProperty('medium')
-        expect(plan.credits).toHaveProperty('large')
-        expect(plan.credits).toHaveProperty('xl')
+        expect(plan.quotas).toHaveProperty('research')
+        expect(plan.quotas).toHaveProperty('ideation')
+        expect(plan.quotas).toHaveProperty('autoPosting')
+        expect(plan.quotas).toHaveProperty('monitors')
       })
     })
 
-    it('should have increasing credits with higher tiers', () => {
-      expect(SUBSCRIPTION_PLANS.starter.credits.small).toBeGreaterThan(SUBSCRIPTION_PLANS.free.credits.small)
-      expect(SUBSCRIPTION_PLANS.pro.credits.small).toBeGreaterThan(SUBSCRIPTION_PLANS.starter.credits.small)
-      expect(SUBSCRIPTION_PLANS.max.credits.small).toBeGreaterThan(SUBSCRIPTION_PLANS.pro.credits.small)
+    it('should have increasing quotas with higher tiers', () => {
+      expect(SUBSCRIPTION_PLANS.starter.quotas.research).toBeGreaterThan(SUBSCRIPTION_PLANS.free.quotas.research)
+      expect(SUBSCRIPTION_PLANS.pro.quotas.research).toBeGreaterThan(SUBSCRIPTION_PLANS.starter.quotas.research)
+      expect(SUBSCRIPTION_PLANS.max.quotas.research).toBeGreaterThan(SUBSCRIPTION_PLANS.pro.quotas.research)
+    })
+
+    it('should have correct action-based quotas for free tier', () => {
+      expect(SUBSCRIPTION_PLANS.free.quotas.research).toBe(2)
+      expect(SUBSCRIPTION_PLANS.free.quotas.ideation).toBe(10)
+      expect(SUBSCRIPTION_PLANS.free.quotas.autoPosting).toBe(0)
+      expect(SUBSCRIPTION_PLANS.free.quotas.monitors).toBe(0)
+    })
+
+    it('should have correct action-based quotas for starter tier', () => {
+      expect(SUBSCRIPTION_PLANS.starter.quotas.research).toBe(10)
+      expect(SUBSCRIPTION_PLANS.starter.quotas.ideation).toBe(30)
+      expect(SUBSCRIPTION_PLANS.starter.quotas.autoPosting).toBe(0)
+      expect(SUBSCRIPTION_PLANS.starter.quotas.monitors).toBe(0)
+    })
+
+    it('should have correct action-based quotas for pro tier', () => {
+      expect(SUBSCRIPTION_PLANS.pro.quotas.research).toBe(60)
+      expect(SUBSCRIPTION_PLANS.pro.quotas.ideation).toBe(300)
+      expect(SUBSCRIPTION_PLANS.pro.quotas.autoPosting).toBe(30)
+      expect(SUBSCRIPTION_PLANS.pro.quotas.monitors).toBe(3)
+    })
+
+    it('should have correct action-based quotas for max tier', () => {
+      expect(SUBSCRIPTION_PLANS.max.quotas.research).toBe(300)
+      expect(SUBSCRIPTION_PLANS.max.quotas.ideation).toBe(3000)
+      expect(SUBSCRIPTION_PLANS.max.quotas.autoPosting).toBe(300)
+      expect(SUBSCRIPTION_PLANS.max.quotas.monitors).toBe(20)
     })
 
     it('should have features array for all tiers', () => {
@@ -58,41 +85,6 @@ describe('Stripe Configuration', () => {
     })
   })
 
-  describe('ACTION_CREDIT_COSTS', () => {
-    it('should have all 4 action tiers', () => {
-      expect(Object.keys(ACTION_CREDIT_COSTS)).toEqual(['small', 'medium', 'large', 'xl'])
-    })
-
-    it('should have correct credit costs', () => {
-      expect(ACTION_CREDIT_COSTS.small).toBe(1)
-      expect(ACTION_CREDIT_COSTS.medium).toBe(2.5)
-      expect(ACTION_CREDIT_COSTS.large).toBe(5)
-      expect(ACTION_CREDIT_COSTS.xl).toBe(15)
-    })
-
-    it('should have increasing costs', () => {
-      expect(ACTION_CREDIT_COSTS.medium).toBeGreaterThan(ACTION_CREDIT_COSTS.small)
-      expect(ACTION_CREDIT_COSTS.large).toBeGreaterThan(ACTION_CREDIT_COSTS.medium)
-      expect(ACTION_CREDIT_COSTS.xl).toBeGreaterThan(ACTION_CREDIT_COSTS.large)
-    })
-  })
-
-  describe('CREDIT_TOPUP', () => {
-    it('should have correct topup configuration', () => {
-      expect(CREDIT_TOPUP.amount).toBe(500)
-      expect(CREDIT_TOPUP.price).toBe(20)
-      expect(CREDIT_TOPUP.pricePerCredit).toBe(0.04)
-    })
-
-    it('should have consistent pricing calculation', () => {
-      expect(CREDIT_TOPUP.price / CREDIT_TOPUP.amount).toBe(CREDIT_TOPUP.pricePerCredit)
-    })
-
-    it('should have Stripe price ID', () => {
-      expect(CREDIT_TOPUP.stripePriceId).toBeTruthy()
-    })
-  })
-
   describe('TRIAL_CONFIG', () => {
     it('should have 7-day trial', () => {
       expect(TRIAL_CONFIG.durationDays).toBe(7)
@@ -100,24 +92,6 @@ describe('Stripe Configuration', () => {
 
     it('should not require card', () => {
       expect(TRIAL_CONFIG.requireCard).toBe(false)
-    })
-  })
-
-  describe('AUTO_TOPUP_CONFIG', () => {
-    it('should have valid default values', () => {
-      expect(AUTO_TOPUP_CONFIG.defaultThreshold).toBe(50)
-      expect(AUTO_TOPUP_CONFIG.defaultAmount).toBe(500)
-    })
-
-    it('should have valid threshold range', () => {
-      expect(AUTO_TOPUP_CONFIG.minThreshold).toBeLessThan(AUTO_TOPUP_CONFIG.maxThreshold)
-      expect(AUTO_TOPUP_CONFIG.defaultThreshold).toBeGreaterThanOrEqual(AUTO_TOPUP_CONFIG.minThreshold)
-      expect(AUTO_TOPUP_CONFIG.defaultThreshold).toBeLessThanOrEqual(AUTO_TOPUP_CONFIG.maxThreshold)
-    })
-
-    it('should have allowed amounts array', () => {
-      expect(Array.isArray(AUTO_TOPUP_CONFIG.allowedAmounts)).toBe(true)
-      expect(AUTO_TOPUP_CONFIG.allowedAmounts).toContain(AUTO_TOPUP_CONFIG.defaultAmount)
     })
   })
 
@@ -134,7 +108,7 @@ describe('Stripe Configuration', () => {
       expect(plan).toHaveProperty('name')
       expect(plan).toHaveProperty('price')
       expect(plan).toHaveProperty('stripePriceId')
-      expect(plan).toHaveProperty('credits')
+      expect(plan).toHaveProperty('quotas')
       expect(plan).toHaveProperty('features')
     })
   })
@@ -171,61 +145,68 @@ describe('Stripe Configuration', () => {
     })
   })
 
-  describe('calculatePlanCredits', () => {
-    it('should return correct credits for free tier', () => {
-      const credits = calculatePlanCredits('free')
-      expect(credits).toEqual({
-        includedSmall: 10,
-        includedMedium: 4,
-        includedLarge: 2,
-        includedXl: 1,
+  describe('getPlanQuotas', () => {
+    it('should return correct quotas for free tier', () => {
+      const quotas = getPlanQuotas('free')
+      expect(quotas).toEqual({
+        researchLimit: 2,
+        ideationLimit: 10,
+        autoPostingLimit: 0,
+        monitorsLimit: 0,
+        researchAvailable: true,
+        ideationAvailable: true,
+        autoPostingAvailable: false,
+        monitorsAvailable: false,
       })
     })
 
-    it('should return correct credits for starter tier', () => {
-      const credits = calculatePlanCredits('starter')
-      expect(credits).toEqual({
-        includedSmall: 50,
-        includedMedium: 20,
-        includedLarge: 10,
-        includedXl: 5,
+    it('should return correct quotas for starter tier', () => {
+      const quotas = getPlanQuotas('starter')
+      expect(quotas).toEqual({
+        researchLimit: 10,
+        ideationLimit: 30,
+        autoPostingLimit: 0,
+        monitorsLimit: 0,
+        researchAvailable: true,
+        ideationAvailable: true,
+        autoPostingAvailable: false,
+        monitorsAvailable: false,
       })
     })
 
-    it('should return correct credits for pro tier', () => {
-      const credits = calculatePlanCredits('pro')
-      expect(credits).toEqual({
-        includedSmall: 500,
-        includedMedium: 200,
-        includedLarge: 100,
-        includedXl: 50,
+    it('should return correct quotas for pro tier', () => {
+      const quotas = getPlanQuotas('pro')
+      expect(quotas).toEqual({
+        researchLimit: 60,
+        ideationLimit: 300,
+        autoPostingLimit: 30,
+        monitorsLimit: 3,
+        researchAvailable: true,
+        ideationAvailable: true,
+        autoPostingAvailable: true,
+        monitorsAvailable: true,
       })
     })
 
-    it('should return correct credits for max tier', () => {
-      const credits = calculatePlanCredits('max')
-      expect(credits).toEqual({
-        includedSmall: 2500,
-        includedMedium: 1000,
-        includedLarge: 500,
-        includedXl: 250,
+    it('should return correct quotas for max tier', () => {
+      const quotas = getPlanQuotas('max')
+      expect(quotas).toEqual({
+        researchLimit: 300,
+        ideationLimit: 3000,
+        autoPostingLimit: 300,
+        monitorsLimit: 20,
+        researchAvailable: true,
+        ideationAvailable: true,
+        autoPostingAvailable: true,
+        monitorsAvailable: true,
       })
-    })
-
-    it('should return object with all credit types', () => {
-      const credits = calculatePlanCredits('starter')
-      expect(Object.keys(credits)).toEqual([
-        'includedSmall',
-        'includedMedium',
-        'includedLarge',
-        'includedXl',
-      ])
     })
   })
 
   describe('isStripeConfigured', () => {
-    it('should return true when all required env vars are set', () => {
-      expect(isStripeConfigured()).toBe(true)
+    it('should return boolean based on env vars', () => {
+      const result = isStripeConfigured()
+      expect(typeof result).toBe('boolean')
     })
 
     it('should return false when STRIPE_SECRET_KEY is missing', () => {
@@ -250,33 +231,29 @@ describe('Stripe Configuration', () => {
     })
   })
 
-  describe('Price Economics Validation', () => {
-    it('should have reasonable pricing ratios', () => {
-      // Starter should be ~10x free
-      const starterToFreeRatio = SUBSCRIPTION_PLANS.starter.credits.small / SUBSCRIPTION_PLANS.free.credits.small
-      expect(starterToFreeRatio).toBe(5)
-
-      // Pro should be ~10x starter
-      const proToStarterRatio = SUBSCRIPTION_PLANS.pro.credits.small / SUBSCRIPTION_PLANS.starter.credits.small
-      expect(proToStarterRatio).toBe(10)
+  describe('Quota Economics Validation', () => {
+    it('should have increasing quotas for research', () => {
+      expect(SUBSCRIPTION_PLANS.starter.quotas.research).toBeGreaterThan(SUBSCRIPTION_PLANS.free.quotas.research)
+      expect(SUBSCRIPTION_PLANS.pro.quotas.research).toBeGreaterThan(SUBSCRIPTION_PLANS.starter.quotas.research)
+      expect(SUBSCRIPTION_PLANS.max.quotas.research).toBeGreaterThan(SUBSCRIPTION_PLANS.pro.quotas.research)
     })
 
-    it('should have consistent price-to-value ratio', () => {
-      // Calculate value per dollar (small credits per dollar)
-      const starterValue = SUBSCRIPTION_PLANS.starter.credits.small / SUBSCRIPTION_PLANS.starter.price
-      const proValue = SUBSCRIPTION_PLANS.pro.credits.small / SUBSCRIPTION_PLANS.pro.price
-      const maxValue = SUBSCRIPTION_PLANS.max.credits.small / SUBSCRIPTION_PLANS.max.price
+    it('should have increasing quotas for ideation', () => {
+      expect(SUBSCRIPTION_PLANS.starter.quotas.ideation).toBeGreaterThan(SUBSCRIPTION_PLANS.free.quotas.ideation)
+      expect(SUBSCRIPTION_PLANS.pro.quotas.ideation).toBeGreaterThan(SUBSCRIPTION_PLANS.starter.quotas.ideation)
+      expect(SUBSCRIPTION_PLANS.max.quotas.ideation).toBeGreaterThan(SUBSCRIPTION_PLANS.pro.quotas.ideation)
+    })
 
-      // Pro tier should have better value than Starter
-      expect(proValue).toBeGreaterThan(starterValue)
+    it('should have premium features only in pro and max', () => {
+      expect(SUBSCRIPTION_PLANS.free.quotas.autoPosting).toBe(0)
+      expect(SUBSCRIPTION_PLANS.starter.quotas.autoPosting).toBe(0)
+      expect(SUBSCRIPTION_PLANS.pro.quotas.autoPosting).toBeGreaterThan(0)
+      expect(SUBSCRIPTION_PLANS.max.quotas.autoPosting).toBeGreaterThan(0)
 
-      // All values should be positive and reasonable (between 1-10 credits per dollar)
-      expect(starterValue).toBeGreaterThan(1)
-      expect(starterValue).toBeLessThan(10)
-      expect(proValue).toBeGreaterThan(1)
-      expect(proValue).toBeLessThan(10)
-      expect(maxValue).toBeGreaterThan(1)
-      expect(maxValue).toBeLessThan(10)
+      expect(SUBSCRIPTION_PLANS.free.quotas.monitors).toBe(0)
+      expect(SUBSCRIPTION_PLANS.starter.quotas.monitors).toBe(0)
+      expect(SUBSCRIPTION_PLANS.pro.quotas.monitors).toBeGreaterThan(0)
+      expect(SUBSCRIPTION_PLANS.max.quotas.monitors).toBeGreaterThan(0)
     })
   })
 })

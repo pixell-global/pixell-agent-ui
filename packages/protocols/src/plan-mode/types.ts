@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { AgentPlanModeConfigSchema } from './phases'
 
 /**
  * Plan Mode Protocol Types
@@ -147,7 +148,148 @@ export const PlanExecutingSchema = z.object({
 export type PlanExecuting = z.infer<typeof PlanExecutingSchema>
 
 // =============================================================================
-// Session State
+// Workflow Execution (NEW - Root Correlation System)
+// =============================================================================
+
+/**
+ * WorkflowPhase - explicit phase state machine for multi-phase agent workflows.
+ * Each workflow transitions through these phases in order.
+ */
+export const WorkflowPhaseSchema = z.enum([
+  'initial',        // Workflow just started
+  'clarification',  // Agent asking for clarification
+  'discovery',      // Agent discovering items (e.g., subreddits)
+  'selection',      // User selecting from discovered items
+  'preview',        // Showing plan preview before execution
+  'executing',      // Plan/task is executing
+  'completed',      // Workflow finished successfully
+  'error',          // Workflow failed
+])
+export type WorkflowPhase = z.infer<typeof WorkflowPhaseSchema>
+
+/**
+ * WorkflowEvent - individual event in the workflow event stream.
+ * All events include workflowId for correlation.
+ */
+export const WorkflowEventSchema = z.object({
+  workflowId: z.string().uuid(),
+  sequence: z.number().int().nonnegative(),
+  timestamp: z.string().datetime(),
+  type: z.string(),
+  phase: WorkflowPhaseSchema.optional(),
+  data: z.any(),
+})
+export type WorkflowEvent = z.infer<typeof WorkflowEventSchema>
+
+/**
+ * PhaseTransition - record of phase changes for audit trail.
+ */
+export const PhaseTransitionSchema = z.object({
+  phase: WorkflowPhaseSchema,
+  timestamp: z.string().datetime(),
+  previousPhase: WorkflowPhaseSchema.optional(),
+  reason: z.string().optional(),
+})
+export type PhaseTransition = z.infer<typeof PhaseTransitionSchema>
+
+/**
+ * WorkflowPhaseData - data associated with each phase.
+ * Stores the pending/active data for that phase.
+ */
+export const WorkflowPhaseDataSchema = z.object({
+  clarification: ClarificationNeededSchema.optional(),
+  discovery: z.any().optional(), // DiscoveryResult
+  selection: z.any().optional(), // SelectionRequired
+  preview: z.any().optional(),   // PreviewReady / SearchPlan
+})
+export type WorkflowPhaseData = z.infer<typeof WorkflowPhaseDataSchema>
+
+/**
+ * WorkflowExecution - the root workflow context that ties EVERYTHING together.
+ *
+ * This is the single source of truth for a multi-phase agent workflow.
+ * All components (chat, activity pane, etc.) subscribe to this.
+ *
+ * Key principles:
+ * - workflowId is the root correlation ID
+ * - All events include workflowId
+ * - Message IDs are tracked so content never gets lost
+ * - Phase state machine ensures explicit transitions
+ */
+export const WorkflowExecutionSchema = z.object({
+  // Correlation IDs
+  workflowId: z.string().uuid(),           // Root ID - ties everything
+  sessionId: z.string().uuid(),            // For API routing
+  agentId: z.string(),                     // Which agent is handling
+  agentUrl: z.string().url().optional(),   // Agent endpoint
+
+  // Message correlation - NEVER loses track
+  initialMessageId: z.string(),            // User message that started this
+  responseMessageId: z.string(),           // Where assistant content goes
+
+  // Phase state machine
+  phase: WorkflowPhaseSchema,
+  phaseHistory: z.array(PhaseTransitionSchema).default([]),
+  phaseData: WorkflowPhaseDataSchema.default({}),
+
+  // Progress tracking (for activity pane)
+  progress: z.object({
+    current: z.number().default(0),
+    total: z.number().optional(),
+    message: z.string().optional(),
+    percentage: z.number().min(0).max(100).optional(),
+  }).default({ current: 0 }),
+
+  // Activity pane integration
+  activityId: z.string().optional(),
+  activityStatus: z.enum(['pending', 'running', 'completed', 'error']).default('pending'),
+
+  // Event stream - never lost
+  eventSequence: z.number().int().nonnegative().default(0),
+  bufferedEvents: z.array(WorkflowEventSchema).default([]),
+
+  // Lifecycle
+  startedAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  completedAt: z.string().datetime().optional(),
+  error: z.string().optional(),
+})
+export type WorkflowExecution = z.infer<typeof WorkflowExecutionSchema>
+
+/**
+ * Helper to create a new workflow execution.
+ */
+export function createWorkflowExecution(
+  params: {
+    sessionId: string
+    agentId: string
+    agentUrl?: string
+    initialMessageId: string
+    responseMessageId: string
+  }
+): WorkflowExecution {
+  const now = new Date().toISOString()
+  return {
+    workflowId: crypto.randomUUID(),
+    sessionId: params.sessionId,
+    agentId: params.agentId,
+    agentUrl: params.agentUrl,
+    initialMessageId: params.initialMessageId,
+    responseMessageId: params.responseMessageId,
+    phase: 'initial',
+    phaseHistory: [{ phase: 'initial', timestamp: now }],
+    phaseData: {},
+    progress: { current: 0 },
+    activityStatus: 'pending',
+    eventSequence: 0,
+    bufferedEvents: [],
+    startedAt: now,
+    updatedAt: now,
+  }
+}
+
+// =============================================================================
+// Session State (Legacy - kept for backwards compatibility)
 // =============================================================================
 
 export const PlanModeStateSchema = z.enum([
@@ -235,3 +377,57 @@ export function createPlanProposed(
     message: options?.message,
   }
 }
+
+// =============================================================================
+// Search Plan (tik-agent specific - Query Builder Pattern)
+// =============================================================================
+
+export const SearchPlanSchema = z.object({
+  type: z.literal('search_plan'),
+  planId: z.string().uuid(),
+  agentId: z.string(),
+  agentUrl: z.string().optional(), // URL to respond to
+  userIntent: z.string(), // Original query
+  userAnswers: z.record(z.any()).default({}), // Stored for reference
+  searchKeywords: z.array(z.string()).default([]), // LLM-generated search terms
+  hashtags: z.array(z.string()).default([]),
+  followerMin: z.number().default(1000),
+  followerMax: z.number().default(100000),
+  location: z.string().optional(),
+  minEngagement: z.number().default(0.03),
+  message: z.string().default("Here's my search plan based on your preferences"),
+})
+export type SearchPlan = z.infer<typeof SearchPlanSchema>
+
+export const SearchPlanResponseSchema = z.object({
+  type: z.literal('search_plan_response'),
+  planId: z.string().uuid(),
+  approved: z.boolean(),
+  editedKeywords: z.array(z.string()).optional(),
+  editedFilters: z.record(z.any()).optional(),
+})
+export type SearchPlanResponse = z.infer<typeof SearchPlanResponseSchema>
+
+// =============================================================================
+// Agent Configuration
+// =============================================================================
+
+export const AgentProtocolSchema = z.enum(['paf', 'a2a'])
+export type AgentProtocol = z.infer<typeof AgentProtocolSchema>
+
+export const AgentConfigSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  url: z.string().url(),
+  protocol: AgentProtocolSchema,
+  default: z.boolean().default(false),
+  capabilities: z.array(z.string()).default([]),
+  planMode: AgentPlanModeConfigSchema.optional(),
+})
+export type AgentConfig = z.infer<typeof AgentConfigSchema>
+
+export const AgentsConfigSchema = z.object({
+  agents: z.array(AgentConfigSchema),
+})
+export type AgentsConfig = z.infer<typeof AgentsConfigSchema>

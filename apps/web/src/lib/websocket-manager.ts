@@ -216,6 +216,196 @@ class SimpleWebSocketManager {
           console.log('🔔 Approval requested for activity:', message.data.activityId)
           break
 
+        // Activity output handlers
+        case 'activity_output_created':
+          store.addActivityOutput(message.data)
+          notificationStore.addEvent({
+            type: 'system.alert',
+            title: 'Output Ready',
+            description: `${message.data.name} is available for download`,
+          })
+          console.log('📄 Activity output created:', message.data.name)
+          break
+
+        case 'activity_output_ready':
+          // Output file is ready for download (e.g., after processing)
+          store.addActivityOutput(message.data)
+          console.log('📄 Activity output ready:', message.data.name)
+          break
+
+        // UPEE phase update handler
+        case 'upee_phase_update':
+          store.updateActivityUPEEPhase(
+            message.data.activityId,
+            message.data.phase,
+            message.data.message,
+            message.data.subTasks
+          )
+          console.log(`📊 UPEE phase: ${message.data.phase} - ${message.data.message}`)
+          break
+
+        // Incremental output creation (as files are being generated)
+        case 'activity_output_incremental':
+          const existingOutput = store.activityOutputs.find(o => o.id === message.data.id)
+          if (!existingOutput) {
+            store.addActivityOutput({
+              ...message.data,
+              metadata: {
+                ...message.data.metadata,
+                isIncremental: true,
+              }
+            })
+            console.log('📄 Incremental output started:', message.data.name)
+          }
+          break
+
+        // Output generation progress updates
+        case 'activity_output_progress':
+          console.log(`📄 Output progress: ${message.data.name} - ${message.data.progress}%`)
+          break
+
+        // =========================================================================
+        // FILE CREATED EVENT HANDLER
+        // =========================================================================
+
+        case 'file_created':
+          // Agent created a file - trigger Navigator refresh
+          store.triggerFileTreeRefresh()
+          notificationStore.addEvent({
+            type: 'system.alert',
+            title: 'File Created',
+            description: `${message.data.name} is ready for download`,
+          })
+          console.log('📁 File created, triggering Navigator refresh:', message.data.name)
+          break
+
+        // =========================================================================
+        // SCHEDULE EVENT HANDLERS
+        // =========================================================================
+
+        case 'schedule_proposal':
+          // Agent proposed a new schedule - add to pending proposals
+          store.addPendingProposal(message.data)
+          notificationStore.addEvent({
+            type: 'system.alert',
+            title: 'Schedule Proposed',
+            description: `"${message.data.name}" - ${message.data.scheduleDisplay}`,
+          })
+          console.log('⏰ Schedule proposed:', message.data.name)
+          break
+
+        case 'schedule_created':
+          // New schedule was created
+          store.addSchedule(message.data)
+          // Remove from pending if it was from a proposal
+          if (message.data.sourceProposalId) {
+            store.removePendingProposal(message.data.sourceProposalId)
+          }
+          notificationStore.addEvent({
+            type: 'system.alert',
+            title: 'Schedule Created',
+            description: `"${message.data.name}" is now active`,
+          })
+          console.log('⏰ Schedule created:', message.data.name)
+          break
+
+        case 'schedule_updated':
+          // Schedule was modified
+          store.updateSchedule(message.data)
+          console.log('⏰ Schedule updated:', message.data.name)
+          break
+
+        case 'schedule_paused':
+          // Schedule was paused
+          store.updateScheduleStatus(message.data.id, 'paused')
+          notificationStore.addEvent({
+            type: 'system.alert',
+            title: 'Schedule Paused',
+            description: `"${message.data.name}" has been paused`,
+          })
+          console.log('⏸️ Schedule paused:', message.data.name)
+          break
+
+        case 'schedule_resumed':
+          // Schedule was resumed
+          store.updateScheduleStatus(message.data.id, 'active')
+          notificationStore.addEvent({
+            type: 'system.alert',
+            title: 'Schedule Resumed',
+            description: `"${message.data.name}" is now active again`,
+          })
+          console.log('▶️ Schedule resumed:', message.data.name)
+          break
+
+        case 'schedule_deleted':
+          // Schedule was deleted
+          store.removeSchedule(message.data.id)
+          console.log('🗑️ Schedule deleted:', message.data.id)
+          break
+
+        case 'schedule_failed':
+          // Schedule failed after too many consecutive failures
+          store.updateScheduleStatus(message.data.id, 'failed')
+          notificationStore.addEvent(createJobNotification(
+            'error',
+            message.data.name,
+            'Schedule disabled due to consecutive failures'
+          ))
+          console.log('❌ Schedule failed:', message.data.name)
+          break
+
+        case 'execution_started':
+          // A scheduled execution has started
+          if (message.data.schedule) {
+            store.updateSchedule({
+              ...message.data.schedule,
+              lastRunAt: new Date().toISOString(),
+            })
+          }
+          console.log('🚀 Execution started:', message.data.scheduleId)
+          break
+
+        case 'execution_succeeded':
+          // A scheduled execution completed successfully
+          if (message.data.schedule) {
+            store.updateSchedule(message.data.schedule)
+          }
+          notificationStore.addEvent(createJobNotification(
+            'success',
+            message.data.scheduleName || 'Scheduled Task',
+            message.data.result?.summary || 'Execution completed successfully'
+          ))
+          console.log('✅ Execution succeeded:', message.data.scheduleId)
+          break
+
+        case 'execution_failed':
+          // A scheduled execution failed
+          if (message.data.schedule) {
+            store.updateSchedule(message.data.schedule)
+          }
+          notificationStore.addEvent(createJobNotification(
+            'error',
+            message.data.scheduleName || 'Scheduled Task',
+            message.data.error?.message || 'Execution failed'
+          ))
+          console.log('❌ Execution failed:', message.data.scheduleId, message.data.error?.message)
+          break
+
+        case 'execution_retrying':
+          // Execution is retrying after failure
+          console.log('🔄 Execution retrying:', message.data.scheduleId, `attempt ${message.data.retryAttempt}`)
+          break
+
+        case 'schedule_tier_limit':
+          // User has reached their schedule tier limit
+          notificationStore.addEvent({
+            type: 'system.alert',
+            title: 'Schedule Limit Reached',
+            description: `You've reached your limit of ${message.data.limit} schedules. Upgrade your plan for more.`,
+          })
+          console.log('⚠️ Schedule tier limit reached:', message.data.limit)
+          break
+
         case 'pong':
           // Heartbeat response
           break
@@ -359,5 +549,38 @@ export const webSocketActions = {
 
   requestActivitiesList: () => {
     sendWebSocketMessage('request_activities_list', {})
-  }
-} 
+  },
+
+  // Schedule-related actions
+  requestSchedulesList: () => {
+    sendWebSocketMessage('request_schedules_list', {})
+  },
+
+  subscribeToSchedule: (scheduleId: string) => {
+    sendWebSocketMessage('subscribe_schedule', { scheduleId })
+  },
+
+  unsubscribeFromSchedule: (scheduleId: string) => {
+    sendWebSocketMessage('unsubscribe_schedule', { scheduleId })
+  },
+
+  respondToScheduleProposal: (proposalId: string, action: 'confirm' | 'edit' | 'cancel', modifications?: any) => {
+    sendWebSocketMessage('schedule_proposal_response', {
+      proposalId,
+      action,
+      modifications,
+    })
+  },
+
+  pauseSchedule: (scheduleId: string) => {
+    sendWebSocketMessage('pause_schedule', { scheduleId })
+  },
+
+  resumeSchedule: (scheduleId: string) => {
+    sendWebSocketMessage('resume_schedule', { scheduleId })
+  },
+
+  triggerScheduleRun: (scheduleId: string) => {
+    sendWebSocketMessage('trigger_schedule_run', { scheduleId })
+  },
+}

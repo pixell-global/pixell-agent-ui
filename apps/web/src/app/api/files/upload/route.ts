@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerStorageManager } from '@/lib/storage-client'
+import { getUserScopedStorage } from '@/lib/user-storage'
 import { createRateLimit, getClientIP } from '@/lib/security'
+
+export const dynamic = 'force-dynamic'
 
 // Rate limiting for file uploads
 const rateLimiter = createRateLimit({
@@ -24,12 +26,20 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Note: Supabase auth has been removed
-    // For now, uploads work without authentication
-    // In production, implement your own auth check here
+    // Get user-scoped storage (authenticated only)
+    const userContext = await getUserScopedStorage(req)
+
+    if (!userContext) {
+      return NextResponse.json(
+        { error: 'Authentication required', success: false },
+        { status: 401 }
+      )
+    }
+
+    const storage = userContext.storage
 
     const body = await req.json()
-    const { filename, folder, contentType, userId } = body
+    const { filename, folder, contentType } = body
 
     // Validate inputs
     if (!filename || typeof filename !== 'string') {
@@ -57,29 +67,25 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Create storage manager and generate signed URL
-    const storageManager = getServerStorageManager()
-
-    const userFolder = folder || `users/${userId || 'anonymous'}/uploads`
-    const uploadResult = await storageManager.createSignedUploadUrl(filename, {
-      folder: userFolder,
-      contentType,
-    })
+    // Use provided folder or default to uploads
+    const uploadFolder = folder || 'uploads'
+    const finalFilename = `${Date.now()}-${filename}`
+    const uploadPath = `${uploadFolder}/${finalFilename}`
 
     // Log upload attempt
-    console.log('File upload signed URL created:', {
-      userId: userId || 'anonymous',
+    console.log('File upload initiated:', {
+      userId: userContext?.userId || 'anonymous',
+      storagePath: userContext?.storagePath || 'anonymous',
       filename,
-      folder: userFolder,
-      path: uploadResult.path,
+      folder: uploadFolder,
+      path: uploadPath,
       ip: getClientIP(req),
     })
 
     return NextResponse.json({
       success: true,
-      signedUrl: uploadResult.signedUrl,
-      path: uploadResult.path,
-      token: uploadResult.token,
+      path: uploadPath,
+      storagePath: userContext?.storagePath || null,
     })
   } catch (error) {
     console.error('File upload error:', error)
@@ -94,45 +100,52 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Handle file completion notification
+// Handle direct file upload via FormData
 export async function PUT(req: NextRequest) {
   try {
-    // Note: Supabase auth has been removed
+    // Get user-scoped storage (authenticated only)
+    const userContext = await getUserScopedStorage(req)
 
-    const body = await req.json()
-    const { path, success, userId } = body
-
-    if (!path) {
+    if (!userContext) {
       return NextResponse.json(
-        { error: 'Missing file path' },
+        { error: 'Authentication required', success: false },
+        { status: 401 }
+      )
+    }
+
+    const storage = userContext.storage
+
+    const formData = await req.formData()
+    const file = formData.get('file') as File
+    const folder = formData.get('folder') as string || 'uploads'
+
+    if (!file) {
+      return NextResponse.json(
+        { error: 'No file provided' },
         { status: 400 }
       )
     }
 
-    // Get public URL for the uploaded file
-    const storageManager = getServerStorageManager()
-    const publicUrl = await storageManager.getPublicUrl(path)
+    const uploadPath = `${folder}/${file.name}`
+    const uploadedFile = await storage.uploadFile(uploadPath, file)
 
-    // Log upload completion
-    console.log('File upload completed:', {
-      userId: userId || 'anonymous',
-      path,
-      success,
-      publicUrl,
+    console.log('File uploaded:', {
+      userId: userContext?.userId || 'anonymous',
+      storagePath: userContext?.storagePath || 'anonymous',
+      path: uploadPath,
       ip: getClientIP(req),
     })
 
     return NextResponse.json({
       success: true,
-      path,
-      publicUrl,
+      file: uploadedFile,
     })
   } catch (error) {
-    console.error('File upload completion error:', error)
+    console.error('File upload error:', error)
 
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : 'Upload completion failed',
+        error: error instanceof Error ? error.message : 'Upload failed',
         success: false
       },
       { status: 500 }

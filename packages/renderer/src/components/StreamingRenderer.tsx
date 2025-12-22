@@ -41,7 +41,7 @@ export const StreamingRenderer: React.FC<StreamingRendererProps> = ({
       <MarkdownRenderer
         content={content}
         isStreaming={isStreaming}
-        enableMath={true}
+        enableMath={false}
         enableCodeHighlight={true}
       />
     </div>

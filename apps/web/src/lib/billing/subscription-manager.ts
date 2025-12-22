@@ -34,11 +34,11 @@
  */
 
 import { getDb } from '@pixell/db-mysql'
-import { subscriptions, organizations, creditBalances } from '@pixell/db-mysql/schema'
+import { subscriptions, organizations } from '@pixell/db-mysql/schema'
 import { eq } from 'drizzle-orm'
 import { stripe } from './stripe-config'
-import { getStripePriceId, type SubscriptionTier, calculatePlanCredits } from './stripe-config'
-import { initializeCreditBalance, resetCreditsForNewPeriod } from './credit-manager'
+import { getStripePriceId, type SubscriptionTier } from './stripe-config'
+import { initializeFeatureQuotas, resetMonthlyQuotas, updateQuotasForTierChange } from './quota-manager'
 import { v4 as uuidv4 } from 'uuid'
 import Stripe from 'stripe'
 
@@ -125,8 +125,8 @@ export async function createSubscription(params: CreateSubscriptionParams) {
       endedAt: null,
     })
 
-    // Initialize credit balance
-    await initializeCreditBalance(orgId, tier, now, periodEnd)
+    // Initialize feature quotas (action-based billing)
+    await initializeFeatureQuotas(orgId, tier, now, periodEnd)
 
     // Update organization
     await db
@@ -216,13 +216,10 @@ export async function createSubscription(params: CreateSubscriptionParams) {
     endedAt: (stripeSubscription as any).ended_at ? new Date((stripeSubscription as any).ended_at * 1000) : null,
   })
 
-  // Initialize credit balance
-  await initializeCreditBalance(
-    orgId,
-    tier,
-    new Date((stripeSubscription as any).current_period_start * 1000),
-    new Date((stripeSubscription as any).current_period_end * 1000)
-  )
+  // Initialize feature quotas (action-based billing)
+  const periodStart = new Date((stripeSubscription as any).current_period_start * 1000)
+  const periodEnd = new Date((stripeSubscription as any).current_period_end * 1000)
+  await initializeFeatureQuotas(orgId, tier, periodStart, periodEnd)
 
   // Update organization
   await db
@@ -288,8 +285,8 @@ export async function updateSubscription(params: UpdateSubscriptionParams) {
       })
       .where(eq(subscriptions.orgId, orgId))
 
-    // Reset credits for free tier
-    await resetCreditsForNewPeriod(orgId, newTier, now, periodEnd)
+    // Reset feature quotas for free tier (action-based billing)
+    await resetMonthlyQuotas(orgId, newTier, now, periodEnd)
 
     // Update organization
     await db
@@ -347,17 +344,8 @@ export async function updateSubscription(params: UpdateSubscriptionParams) {
     })
     .where(eq(subscriptions.orgId, orgId))
 
-  // Update credit balance for new tier (keep current period)
-  const credits = calculatePlanCredits(newTier)
-  await db
-    .update(creditBalances)
-    .set({
-      includedSmall: credits.includedSmall,
-      includedMedium: credits.includedMedium,
-      includedLarge: credits.includedLarge,
-      includedXl: credits.includedXl,
-    })
-    .where(eq(creditBalances.orgId, orgId))
+  // Update feature quotas for new tier (keeps current usage)
+  await updateQuotasForTierChange(orgId, newTier)
 
   // Update organization
   await db

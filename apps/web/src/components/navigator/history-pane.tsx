@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
-import { History, Search, X, Lock, Globe, MoreVertical, Loader2 } from 'lucide-react'
+import { History, Search, X, Lock, Globe, MoreVertical, Loader2, PlusCircle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -65,7 +65,22 @@ export const HistoryPane: React.FC<HistoryPaneProps> = ({ className }) => {
   const { loadConversation, clearMessages } = useChatStore()
 
   // Tab store
-  const { updateTabConversation, updateTabTitle, getActiveTab } = useTabStore()
+  const { updateTabConversation, updateTabTitle, getActiveTab, openChatTab, setActiveTab: setActiveTabId } = useTabStore()
+
+  // Handler for creating a new chat
+  const handleNewChat = useCallback(() => {
+    const currentTab = getActiveTab()
+    if (currentTab && currentTab.type === 'chat') {
+      // Clear messages and reset conversation in current tab
+      clearMessages()
+      updateTabConversation(currentTab.id, undefined)
+      updateTabTitle(currentTab.id, 'New Chat')
+    } else {
+      // Open new chat tab
+      const newTabId = openChatTab('New Chat')
+      setActiveTabId(newTabId)
+    }
+  }, [getActiveTab, clearMessages, updateTabConversation, updateTabTitle, openChatTab, setActiveTabId])
 
   // Fetch conversations on mount
   useEffect(() => {
@@ -185,6 +200,19 @@ export const HistoryPane: React.FC<HistoryPaneProps> = ({ className }) => {
 
   return (
     <div className={`flex flex-col h-full ${className}`}>
+      {/* New Chat Button */}
+      <div className="px-4 pt-3 pb-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleNewChat}
+          className="w-full flex items-center justify-center gap-2 text-xs border-dashed"
+        >
+          <PlusCircle className="h-3.5 w-3.5" />
+          New Chat
+        </Button>
+      </div>
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="w-full grid grid-cols-2 mx-4 mt-2" style={{ width: 'calc(100% - 32px)' }}>

@@ -4,7 +4,7 @@ import { immer } from 'zustand/middleware/immer'
 import { getMockConversationsFiltered } from '@/lib/mock-data'
 
 // Enable mock data when API is unavailable
-const USE_MOCK_DATA = true
+const USE_MOCK_DATA = false
 
 // Conversation type matching the database schema
 export interface Conversation {
@@ -238,6 +238,11 @@ export const useHistoryStore = create<HistoryState>()(
           })
 
           if (!response.ok) {
+            // For 401 Unauthorized, return null to allow chat to continue without persistence
+            if (response.status === 401) {
+              console.log('Not authenticated - chat will continue without conversation persistence')
+              return null
+            }
             const data = await response.json()
             throw new Error(data.error || 'Failed to create conversation')
           }

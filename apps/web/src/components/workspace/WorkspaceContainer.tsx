@@ -1,14 +1,12 @@
 'use client'
-import React, { useEffect, useMemo, type RefObject } from 'react'
+import React, { useEffect, useMemo } from 'react'
 import { useTabStore } from '@/stores/tab-store'
 import { useEditorStore } from '@/stores/editor-store'
 import { ChatWorkspace } from '@/components/chat/ChatWorkspace'
-import type { ActivityPaneRef } from '@/components/activity/activity-pane'
 import { FileEditorContainer } from '@/components/editor/FileEditorContainer'
+import { HtmlViewer } from '@/components/editor/HtmlViewer'
 
-interface WorkspaceContainerProps { activityPaneRef?: RefObject<ActivityPaneRef> }
-
-export const WorkspaceContainer: React.FC<WorkspaceContainerProps> = ({ activityPaneRef }) => {
+export const WorkspaceContainer: React.FC = () => {
 	const { tabs, activeTabId } = useTabStore()
 	const active = useMemo(() => tabs.find((t) => t.id === activeTabId), [tabs, activeTabId])
 	const openPath = useEditorStore((s) => s.openPath)
@@ -23,8 +21,9 @@ export const WorkspaceContainer: React.FC<WorkspaceContainerProps> = ({ activity
 	}, [active?.id, active?.type, active?.path, active?.bufferId, openPath, updateBufferId])
 
 	if (!active) return null
-	if (active.type === 'chat') return <ChatWorkspace activityPaneRef={activityPaneRef} />
+	if (active.type === 'chat') return <ChatWorkspace />
 	if (active.type === 'editor') return active.bufferId ? <FileEditorContainer bufferId={active.bufferId} /> : <div className="p-3">Loading…</div>
+	if (active.type === 'viewer' && active.path) return <HtmlViewer path={active.path} title={active.title} />
 	return null
 }
 

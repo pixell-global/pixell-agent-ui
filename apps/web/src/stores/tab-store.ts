@@ -2,7 +2,7 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 
-export type WorkspaceTabType = 'chat' | 'editor'
+export type WorkspaceTabType = 'chat' | 'editor' | 'viewer'
 
 export interface WorkspaceTab {
 	id: string
@@ -22,11 +22,12 @@ interface TabState {
 	openChatTab: (title?: string, conversationId?: string) => string
 	openConversation: (conversationId: string, title: string) => string
 	openEditorTab: (args: { path: string; title?: string; bufferId?: string }) => string
+	openViewerTab: (args: { path: string; title?: string }) => string
 	closeTab: (id: string) => void
 	setActiveTab: (id: string) => void
 	markDirty: (id: string, dirty: boolean) => void
 	updateBufferId: (id: string, bufferId: string) => void
-	updateTabConversation: (tabId: string, conversationId: string) => void
+	updateTabConversation: (tabId: string, conversationId: string | undefined) => void
 	updateTabTitle: (tabId: string, title: string) => void
 	getActiveTab: () => WorkspaceTab | undefined
 }
@@ -73,6 +74,18 @@ export const useTabStore = create<TabState>()(
 			}
 			const id = generateId()
 			const tab: WorkspaceTab = { id, type: 'editor', title: title || path.split('/').pop() || 'Untitled', path, bufferId }
+			set((state) => ({ tabs: [...state.tabs, tab], activeTabId: id }))
+			return id
+		},
+		openViewerTab: ({ path, title }) => {
+			// Focus if already open
+			const existing = get().tabs.find((t) => t.type === 'viewer' && t.path === path)
+			if (existing) {
+				set({ activeTabId: existing.id })
+				return existing.id
+			}
+			const id = generateId()
+			const tab: WorkspaceTab = { id, type: 'viewer', title: title || path.split('/').pop() || 'Report', path }
 			set((state) => ({ tabs: [...state.tabs, tab], activeTabId: id }))
 			return id
 		},

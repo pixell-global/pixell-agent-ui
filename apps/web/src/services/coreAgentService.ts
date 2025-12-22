@@ -207,6 +207,16 @@ export class CoreAgentService {
                     error: eventData.error || 'Unknown error'
                   }
                   onStream(chunk)
+                } else if (eventData.type === 'file_created') {
+                  const chunk: StreamingResponse = {
+                    type: 'file_created',
+                    path: eventData.path,
+                    name: eventData.name,
+                    format: eventData.format,
+                    size: eventData.size,
+                    summary: eventData.summary
+                  }
+                  onStream(chunk)
                 }
               } catch (parseError) {
                 console.warn('Failed to parse SSE data:', parseError, jsonData)

@@ -124,7 +124,7 @@ export const FileContextMenu: React.FC<FileContextMenuProps> = ({
       <div className="border-t border-border mx-2" />
       
       <button
-        className="w-full px-3 py-2 text-left text-sm hover:bg-accent flex items-center gap-2 text-destructive"
+        className="w-full px-3 py-2 text-left text-sm hover:bg-red-500/20 hover:text-red-400 flex items-center gap-2 transition-colors"
         onClick={() => handleAction(() => onDelete(node))}
       >
         <Trash2 className="h-4 w-4" />

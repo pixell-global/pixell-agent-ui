@@ -11,11 +11,15 @@
     "lint": "next lint",
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:quota": "playwright test __tests__/e2e/feature-quota-flow.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.932.0",
     "@pixell/db-mysql": "file:../../packages/db-mysql",
+    "@pixell/file-storage": "file:../../packages/file-storage",
     "@pixell/renderer": "file:../../packages/renderer",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-avatar": "^1.1.10",
@@ -57,12 +61,14 @@
     "stripe": "^19.3.1",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
+    "undici": "^7.16.0",
     "uuid": "^13.0.0",
     "zod": "^3.25.76",
     "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.49.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "@types/dompurify": "^3.0.5",
@@ -72,6 +78,7 @@
     "@types/react-dom": "^19.1.6",
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/uuid": "^10.0.0",
+    "dotenv": "^17.2.3",
     "eslint": "^9",
     "eslint-config-next": "15.1.6",
     "jest": "^30.2.0",

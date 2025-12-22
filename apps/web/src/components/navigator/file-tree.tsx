@@ -317,9 +317,27 @@ export const FileTree: React.FC<FileTreeProps> = ({
     }
   }
 
-  const handleDelete = (node: FileNode) => {
-    if (confirm(`Are you sure you want to delete "${node.name}"?`)) {
-      removeFileNode(node.path)
+  const handleDelete = async (node: FileNode) => {
+    if (confirm(`Are you sure you want to delete "${node.name}"?${node.type === 'folder' ? ' This will delete all contents.' : ''}`)) {
+      try {
+        // Normalize the file path (remove leading slash if present)
+        const normalizedPath = node.path.startsWith('/') ? node.path.substring(1) : node.path
+
+        const response = await fetch(`/api/files?path=${encodeURIComponent(normalizedPath)}`, {
+          method: 'DELETE'
+        })
+
+        if (response.ok) {
+          removeFileNode(node.path)
+          console.log(`Deleted: ${node.name}`)
+        } else {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Delete failed')
+        }
+      } catch (error) {
+        console.error(`Failed to delete ${node.name}:`, error)
+        alert(`Failed to delete ${node.name}. Please try again.`)
+      }
     }
   }
 

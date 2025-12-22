@@ -8,6 +8,12 @@ import { getWorkflowSessionStore } from '../services/workflow-session'
 import { uploadAgentOutputToS3, extractFilename } from '../utils/file-upload'
 import { broadcastUpdate } from '../index'
 import { queueExtraction } from '../services/memory-extraction'
+import {
+  createSessionEvents,
+  processSSEEvent,
+  getPrimaryBillingClaim,
+  SessionEvents,
+} from '../services/billing-detector'
 
 // Get workflow session store singleton
 const workflowStore = getWorkflowSessionStore()
@@ -1074,11 +1080,31 @@ export async function a2aStreamHandler(req: Request, res: Response) {
     // Get org ID from headers (passed from frontend)
     const orgId = req.headers['x-org-id'] as string
 
+    // BILLING DEBUG: Log all billing-relevant parameters at request start
+    console.log('💰 [BILLING DEBUG] Request parameters:', {
+      orgId: orgId || '❌ MISSING',
+      userId: userId || '❌ MISSING',
+      selectedAgentId: selectedAgentId || '❌ MISSING',
+      agentUrl,
+      hasOrgId: !!orgId,
+      hasUserId: !!userId,
+      hasSelectedAgentId: !!selectedAgentId,
+    })
+
+    // Initialize billing event tracker for output-based detection
+    const billingSessionEvents: SessionEvents = createSessionEvents()
+
     // Check quota before executing agent task
     let quotaFeature: FeatureType | null = null
     if (orgId && selectedAgentId) {
+      console.log('💰 [BILLING DEBUG] Checking quota for agent:', selectedAgentId)
       const quotaCheck = await checkAgentQuota(orgId, selectedAgentId)
       quotaFeature = quotaCheck.feature
+      console.log('💰 [BILLING DEBUG] Quota check result:', {
+        feature: quotaFeature || '❌ NO FEATURE MAPPING',
+        allowed: quotaCheck.allowed,
+        result: quotaCheck.result,
+      })
 
       if (!quotaCheck.allowed && quotaCheck.result) {
         return res.status(403).json({
@@ -1090,6 +1116,11 @@ export async function a2aStreamHandler(req: Request, res: Response) {
           remaining: quotaCheck.result.remaining,
         })
       }
+    } else {
+      console.log('💰 [BILLING DEBUG] ⚠️ Skipping quota check - missing:', {
+        orgId: !orgId ? '❌ orgId' : '✅',
+        selectedAgentId: !selectedAgentId ? '❌ selectedAgentId' : '✅',
+      })
     }
 
     // Load and inject memories if not in incognito mode
@@ -1264,6 +1295,9 @@ export async function a2aStreamHandler(req: Request, res: Response) {
               const event = JSON.parse(dataStr)
               const result = event.result
 
+              // Track events for billing detection
+              processSSEEvent(billingSessionEvents, event)
+
               // Handle pixell-sdk flat event format (no result wrapper)
               // pixell-sdk sends events like: {"state": "input-required", "type": "clarification_needed", ...}
               if (!result && event.state) {
@@ -1276,9 +1310,12 @@ export async function a2aStreamHandler(req: Request, res: Response) {
                   const eventWorkflowId = event.workflowId || workflow.workflowId
                   await workflowStore.updatePhase(eventWorkflowId, 'clarification', {
                     clarification: {
+                      type: 'clarification_needed',
                       clarificationId: event.clarificationId,
+                      agentId: selectedAgentId || agentUrl,
                       questions: event.questions,
                       message: event.message,
+                      timeoutMs: event.timeoutMs || 300000,
                     }
                   })
 
@@ -1662,18 +1699,50 @@ export async function a2aStreamHandler(req: Request, res: Response) {
     }
 
     // Record usage on successful completion
-    if (taskCompletedSuccessfully && orgId && userId && quotaFeature) {
-      console.log('📊 Recording quota usage for successful task completion')
+    // Try output-based detection first, fall back to agent config
+    const detectedClaim = getPrimaryBillingClaim(billingSessionEvents)
+    const finalFeatureType = detectedClaim?.type || quotaFeature
+
+    // BILLING DEBUG: Log all conditions for quota recording
+    console.log('💰 [BILLING DEBUG] Quota recording check:', {
+      taskCompletedSuccessfully,
+      orgId: orgId || '❌ MISSING',
+      userId: userId || '❌ MISSING',
+      quotaFeatureFromAgent: quotaFeature || '❌ MISSING',
+      detectedClaim: detectedClaim ? {
+        type: detectedClaim.type,
+        source: detectedClaim.source,
+        confidence: detectedClaim.confidence,
+      } : '❌ NO DETECTION',
+      finalFeatureType: finalFeatureType || '❌ NONE',
+      allConditionsMet: !!(taskCompletedSuccessfully && orgId && userId && finalFeatureType),
+      selectedAgentId: selectedAgentId || '❌ MISSING',
+    })
+
+    if (taskCompletedSuccessfully && orgId && userId && finalFeatureType) {
+      console.log('💰 [BILLING DEBUG] ✅ All conditions met - recording quota usage')
+      console.log('💰 [BILLING DEBUG] Using feature type:', finalFeatureType, 'from:', detectedClaim ? detectedClaim.source : 'agent_config')
+
       const usageResult = await recordAgentUsage(orgId, userId, selectedAgentId || agentUrl, {
         workflowId: workflow.workflowId,
         sessionId,
         completedAt: new Date().toISOString(),
+        // Include billing metadata for audit
+        billingSource: detectedClaim?.source || 'agent_config',
+        billingMetadata: detectedClaim?.metadata,
       })
       if (usageResult.success) {
-        console.log(`✅ Quota usage recorded: ${usageResult.newUsage} total uses`)
+        console.log(`💰 [BILLING DEBUG] ✅ Quota usage recorded: ${usageResult.newUsage} total uses`)
       } else {
-        console.warn(`⚠️ Failed to record quota usage: ${usageResult.error}`)
+        console.warn(`💰 [BILLING DEBUG] ⚠️ Failed to record quota usage: ${usageResult.error}`)
       }
+    } else {
+      console.log('💰 [BILLING DEBUG] ❌ NOT recording quota - missing conditions:', {
+        taskCompletedSuccessfully: !taskCompletedSuccessfully ? '❌' : '✅',
+        orgId: !orgId ? '❌' : '✅',
+        userId: !userId ? '❌' : '✅',
+        finalFeatureType: !finalFeatureType ? '❌' : '✅',
+      })
     }
 
     // Queue memory extraction on successful completion (if not in incognito mode)

@@ -29,14 +29,14 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({ node, ...props }) 
       );
       
     default:
-      // Fallback renderer for unknown block types
+      // Fallback renderer for unknown block types - dark theme
       return (
         <div className="my-4 pixell-block-container">
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <div className="text-xs text-gray-500 mb-2 font-mono">
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="text-xs text-white/60 mb-2 font-mono">
               Block type: {blockData.type}
             </div>
-            <pre className="text-xs overflow-auto bg-gray-100 p-2 rounded">
+            <pre className="text-xs overflow-auto bg-white/5 p-2 rounded text-white/80">
               {JSON.stringify(blockData.payload, null, 2)}
             </pre>
           </div>

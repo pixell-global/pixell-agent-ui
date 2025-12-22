@@ -22,14 +22,14 @@ export const SimpleStreamingRenderer: React.FC<SimpleStreamingRendererProps> = (
 
   if (!content && !isStreaming) {
     console.warn('⚠️ SimpleStreamingRenderer: No content and not streaming');
-    return <div className={`text-gray-400 italic ${className}`}>No content</div>;
+    return <div className={`text-white/40 italic ${className}`}>No content</div>;
   }
 
   return (
-    <div className={`whitespace-pre-wrap ${className}`}>
+    <div className={`whitespace-pre-wrap text-white/90 ${className}`}>
       {content}
       {isStreaming && (
-        <span className="animate-pulse text-blue-500 ml-1">|</span>
+        <span className="animate-pulse text-pixell-yellow ml-1">|</span>
       )}
     </div>
   );

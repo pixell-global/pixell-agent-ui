@@ -26,6 +26,15 @@ export const stripe = (() => {
 
 /**
  * Subscription Plan Configuration
+ *
+ * Action-based billing: 1 action = 1 count (regardless of output size)
+ *
+ * | Plan    | Research | Ideation | Auto-posting | Monitors |
+ * |---------|----------|----------|--------------|----------|
+ * | Free    | 2        | 10       | N/A          | N/A      |
+ * | Starter | 10       | 30       | N/A          | N/A      |
+ * | Pro     | 60       | 300      | 30           | 3        |
+ * | Max     | 300      | 3,000    | 300          | 20       |
  */
 export const SUBSCRIPTION_PLANS = {
   free: {
@@ -33,17 +42,15 @@ export const SUBSCRIPTION_PLANS = {
     name: 'Free',
     price: 0,
     stripePriceId: null, // No Stripe price for free tier
-    credits: {
-      small: 10,
-      medium: 4,
-      large: 2,
-      xl: 1,
+    quotas: {
+      research: 2,
+      ideation: 10,
+      autoPosting: 0, // N/A
+      monitors: 0, // N/A
     },
     features: [
-      '10 small actions/month',
-      '4 medium actions/month',
-      '2 large actions/month',
-      '1 XL action/month',
+      '2 research actions/month',
+      '10 ideation runs/month',
       'Community support',
     ],
   },
@@ -52,17 +59,15 @@ export const SUBSCRIPTION_PLANS = {
     name: 'Starter',
     price: 9.99,
     stripePriceId: process.env.STRIPE_PRICE_ID_STARTER || '',
-    credits: {
-      small: 50,
-      medium: 20,
-      large: 10,
-      xl: 5,
+    quotas: {
+      research: 10,
+      ideation: 30,
+      autoPosting: 0, // N/A
+      monitors: 0, // N/A
     },
     features: [
-      '50 small actions/month',
-      '20 medium actions/month',
-      '10 large actions/month',
-      '5 XL actions/month',
+      '10 research actions/month',
+      '30 ideation runs/month',
       'Email support',
       'Priority task queue',
     ],
@@ -72,20 +77,19 @@ export const SUBSCRIPTION_PLANS = {
     name: 'Pro',
     price: 99,
     stripePriceId: process.env.STRIPE_PRICE_ID_PRO || '',
-    credits: {
-      small: 500,
-      medium: 200,
-      large: 100,
-      xl: 50,
+    quotas: {
+      research: 60,
+      ideation: 300,
+      autoPosting: 30,
+      monitors: 3, // Concurrent limit
     },
     features: [
-      '500 small actions/month',
-      '200 medium actions/month',
-      '100 large actions/month',
-      '50 XL actions/month',
+      '60 research actions/month',
+      '300 ideation runs/month',
+      '30 auto-posts/month',
+      '3 concurrent monitors',
       'Priority support',
       'Advanced analytics',
-      'Custom integrations',
     ],
   },
   max: {
@@ -93,20 +97,19 @@ export const SUBSCRIPTION_PLANS = {
     name: 'Max',
     price: 499.99,
     stripePriceId: process.env.STRIPE_PRICE_ID_MAX || '',
-    credits: {
-      small: 2500,
-      medium: 1000,
-      large: 500,
-      xl: 250,
+    quotas: {
+      research: 300,
+      ideation: 3000,
+      autoPosting: 300,
+      monitors: 20, // Concurrent limit
     },
     features: [
-      '2,500 small actions/month',
-      '1,000 medium actions/month',
-      '500 large actions/month',
-      '250 XL actions/month',
+      '300 research actions/month',
+      '3,000 ideation runs/month',
+      '300 auto-posts/month',
+      '20 concurrent monitors',
       'Dedicated support',
       'Custom SLA',
-      'White-label options',
       'API access',
     ],
   },
@@ -115,45 +118,11 @@ export const SUBSCRIPTION_PLANS = {
 export type SubscriptionTier = keyof typeof SUBSCRIPTION_PLANS
 
 /**
- * Credit Pricing for Top-ups
- * 500 credits for $20 = $0.04 per credit
- */
-export const CREDIT_TOPUP = {
-  amount: 500,
-  price: 20,
-  pricePerCredit: 0.04,
-  stripePriceId: process.env.STRIPE_PRICE_ID_TOPUP_500 || '',
-} as const
-
-/**
- * Credit costs per action tier (in credits)
- */
-export const ACTION_CREDIT_COSTS = {
-  small: 1,
-  medium: 2.5,
-  large: 5,
-  xl: 15,
-} as const
-
-export type ActionTier = keyof typeof ACTION_CREDIT_COSTS
-
-/**
  * Trial Configuration
  */
 export const TRIAL_CONFIG = {
   durationDays: 7,
   requireCard: false,
-} as const
-
-/**
- * Auto Top-up Configuration
- */
-export const AUTO_TOPUP_CONFIG = {
-  defaultThreshold: 50, // credits
-  defaultAmount: 500, // credits to add
-  minThreshold: 10,
-  maxThreshold: 500,
-  allowedAmounts: [100, 250, 500, 1000], // allowed top-up amounts
 } as const
 
 /**
@@ -186,15 +155,19 @@ export function isValidTier(tier: string): tier is SubscriptionTier {
 }
 
 /**
- * Helper function to calculate credit balance for a plan
+ * Helper function to get plan quotas
  */
-export function calculatePlanCredits(tier: SubscriptionTier) {
+export function getPlanQuotas(tier: SubscriptionTier) {
   const plan = SUBSCRIPTION_PLANS[tier]
   return {
-    includedSmall: plan.credits.small,
-    includedMedium: plan.credits.medium,
-    includedLarge: plan.credits.large,
-    includedXl: plan.credits.xl,
+    researchLimit: plan.quotas.research,
+    ideationLimit: plan.quotas.ideation,
+    autoPostingLimit: plan.quotas.autoPosting,
+    monitorsLimit: plan.quotas.monitors,
+    researchAvailable: plan.quotas.research > 0,
+    ideationAvailable: plan.quotas.ideation > 0,
+    autoPostingAvailable: plan.quotas.autoPosting > 0,
+    monitorsAvailable: plan.quotas.monitors > 0,
   }
 }
 

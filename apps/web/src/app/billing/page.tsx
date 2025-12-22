@@ -24,22 +24,31 @@ const planDescriptions: Record<SubscriptionTier, string> = {
 
 function getPlanFeatures(tier: SubscriptionTier): string[] {
   const plan = SUBSCRIPTION_PLANS[tier]
-  const features = [
-    `${plan.credits.small} Small credits/month`,
-    `${plan.credits.medium} Medium credits/month`,
-    `${plan.credits.large} Large credits/month`,
-    `${plan.credits.xl} XL credits/month`,
-  ]
+  const features: string[] = []
+
+  // Add quota-based features
+  if (plan.quotas.research > 0) {
+    features.push(`${plan.quotas.research} Research actions/month`)
+  }
+  if (plan.quotas.ideation > 0) {
+    features.push(`${plan.quotas.ideation} Ideation runs/month`)
+  }
+  if (plan.quotas.autoPosting > 0) {
+    features.push(`${plan.quotas.autoPosting} Auto-posts/month`)
+  }
+  if (plan.quotas.monitors > 0) {
+    features.push(`${plan.quotas.monitors} Concurrent monitors`)
+  }
 
   // Add tier-specific features
   if (tier === 'free') {
-    features.push('Basic support', 'Community access')
+    features.push('Community support', 'Basic features')
   } else if (tier === 'starter') {
-    features.push('Email support', 'Basic integrations', 'API access')
+    features.push('Email support', 'Priority task queue')
   } else if (tier === 'pro') {
-    features.push('Priority support', 'Advanced integrations', 'API access', 'Team collaboration')
+    features.push('Priority support', 'Advanced analytics', 'Team collaboration')
   } else if (tier === 'max') {
-    features.push('24/7 Premium support', 'All integrations', 'API access', 'Dedicated account manager', 'Custom SLA')
+    features.push('Dedicated support', 'Custom SLA', 'API access')
   }
 
   return features

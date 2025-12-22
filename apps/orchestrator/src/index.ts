@@ -2,7 +2,38 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
-import { streamChatHandler, healthHandler, statusHandler, modelsHandler, respondHandler, clarificationsHandler } from './api/chat';
+import { streamChatHandler, healthHandler, statusHandler, modelsHandler, respondHandler, clarificationsHandler, a2aStreamHandler, agentsHandler } from './api/chat';
+import {
+  listMemoriesHandler,
+  getMemoryHandler,
+  createMemoryHandler,
+  updateMemoryHandler,
+  deleteMemoryHandler,
+  deleteAllMemoriesHandler,
+  getMemoryContextHandler,
+  getSettingsHandler,
+  updateSettingsHandler,
+  triggerExtractionHandler,
+  recordUsageHandler,
+} from './api/memories';
+import {
+  listSchedulesHandler,
+  getScheduleHandler,
+  createScheduleHandler,
+  createFromProposalHandler,
+  updateScheduleHandler,
+  deleteScheduleHandler,
+  approveScheduleHandler,
+  pauseScheduleHandler,
+  resumeScheduleHandler,
+  runScheduleHandler,
+  listExecutionsHandler,
+  getExecutionHandler,
+  cancelExecutionHandler,
+  getStatsHandler,
+} from './api/schedules';
+import { SchedulerService } from './services/scheduler-service';
+import { startExtractionProcessor } from './services/memory-extraction';
 import { config } from 'dotenv';
 import { resolve } from 'path';
 
@@ -38,7 +69,7 @@ let demoStats = {
 };
 
 // Broadcast updates to all clients (SSE and WebSocket)
-const broadcastUpdate = (data: any) => {
+export const broadcastUpdate = (data: any) => {
   // SSE clients
   const sseMessage = `data: ${JSON.stringify(data)}\n\n`;
   sseClients.forEach(client => {
@@ -374,6 +405,338 @@ app.get('/api/chat/clarifications', async (req, res) => {
   }
 });
 
+// A2A Protocol: Stream from external agents
+app.post('/api/chat/a2a/stream', async (req, res) => {
+  try {
+    await a2aStreamHandler(req, res);
+  } catch (error) {
+    console.error('A2A stream error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'A2A stream failed' });
+    }
+  }
+});
+
+// Agent Configuration: Get available agents
+app.get('/api/agents', async (req, res) => {
+  try {
+    await agentsHandler(req, res);
+  } catch (error) {
+    console.error('Agents handler error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to get agents' });
+    }
+  }
+});
+
+// =========================================================================
+// Memory System API Endpoints
+// =========================================================================
+
+// List memories with filters
+app.get('/api/memories', async (req, res) => {
+  try {
+    await listMemoriesHandler(req, res);
+  } catch (error) {
+    console.error('List memories error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to list memories' });
+    }
+  }
+});
+
+// Get memory context for injection
+app.get('/api/memories/context', async (req, res) => {
+  try {
+    await getMemoryContextHandler(req, res);
+  } catch (error) {
+    console.error('Get memory context error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to get memory context' });
+    }
+  }
+});
+
+// Get user memory settings
+app.get('/api/memories/settings', async (req, res) => {
+  try {
+    await getSettingsHandler(req, res);
+  } catch (error) {
+    console.error('Get settings error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to get settings' });
+    }
+  }
+});
+
+// Update user memory settings
+app.patch('/api/memories/settings', async (req, res) => {
+  try {
+    await updateSettingsHandler(req, res);
+  } catch (error) {
+    console.error('Update settings error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to update settings' });
+    }
+  }
+});
+
+// Get a single memory
+app.get('/api/memories/:id', async (req, res) => {
+  try {
+    await getMemoryHandler(req, res);
+  } catch (error) {
+    console.error('Get memory error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to get memory' });
+    }
+  }
+});
+
+// Create a new memory
+app.post('/api/memories', async (req, res) => {
+  try {
+    await createMemoryHandler(req, res);
+  } catch (error) {
+    console.error('Create memory error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to create memory' });
+    }
+  }
+});
+
+// Update a memory
+app.patch('/api/memories/:id', async (req, res) => {
+  try {
+    await updateMemoryHandler(req, res);
+  } catch (error) {
+    console.error('Update memory error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to update memory' });
+    }
+  }
+});
+
+// Delete a memory
+app.delete('/api/memories/:id', async (req, res) => {
+  try {
+    await deleteMemoryHandler(req, res);
+  } catch (error) {
+    console.error('Delete memory error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to delete memory' });
+    }
+  }
+});
+
+// Delete all memories
+app.delete('/api/memories', async (req, res) => {
+  try {
+    await deleteAllMemoriesHandler(req, res);
+  } catch (error) {
+    console.error('Delete all memories error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to delete memories' });
+    }
+  }
+});
+
+// Trigger memory extraction
+app.post('/api/memories/extract', async (req, res) => {
+  try {
+    await triggerExtractionHandler(req, res);
+  } catch (error) {
+    console.error('Trigger extraction error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to trigger extraction' });
+    }
+  }
+});
+
+// Record memory usage
+app.post('/api/memories/usage', async (req, res) => {
+  try {
+    await recordUsageHandler(req, res);
+  } catch (error) {
+    console.error('Record usage error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to record usage' });
+    }
+  }
+});
+
+// =============================================================================
+// SCHEDULES API ROUTES
+// =============================================================================
+
+// Get schedule stats
+app.get('/api/schedules/stats', async (req, res) => {
+  try {
+    await getStatsHandler(req, res);
+  } catch (error) {
+    console.error('Get schedule stats error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to get schedule stats' });
+    }
+  }
+});
+
+// List schedules
+app.get('/api/schedules', async (req, res) => {
+  try {
+    await listSchedulesHandler(req, res);
+  } catch (error) {
+    console.error('List schedules error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to list schedules' });
+    }
+  }
+});
+
+// Get a schedule by ID
+app.get('/api/schedules/:id', async (req, res) => {
+  try {
+    await getScheduleHandler(req, res);
+  } catch (error) {
+    console.error('Get schedule error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to get schedule' });
+    }
+  }
+});
+
+// Create a schedule
+app.post('/api/schedules', async (req, res) => {
+  try {
+    await createScheduleHandler(req, res);
+  } catch (error) {
+    console.error('Create schedule error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to create schedule' });
+    }
+  }
+});
+
+// Create a schedule from proposal
+app.post('/api/schedules/from-proposal', async (req, res) => {
+  try {
+    await createFromProposalHandler(req, res);
+  } catch (error) {
+    console.error('Create from proposal error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to create schedule from proposal' });
+    }
+  }
+});
+
+// Update a schedule
+app.patch('/api/schedules/:id', async (req, res) => {
+  try {
+    await updateScheduleHandler(req, res);
+  } catch (error) {
+    console.error('Update schedule error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to update schedule' });
+    }
+  }
+});
+
+// Delete a schedule
+app.delete('/api/schedules/:id', async (req, res) => {
+  try {
+    await deleteScheduleHandler(req, res);
+  } catch (error) {
+    console.error('Delete schedule error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to delete schedule' });
+    }
+  }
+});
+
+// Approve a schedule
+app.post('/api/schedules/:id/approve', async (req, res) => {
+  try {
+    await approveScheduleHandler(req, res);
+  } catch (error) {
+    console.error('Approve schedule error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to approve schedule' });
+    }
+  }
+});
+
+// Pause a schedule
+app.post('/api/schedules/:id/pause', async (req, res) => {
+  try {
+    await pauseScheduleHandler(req, res);
+  } catch (error) {
+    console.error('Pause schedule error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to pause schedule' });
+    }
+  }
+});
+
+// Resume a schedule
+app.post('/api/schedules/:id/resume', async (req, res) => {
+  try {
+    await resumeScheduleHandler(req, res);
+  } catch (error) {
+    console.error('Resume schedule error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to resume schedule' });
+    }
+  }
+});
+
+// Manually run a schedule
+app.post('/api/schedules/:id/run', async (req, res) => {
+  try {
+    await runScheduleHandler(req, res);
+  } catch (error) {
+    console.error('Run schedule error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to run schedule' });
+    }
+  }
+});
+
+// List executions for a schedule
+app.get('/api/schedules/:id/executions', async (req, res) => {
+  try {
+    await listExecutionsHandler(req, res);
+  } catch (error) {
+    console.error('List executions error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to list executions' });
+    }
+  }
+});
+
+// Get an execution by ID
+app.get('/api/schedules/:id/executions/:executionId', async (req, res) => {
+  try {
+    await getExecutionHandler(req, res);
+  } catch (error) {
+    console.error('Get execution error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to get execution' });
+    }
+  }
+});
+
+// Cancel an execution
+app.post('/api/schedules/:id/executions/:executionId/cancel', async (req, res) => {
+  try {
+    await cancelExecutionHandler(req, res);
+  } catch (error) {
+    console.error('Cancel execution error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: 'Failed to cancel execution' });
+    }
+  }
+});
+
 // Create a simulated task with real-time progress
 const createTask = (name: string, description: string, agentId: string, agentName: string) => {
   const task = {
@@ -519,11 +882,144 @@ app.post('/demo/full', async (req, res) => {
 });
 
 // Start the server
-server.listen(port, () => {
+server.listen(port, async () => {
   console.log('')
   console.log('🎉 PIXELL AGENT FRAMEWORK - PHASE 2')
   console.log('='.repeat(50))
   console.log(`🚀 Orchestrator running on http://localhost:${port}`)
+
+  // Initialize scheduler service with execution handler
+  try {
+    const schedulerService = SchedulerService.getInstance()
+
+    // Set up execution handler that calls agents when schedules fire
+    schedulerService.setExecutionHandler(async (context) => {
+      const { schedule, execution, activityId } = context
+      console.log(`⏰ Executing schedule: ${schedule.name} (${schedule.id})`)
+      console.log(`   Agent: ${schedule.agentId}, Prompt: ${schedule.prompt.substring(0, 50)}...`)
+
+      try {
+        // Get agent configuration
+        const { getAgentById } = await import('./utils/agents')
+        const agent = getAgentById(schedule.agentId)
+
+        if (!agent) {
+          console.error(`⏰ Agent not found: ${schedule.agentId}`)
+          return { success: false, error: `Agent not found: ${schedule.agentId}` }
+        }
+
+        console.log(`⏰ Calling agent at ${agent.url}`)
+
+        // Create unique IDs for this execution
+        const messageId = `scheduled_${execution.id}_${Date.now()}`
+        const sessionId = `scheduled_session_${execution.id}`
+
+        // Call the agent with the scheduled prompt using A2A protocol
+        // Use the special "scheduled_execution" metadata flag
+        const response = await fetch(agent.url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+          },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'message/stream',
+            id: messageId,
+            params: {
+              sessionId,
+              message: {
+                messageId,
+                role: 'user',
+                parts: [{ text: schedule.prompt }],
+                metadata: {
+                  scheduled_execution: true,  // Flag to skip clarification
+                  schedule_id: schedule.id,
+                  execution_id: execution.id,
+                  activity_id: activityId,
+                }
+              },
+              metadata: {
+                scheduled_execution: true,
+                schedule_id: schedule.id,
+              }
+            }
+          }),
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error(`⏰ Agent request failed: ${response.status} ${errorText}`)
+          return { success: false, error: `Agent request failed: ${response.status}` }
+        }
+
+        // Read and process the SSE stream to completion
+        const reader = response.body?.getReader()
+        if (!reader) {
+          return { success: false, error: 'No response body' }
+        }
+
+        let resultSummary = ''
+        let hasError = false
+        let errorMessage = ''
+        const decoder = new TextDecoder()
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value, { stream: true })
+          const lines = chunk.split('\n')
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6))
+
+                // Check for completion
+                if (data.type === 'completed' || data.event === 'completed') {
+                  resultSummary = data.data?.message || data.message || 'Completed successfully'
+                  console.log(`⏰ Schedule execution completed: ${resultSummary.substring(0, 100)}`)
+                }
+
+                // Check for error
+                if (data.type === 'error' || data.event === 'error') {
+                  hasError = true
+                  errorMessage = data.data?.message || data.message || 'Unknown error'
+                  console.error(`⏰ Schedule execution error: ${errorMessage}`)
+                }
+              } catch (e) {
+                // Not JSON, skip
+              }
+            }
+          }
+        }
+
+        if (hasError) {
+          return { success: false, error: errorMessage }
+        }
+
+        return { success: true, summary: resultSummary }
+
+      } catch (error: any) {
+        console.error(`⏰ Schedule execution error:`, error)
+        return { success: false, error: error.message || 'Unknown error' }
+      }
+    })
+
+    await schedulerService.start()
+    console.log('⏰ Scheduler service started with execution handler')
+  } catch (error) {
+    console.error('⏰ Failed to start scheduler service:', error)
+  }
+
+  // Start memory extraction background processor (processes pending extraction jobs)
+  try {
+    startExtractionProcessor(300000) // Run every 5 minutes
+    console.log('🧠 Memory extraction processor started')
+  } catch (error) {
+    console.error('🧠 Failed to start memory extraction processor:', error)
+  }
   console.log('')
   console.log('📚 API Endpoints:')
   console.log(`   GET  /health - Health check and framework info`)
@@ -543,6 +1039,35 @@ server.listen(port, () => {
   console.log('📋 Plan Mode Endpoints:')
   console.log(`   POST /api/chat/respond - Send clarification response`)
   console.log(`   GET  /api/chat/clarifications - Pending clarifications status`)
+  console.log('')
+  console.log('🔗 A2A Protocol Endpoints:')
+  console.log(`   POST /api/chat/a2a/stream - Stream from external A2A agent`)
+  console.log(`   GET  /api/agents - Get configured agents`)
+  console.log('')
+  console.log('🧠 Memory System Endpoints:')
+  console.log(`   GET  /api/memories - List memories with filters`)
+  console.log(`   POST /api/memories - Create a memory`)
+  console.log(`   GET  /api/memories/:id - Get a memory`)
+  console.log(`   PATCH /api/memories/:id - Update a memory`)
+  console.log(`   DELETE /api/memories/:id - Delete a memory`)
+  console.log(`   GET  /api/memories/context - Get memories for context injection`)
+  console.log(`   GET  /api/memories/settings - Get user memory settings`)
+  console.log(`   PATCH /api/memories/settings - Update memory settings`)
+  console.log(`   POST /api/memories/extract - Trigger memory extraction`)
+  console.log('')
+  console.log('⏰ Schedule System Endpoints:')
+  console.log(`   GET  /api/schedules - List schedules with filters`)
+  console.log(`   POST /api/schedules - Create a schedule`)
+  console.log(`   GET  /api/schedules/:id - Get a schedule`)
+  console.log(`   PATCH /api/schedules/:id - Update a schedule`)
+  console.log(`   DELETE /api/schedules/:id - Delete a schedule`)
+  console.log(`   POST /api/schedules/from-proposal - Create from agent proposal`)
+  console.log(`   POST /api/schedules/:id/approve - Approve pending schedule`)
+  console.log(`   POST /api/schedules/:id/pause - Pause a schedule`)
+  console.log(`   POST /api/schedules/:id/resume - Resume a schedule`)
+  console.log(`   POST /api/schedules/:id/run - Trigger manual run`)
+  console.log(`   GET  /api/schedules/:id/executions - List executions`)
+  console.log(`   GET  /api/schedules/stats - Get schedule statistics`)
   console.log('')
   console.log('✨ New Phase 2 Features:')
   console.log('   • Multi-agent orchestration')

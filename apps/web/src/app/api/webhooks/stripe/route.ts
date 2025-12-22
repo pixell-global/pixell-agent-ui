@@ -44,9 +44,31 @@ import { stripe, WEBHOOK_CONFIG } from '@/lib/billing/stripe-config'
 import { getDb } from '@pixell/db-mysql'
 import { subscriptions, organizations, webhookEvents, creditPurchases } from '@pixell/db-mysql/schema'
 import { eq } from 'drizzle-orm'
-import { resetCreditsForNewPeriod, addTopupCredits } from '@/lib/billing/credit-manager'
+import { addTopupCredits } from '@/lib/billing/credit-manager'
+import {
+  initializeFeatureQuotas,
+  resetMonthlyQuotas,
+  updateQuotasForTierChange,
+  hasFeatureQuotas,
+} from '@/lib/billing/quota-manager'
 import Stripe from 'stripe'
 import { v4 as uuidv4 } from 'uuid'
+
+/**
+ * Safely convert a Unix timestamp to a Date object
+ * Returns null if the timestamp is invalid/undefined
+ */
+function safeTimestampToDate(timestamp: number | null | undefined): Date | null {
+  if (timestamp === null || timestamp === undefined || isNaN(timestamp)) {
+    return null
+  }
+  const date = new Date(timestamp * 1000)
+  // Check if the date is valid
+  if (isNaN(date.getTime())) {
+    return null
+  }
+  return date
+}
 
 /**
  * Disable body parsing - Stripe requires raw body for signature verification
@@ -58,9 +80,9 @@ export async function POST(request: NextRequest) {
   const body = await request.text()
   const signature = request.headers.get('stripe-signature')
 
-  // Allow bypassing signature verification in local development
-  const isDevelopment = process.env.NODE_ENV === 'development'
-  const skipSignatureVerification = isDevelopment && process.env.STRIPE_SKIP_SIGNATURE_CHECK === 'true'
+  // Allow bypassing signature verification in local development/testing
+  const isDevelopmentOrTest = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test'
+  const skipSignatureVerification = isDevelopmentOrTest && process.env.STRIPE_SKIP_SIGNATURE_CHECK === 'true'
 
   let event: Stripe.Event
 
@@ -174,6 +196,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true })
   } catch (error) {
     console.error('[Stripe Webhook] Error processing event:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorStack = error instanceof Error ? error.stack : undefined
 
     try {
       const db = await getDb()
@@ -182,15 +206,20 @@ export async function POST(request: NextRequest) {
         .update(webhookEvents)
         .set({
           processedAt: new Date(),
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: errorMessage,
         })
         .where(eq(webhookEvents.stripeEventId, event.id))
     } catch (dbError) {
       console.error('[Stripe Webhook] Failed to update webhook event:', dbError)
     }
 
+    // Include error details in development/test mode for debugging
+    const isDev = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test'
     return NextResponse.json(
-      { error: 'Webhook processing failed' },
+      {
+        error: 'Webhook processing failed',
+        ...(isDev && { details: errorMessage, stack: errorStack })
+      },
       { status: 500 }
     )
   }
@@ -231,12 +260,23 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, db: Awa
 
   // Fetch the full subscription object from Stripe to get all details
   const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+  const sub = subscription as any // Cast to access all fields safely
+
+  console.log(`[Stripe Webhook] Retrieved subscription from Stripe:`, {
+    id: subscription.id,
+    status: subscription.status,
+    current_period_start: sub.current_period_start,
+    current_period_end: sub.current_period_end,
+  })
 
   // Create or update subscription record in database
   const now = new Date()
-  const sub = subscription as any // Cast to access all fields safely
-  const currentPeriodStart = new Date(sub.current_period_start * 1000)
-  const currentPeriodEnd = new Date(sub.current_period_end * 1000)
+  const currentPeriodStart = safeTimestampToDate(sub.current_period_start)
+  const currentPeriodEnd = safeTimestampToDate(sub.current_period_end)
+
+  // Use fallback dates if Stripe doesn't provide period dates
+  const effectivePeriodStart = currentPeriodStart || now
+  const effectivePeriodEnd = currentPeriodEnd || new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) // 30 days default
 
   // Check if subscription already exists for this org
   const [existingSub] = await db
@@ -255,12 +295,12 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, db: Awa
         stripeSubscriptionId: subscriptionId,
         stripePriceId: sub.items?.data?.[0]?.price?.id || null,
         stripeCustomerId: sub.customer as string,
-        currentPeriodStart,
-        currentPeriodEnd,
-        trialEnd: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
+        currentPeriodStart: effectivePeriodStart,
+        currentPeriodEnd: effectivePeriodEnd,
+        trialEnd: safeTimestampToDate(sub.trial_end),
         cancelAtPeriodEnd: sub.cancel_at_period_end || false,
-        canceledAt: sub.canceled_at ? new Date(sub.canceled_at * 1000) : null,
-        endedAt: sub.ended_at ? new Date(sub.ended_at * 1000) : null,
+        canceledAt: safeTimestampToDate(sub.canceled_at),
+        endedAt: safeTimestampToDate(sub.ended_at),
         updatedAt: now,
       })
       .where(eq(subscriptions.orgId, orgId))
@@ -274,12 +314,12 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, db: Awa
       stripeSubscriptionId: subscriptionId,
       stripePriceId: sub.items?.data?.[0]?.price?.id || null,
       stripeCustomerId: sub.customer as string,
-      currentPeriodStart,
-      currentPeriodEnd,
-      trialEnd: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
+      currentPeriodStart: effectivePeriodStart,
+      currentPeriodEnd: effectivePeriodEnd,
+      trialEnd: safeTimestampToDate(sub.trial_end),
       cancelAtPeriodEnd: sub.cancel_at_period_end || false,
-      canceledAt: sub.canceled_at ? new Date(sub.canceled_at * 1000) : null,
-      endedAt: sub.ended_at ? new Date(sub.ended_at * 1000) : null,
+      canceledAt: safeTimestampToDate(sub.canceled_at),
+      endedAt: safeTimestampToDate(sub.ended_at),
       createdAt: now,
       updatedAt: now,
     })
@@ -291,12 +331,19 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, db: Awa
     .set({
       subscriptionTier: tier as any,
       subscriptionStatus: sub.status as any,
-      trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
+      trialEndsAt: safeTimestampToDate(sub.trial_end),
     })
     .where(eq(organizations.id, orgId))
 
-  // Reset credits for the new plan tier
-  await resetCreditsForNewPeriod(orgId, tier as any, currentPeriodStart, currentPeriodEnd)
+  // Initialize or update feature quotas (replaces deprecated credit system)
+  // For tier upgrades, preserve existing usage - only update limits
+  const quotasExist = await hasFeatureQuotas(orgId)
+  if (quotasExist) {
+    // Use updateQuotasForTierChange to preserve usage, only update limits
+    await updateQuotasForTierChange(orgId, tier as any)
+  } else {
+    await initializeFeatureQuotas(orgId, tier as any, effectivePeriodStart, effectivePeriodEnd)
+  }
 
   console.log(`[Stripe Webhook] Created subscription record for org ${orgId}, tier: ${tier}`)
 }
@@ -323,6 +370,10 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription, db: A
     .limit(1)
 
   if (existingSubscription) {
+    const sub = subscription as any
+    const periodStart = safeTimestampToDate(sub.current_period_start)
+    const periodEnd = safeTimestampToDate(sub.current_period_end)
+
     // Update existing subscription - including tier and price
     await db
       .update(subscriptions)
@@ -330,12 +381,12 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription, db: A
         planTier: tier as any,
         stripePriceId: newPriceId,
         status: subscription.status as any,
-        currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
-        currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
-        trialEnd: (subscription as any).trial_end ? new Date((subscription as any).trial_end * 1000) : null,
-        cancelAtPeriodEnd: (subscription as any).cancel_at_period_end,
-        canceledAt: (subscription as any).canceled_at ? new Date((subscription as any).canceled_at * 1000) : null,
-        endedAt: (subscription as any).ended_at ? new Date((subscription as any).ended_at * 1000) : null,
+        ...(periodStart && { currentPeriodStart: periodStart }),
+        ...(periodEnd && { currentPeriodEnd: periodEnd }),
+        trialEnd: safeTimestampToDate(sub.trial_end),
+        cancelAtPeriodEnd: sub.cancel_at_period_end || false,
+        canceledAt: safeTimestampToDate(sub.canceled_at),
+        endedAt: safeTimestampToDate(sub.ended_at),
       })
       .where(eq(subscriptions.stripeSubscriptionId, subscription.id))
 
@@ -348,9 +399,12 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription, db: A
     .set({
       subscriptionTier: tier as any,
       subscriptionStatus: subscription.status as any,
-      trialEndsAt: (subscription as any).trial_end ? new Date((subscription as any).trial_end * 1000) : null,
+      trialEndsAt: safeTimestampToDate((subscription as any).trial_end),
     })
     .where(eq(organizations.id, orgId))
+
+  // Update feature quotas for tier change
+  await updateQuotasForTierChange(orgId, tier as any)
 
   console.log(`[Stripe Webhook] Updated organization ${orgId} subscription, tier: ${tier}, status: ${subscription.status}`)
 }
@@ -359,6 +413,11 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription, db: A
  * Handle subscription deleted
  */
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription, db: Awaited<ReturnType<typeof getDb>>) {
+  console.log('[Stripe Webhook] handleSubscriptionDeleted called:', {
+    subscriptionId: subscription.id,
+    metadata: subscription.metadata,
+  })
+
   const orgId = subscription.metadata.orgId
 
   if (!orgId) {
@@ -366,14 +425,20 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, db: 
     return
   }
 
-  // Update subscription
+  console.log('[Stripe Webhook] Processing subscription deletion for org:', orgId)
+
+  // Update subscription - mark as canceled and reset to free tier
+  // Update by orgId since that's the most reliable key in our system
   await db
     .update(subscriptions)
     .set({
       status: 'canceled',
+      planTier: 'free',
       endedAt: subscription.ended_at ? new Date(subscription.ended_at * 1000) : new Date(),
     })
-    .where(eq(subscriptions.stripeSubscriptionId, subscription.id))
+    .where(eq(subscriptions.orgId, orgId))
+
+  console.log('[Stripe Webhook] Updated subscription to canceled/free for org:', orgId)
 
   // Downgrade organization to free tier
   await db
@@ -384,12 +449,12 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, db: 
     })
     .where(eq(organizations.id, orgId))
 
-  // Reset credits to free tier
+  // Reset feature quotas to free tier (replaces deprecated credit system)
   const now = new Date()
   const periodEnd = new Date(now)
   periodEnd.setMonth(periodEnd.getMonth() + 1)
 
-  await resetCreditsForNewPeriod(orgId, 'free', now, periodEnd)
+  await resetMonthlyQuotas(orgId, 'free', now, periodEnd)
 
   console.log(`[Stripe Webhook] Subscription deleted for org ${orgId}, downgraded to free tier`)
 }
@@ -476,14 +541,13 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice, db: Awaite
         })
         .where(eq(organizations.id, subscription.orgId))
 
-      // Reset credits for new tier
-      const { resetCreditsForNewPeriod } = await import('@/lib/billing/credit-manager')
-      await resetCreditsForNewPeriod(
-        subscription.orgId,
-        scheduledTier as any,
-        new Date((stripeSubscription as any).current_period_start * 1000),
-        new Date((stripeSubscription as any).current_period_end * 1000)
-      )
+      // Reset feature quotas for new tier (replaces deprecated credit system)
+      const { resetMonthlyQuotas } = await import('@/lib/billing/quota-manager')
+      const sub = stripeSubscription as any
+      const periodStart = safeTimestampToDate(sub.current_period_start) || new Date()
+      const periodEnd = safeTimestampToDate(sub.current_period_end) || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+
+      await resetMonthlyQuotas(subscription.orgId, scheduledTier as any, periodStart, periodEnd)
 
       console.log(`[Stripe Webhook] Successfully downgraded org ${subscription.orgId} to ${scheduledTier}`)
     }
@@ -504,6 +568,29 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice, db: Awaite
         subscriptionStatus: 'active',
       })
       .where(eq(organizations.id, subscription.orgId))
+  }
+
+  // Reset quotas for new billing cycle (subscription_cycle means recurring payment)
+  const billingReason = (invoice as any).billing_reason
+  if (billingReason === 'subscription_cycle' && !scheduledTier) {
+    // Only reset if no tier change is happening (tier changes have their own reset)
+    console.log(`[Stripe Webhook] New billing cycle for org ${subscription.orgId}, resetting quotas`)
+
+    const sub = stripeSubscription as any
+    const periodStart = safeTimestampToDate(sub.current_period_start) || new Date()
+    const periodEnd = safeTimestampToDate(sub.current_period_end) || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+
+    // Update subscription billing period in database
+    await db
+      .update(subscriptions)
+      .set({
+        currentPeriodStart: periodStart,
+        currentPeriodEnd: periodEnd,
+      })
+      .where(eq(subscriptions.stripeSubscriptionId, subscriptionId))
+
+    // Reset monthly quotas for the new period
+    await resetMonthlyQuotas(subscription.orgId, subscription.planTier as any, periodStart, periodEnd)
   }
 
   console.log(`[Stripe Webhook] Invoice paid for subscription ${subscriptionId}`)

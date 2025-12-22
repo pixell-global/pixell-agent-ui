@@ -1,40 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-import path from 'path'
-import fs from 'fs/promises'
+import { getUserScopedStorage } from '@/lib/user-storage'
 
-const execAsync = promisify(exec)
-
-// Helper to ensure directory exists
-async function ensureDir(dir: string): Promise<void> {
-  await fs.mkdir(dir, { recursive: true })
-}
-
-
-// Get workspace path from environment or default
-const getWorkspacePath = () => {
-  return process.env.STORAGE_LOCAL_PATH || path.join(process.cwd(), 'workspace-files')
-}
+export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
+    // Get user-scoped storage (authenticated only)
+    const userContext = await getUserScopedStorage(request)
+
+    if (!userContext) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
+    const storage = userContext.storage
+
     let filePath: string
     let content: string = ''
     let type: string = 'file'
     let uploadedFile: File | null = null
 
     const contentType = request.headers.get('content-type')
-    
+
     if (contentType?.includes('multipart/form-data')) {
       // Handle FormData for file uploads
       const formData = await request.formData()
       const file = formData.get('file') as File
       const pathFromForm = formData.get('path') as string
-      
+
       if (file && pathFromForm) {
         uploadedFile = file
-        filePath = path.join(pathFromForm, file.name)
+        filePath = pathFromForm.endsWith('/') ? `${pathFromForm}${file.name}` : `${pathFromForm}/${file.name}`
         type = 'file'
       } else {
         return NextResponse.json(
@@ -49,67 +47,47 @@ export async function POST(request: NextRequest) {
       content = body.content || ''
       type = body.type || 'file'
     }
-    
+
     if (!filePath) {
       return NextResponse.json(
         { success: false, error: 'Path is required' },
         { status: 400 }
       )
     }
-    
-    const workspacePath = getWorkspacePath()
-    const fullPath = path.join(workspacePath, filePath)
-    
-    // Ensure the path is within workspace (security check)
-    if (!fullPath.startsWith(workspacePath)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid path' },
-        { status: 400 }
-      )
-    }
-    
+
+    // Normalize path (remove leading slash)
+    const normalizedPath = filePath.startsWith('/') ? filePath.substring(1) : filePath
+
     try {
       if (type === 'folder') {
-        // Create directory using filesystem CLI
-        await execAsync(`mkdir -p "${fullPath}"`, {
-          cwd: workspacePath
-        })
-        
+        const folder = await storage.createFolder(normalizedPath)
+
         return NextResponse.json({
           success: true,
           message: `Folder created: ${filePath}`,
           path: filePath,
-          type: 'folder'
+          type: 'folder',
+          file: folder
         })
       } else {
-        // Create file using filesystem CLI
-        // First ensure parent directory exists
-        const parentDir = path.dirname(fullPath)
-        await ensureDir(parentDir)
-        
+        let createdFile
+
         if (uploadedFile) {
           // Handle file upload
-          const buffer = Buffer.from(await uploadedFile.arrayBuffer())
-          await fs.writeFile(fullPath, buffer)
-        } else if (content) {
-          // Create file with text content
-          await fs.writeFile(fullPath, content, 'utf-8')
+          createdFile = await storage.uploadFile(normalizedPath, uploadedFile)
         } else {
-          // Use touch command for empty file
-          await execAsync(`touch "${fullPath}"`, {
-            cwd: workspacePath
-          })
+          // Create file with text content (or empty)
+          createdFile = await storage.writeFile(normalizedPath, content)
         }
-        
-        const stats = await fs.stat(fullPath)
-        
+
         return NextResponse.json({
           success: true,
           message: `File created: ${filePath}`,
           path: filePath,
           type: 'file',
-          size: stats.size,
-          lastModified: stats.mtime.toISOString()
+          size: createdFile.size,
+          lastModified: createdFile.lastModified,
+          file: createdFile
         })
       }
     } catch (error) {

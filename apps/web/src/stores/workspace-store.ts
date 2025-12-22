@@ -2,6 +2,12 @@
 import { create } from 'zustand'
 import { devtools, subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
+import type { ActivityOutput } from '@/types'
+import type {
+  Schedule,
+  ScheduleProposal,
+  ScheduleStatus,
+} from '@pixell/protocols'
 
 // Core types
 export interface FileNode {
@@ -92,6 +98,21 @@ export type ActivityStatus = 'pending' | 'running' | 'paused' | 'completed' | 'f
 export type ActivityStepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
 export type ApprovalRequestStatus = 'pending' | 'approved' | 'denied' | 'expired'
 
+// UPEE (Understand, Plan, Execute, Evaluate) cognitive loop phases
+export type UPEEPhase = 'understand' | 'plan' | 'execute' | 'evaluate'
+
+// Activity pane transition states for animation
+export type ActivityPaneTransitionState = 'empty' | 'preview' | 'transitioning' | 'active'
+
+// Sub-task interface for collapsible task breakdown
+export interface ActivitySubTask {
+  id: string
+  name: string
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  startedAt?: string
+  completedAt?: string
+}
+
 export interface ActivityStep {
   id: string
   activityId: string
@@ -153,6 +174,14 @@ export interface Activity {
   // Joined data (loaded on detail view)
   steps?: ActivityStep[]
   approvalRequests?: ActivityApprovalRequest[]
+
+  // UPEE phase tracking (frontend-specific)
+  upeePhase?: UPEEPhase | null
+  upeePhaseMessage?: string
+  isOptimistic?: boolean          // True if created frontend-side before server confirmation
+  messageId?: string              // Links to the chat message that triggered this activity
+  subTasks?: ActivitySubTask[]    // Collapsible sub-task list
+  subTasksExpanded?: boolean      // User preference for expansion state
 }
 
 export interface ActivityFilters {
@@ -205,10 +234,17 @@ interface WorkspaceState {
   activitiesHasMore: boolean
   activityFilters: ActivityFilters
   activityCounts: ActivityCounts | null
+  activityOutputs: ActivityOutput[]
+  activityPaneState: ActivityPaneTransitionState
 
   // KPI State
   kpiMetrics: KPIMetrics | null
   recentJobs: JobData[]
+
+  // Schedules State
+  schedules: Schedule[]
+  schedulesLoading: boolean
+  pendingScheduleProposals: Record<string, ScheduleProposal>
 
   // Navigator State
   fileTree: FileNode[]
@@ -216,6 +252,7 @@ interface WorkspaceState {
   currentFolder: string
   searchQuery: string
   isLoading: boolean
+  fileTreeNeedsRefresh: boolean
 
   // UI State
   activePanel: 'chat' | 'activity' | 'navigator'
@@ -251,10 +288,32 @@ interface WorkspaceState {
   addActivityApprovalRequest: (activityId: string, request: ActivityApprovalRequest) => void
   updateActivityApprovalRequest: (activityId: string, requestId: string, updates: Partial<ActivityApprovalRequest>) => void
 
+  // Activity pane transition and UPEE phase actions
+  setActivityPaneState: (state: ActivityPaneTransitionState) => void
+  createOptimisticActivity: (messageId: string, name: string) => Activity
+  confirmActivity: (optimisticId: string, serverActivity: Activity) => void
+  updateActivityUPEEPhase: (id: string, phase: UPEEPhase, message: string, subTasks?: ActivitySubTask[]) => void
+  toggleActivitySubTasksExpanded: (id: string) => void
+
+  // Activity outputs actions
+  setActivityOutputs: (outputs: ActivityOutput[]) => void
+  addActivityOutput: (output: ActivityOutput) => void
+  removeActivityOutput: (id: string) => void
+
   setKPIMetrics: (metrics: KPIMetrics) => void
   setRecentJobs: (jobs: JobData[]) => void
   addJob: (job: JobData) => void
   updateJob: (id: string, updates: Partial<JobData>) => void
+
+  // Schedule actions
+  setSchedules: (schedules: Schedule[]) => void
+  addSchedule: (schedule: Schedule) => void
+  updateSchedule: (schedule: Schedule) => void
+  removeSchedule: (id: string) => void
+  setSchedulesLoading: (loading: boolean) => void
+  addPendingProposal: (proposal: ScheduleProposal) => void
+  removePendingProposal: (proposalId: string) => void
+  updateScheduleStatus: (id: string, status: ScheduleStatus) => void
 
   setFileTree: (tree: FileNode[]) => void
   updateFileNode: (path: string, updates: Partial<FileNode>) => void
@@ -265,6 +324,8 @@ interface WorkspaceState {
   addUploadProgress: (id: string, name: string, progress: number) => void
   updateUploadProgress: (id: string, progress: number) => void
   removeUploadProgress: (id: string) => void
+  triggerFileTreeRefresh: () => void
+  clearFileTreeRefreshFlag: () => void
 
   setCurrentFolder: (path: string) => void
   setSearchQuery: (query: string) => void
@@ -297,9 +358,15 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           archived: false,
         },
         activityCounts: null,
+        activityOutputs: [],
+        activityPaneState: 'empty',
         // KPI state
         kpiMetrics: null,
         recentJobs: [],
+        // Schedules state
+        schedules: [],
+        schedulesLoading: false,
+        pendingScheduleProposals: {},
         fileTree: [],
         uploadProgress: {},
         currentFolder: '/',
@@ -307,7 +374,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         activePanel: 'chat',
         isConnected: false,
         isLoading: false,
-        
+        fileTreeNeedsRefresh: false,
+
         // Chat actions
         addMessage: (message) =>
           set((state) => {
@@ -490,6 +558,106 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             }
           }),
 
+        // Activity pane transition and UPEE phase actions
+        setActivityPaneState: (paneState) =>
+          set((state) => {
+            state.activityPaneState = paneState
+          }),
+
+        createOptimisticActivity: (messageId, name) => {
+          const optimisticActivity: Activity = {
+            id: `optimistic_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+            orgId: '',
+            userId: '',
+            name,
+            activityType: 'task',
+            status: 'running',
+            progress: 10,
+            progressMessage: 'Starting...',
+            priority: 1,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            isOptimistic: true,
+            messageId,
+            upeePhase: 'understand',
+            upeePhaseMessage: 'Understanding your request...',
+            subTasks: [],
+            subTasksExpanded: false,
+          }
+
+          useWorkspaceStore.setState((state) => {
+            state.activities.unshift(optimisticActivity)
+            state.activityPaneState = 'active'
+          })
+
+          return optimisticActivity
+        },
+
+        confirmActivity: (optimisticId, serverActivity) =>
+          set((state) => {
+            const index = state.activities.findIndex(a => a.id === optimisticId)
+            if (index !== -1) {
+              // Preserve frontend-specific fields from optimistic activity
+              const optimistic = state.activities[index]
+              state.activities[index] = {
+                ...serverActivity,
+                isOptimistic: false,
+                subTasksExpanded: optimistic.subTasksExpanded,
+                upeePhase: optimistic.upeePhase,
+                upeePhaseMessage: optimistic.upeePhaseMessage,
+                subTasks: optimistic.subTasks,
+              }
+            }
+          }),
+
+        updateActivityUPEEPhase: (id, phase, message, subTasks) =>
+          set((state) => {
+            const activity = state.activities.find(a => a.id === id)
+            if (activity) {
+              activity.upeePhase = phase
+              activity.upeePhaseMessage = message
+              activity.updatedAt = new Date().toISOString()
+              if (subTasks !== undefined) {
+                activity.subTasks = subTasks
+              }
+              // Update progress based on phase
+              const phaseProgress: Record<UPEEPhase, number> = {
+                understand: 10,
+                plan: 30,
+                execute: 60,
+                evaluate: 90,
+              }
+              activity.progress = phaseProgress[phase]
+            }
+          }),
+
+        toggleActivitySubTasksExpanded: (id) =>
+          set((state) => {
+            const activity = state.activities.find(a => a.id === id)
+            if (activity) {
+              activity.subTasksExpanded = !activity.subTasksExpanded
+            }
+          }),
+
+        // Activity outputs actions
+        setActivityOutputs: (outputs) =>
+          set((state) => {
+            state.activityOutputs = outputs
+          }),
+
+        addActivityOutput: (output) =>
+          set((state) => {
+            const existingIndex = state.activityOutputs.findIndex(o => o.id === output.id)
+            if (existingIndex === -1) {
+              state.activityOutputs.unshift(output)
+            }
+          }),
+
+        removeActivityOutput: (id) =>
+          set((state) => {
+            state.activityOutputs = state.activityOutputs.filter(o => o.id !== id)
+          }),
+
         // KPI actions
         setKPIMetrics: (metrics) =>
           set((state) => {
@@ -517,7 +685,63 @@ export const useWorkspaceStore = create<WorkspaceState>()(
               Object.assign(state.recentJobs[jobIndex], updates)
             }
           }),
-          
+
+        // Schedule actions
+        setSchedules: (schedules) =>
+          set((state) => {
+            state.schedules = schedules
+          }),
+
+        addSchedule: (schedule) =>
+          set((state) => {
+            const existingIndex = state.schedules.findIndex(s => s.id === schedule.id)
+            if (existingIndex === -1) {
+              state.schedules.unshift(schedule)
+            }
+          }),
+
+        updateSchedule: (schedule) =>
+          set((state) => {
+            const existingIndex = state.schedules.findIndex(s => s.id === schedule.id)
+            if (existingIndex !== -1) {
+              state.schedules[existingIndex] = { ...state.schedules[existingIndex], ...schedule }
+            } else {
+              state.schedules.unshift(schedule)
+            }
+          }),
+
+        removeSchedule: (id) =>
+          set((state) => {
+            state.schedules = state.schedules.filter(s => s.id !== id)
+          }),
+
+        setSchedulesLoading: (loading) =>
+          set((state) => {
+            state.schedulesLoading = loading
+          }),
+
+        addPendingProposal: (proposal) =>
+          set((state) => {
+            state.pendingScheduleProposals[proposal.proposalId] = proposal
+          }),
+
+        removePendingProposal: (proposalId) =>
+          set((state) => {
+            delete state.pendingScheduleProposals[proposalId]
+          }),
+
+        updateScheduleStatus: (id, status) =>
+          set((state) => {
+            const schedule = state.schedules.find(s => s.id === id)
+            if (schedule) {
+              schedule.status = status
+              schedule.updatedAt = new Date().toISOString()
+              if (status === 'paused') {
+                schedule.pausedAt = new Date().toISOString()
+              }
+            }
+          }),
+
         // Navigator actions
         setFileTree: (tree) =>
           set((state) => {
@@ -632,7 +856,17 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           set((state) => {
             delete state.uploadProgress[id]
           }),
-          
+
+        triggerFileTreeRefresh: () =>
+          set((state) => {
+            state.fileTreeNeedsRefresh = true
+          }),
+
+        clearFileTreeRefreshFlag: () =>
+          set((state) => {
+            state.fileTreeNeedsRefresh = false
+          }),
+
         // UI actions
         setCurrentFolder: (path) =>
           set((state) => {
@@ -687,6 +921,7 @@ export const selectActivitiesCursor = (state: WorkspaceState) => state.activitie
 export const selectActivitiesHasMore = (state: WorkspaceState) => state.activitiesHasMore
 export const selectActivityFilters = (state: WorkspaceState) => state.activityFilters
 export const selectActivityCounts = (state: WorkspaceState) => state.activityCounts
+export const selectActivityPaneState = (state: WorkspaceState) => state.activityPaneState
 
 export const selectRunningActivities = (state: WorkspaceState) =>
   state.activities.filter(a => a.status === 'running')
@@ -695,7 +930,19 @@ export const selectPendingActivities = (state: WorkspaceState) =>
   state.activities.filter(a => a.status === 'pending')
 
 export const selectScheduledActivities = (state: WorkspaceState) =>
-  state.activities.filter(a => a.activityType === 'scheduled')
+  state.activities
+    .filter(a => a.activityType === 'scheduled' && a.status === 'pending' && a.scheduleNextRun)
+    .sort((a, b) =>
+      new Date(a.scheduleNextRun!).getTime() - new Date(b.scheduleNextRun!).getTime()
+    )
+
+export const selectCompletedActivities = (state: WorkspaceState) =>
+  state.activities
+    .filter(a => a.status === 'completed' || a.status === 'failed' || a.status === 'cancelled')
+    .sort((a, b) =>
+      new Date(b.completedAt || b.updatedAt).getTime() -
+      new Date(a.completedAt || a.updatedAt).getTime()
+    )
 
 export const selectActivitiesWithApprovals = (state: WorkspaceState) =>
   state.activities.filter(a =>
@@ -703,4 +950,43 @@ export const selectActivitiesWithApprovals = (state: WorkspaceState) =>
   )
 
 export const selectActivityById = (id: string) => (state: WorkspaceState) =>
-  state.activities.find(a => a.id === id) 
+  state.activities.find(a => a.id === id)
+
+// Activity outputs selectors
+export const selectActivityOutputs = (state: WorkspaceState) => state.activityOutputs
+
+export const selectActivityOutputsByActivityId = (activityId: string) => (state: WorkspaceState) =>
+  state.activityOutputs.filter(o => o.activityId === activityId)
+
+// Schedule selectors
+export const selectSchedules = (state: WorkspaceState) => state.schedules
+export const selectSchedulesLoading = (state: WorkspaceState) => state.schedulesLoading
+export const selectPendingScheduleProposals = (state: WorkspaceState) => state.pendingScheduleProposals
+
+export const selectActiveSchedules = (state: WorkspaceState) =>
+  state.schedules
+    .filter(s => s.status === 'active')
+    .sort((a, b) =>
+      new Date(a.nextRunAt || '9999-12-31').getTime() -
+      new Date(b.nextRunAt || '9999-12-31').getTime()
+    )
+
+export const selectPausedSchedules = (state: WorkspaceState) =>
+  state.schedules.filter(s => s.status === 'paused')
+
+export const selectPendingApprovalSchedules = (state: WorkspaceState) =>
+  state.schedules.filter(s => s.status === 'pending_approval')
+
+export const selectScheduleById = (id: string) => (state: WorkspaceState) =>
+  state.schedules.find(s => s.id === id)
+
+export const selectSchedulesByAgent = (agentId: string) => (state: WorkspaceState) =>
+  state.schedules.filter(s => s.agentId === agentId)
+
+export const selectScheduleStats = (state: WorkspaceState) => ({
+  total: state.schedules.length,
+  active: state.schedules.filter(s => s.status === 'active').length,
+  paused: state.schedules.filter(s => s.status === 'paused').length,
+  pending: state.schedules.filter(s => s.status === 'pending_approval').length,
+  failed: state.schedules.filter(s => s.status === 'failed').length,
+})

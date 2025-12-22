@@ -53,18 +53,18 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
   }, [])
 
   const getToastStyles = (type: ToastType) => {
-    const baseStyles = 'rounded-md p-4 shadow-lg border transition-all duration-300'
+    const baseStyles = 'rounded-xl p-4 shadow-2xl border transition-all duration-200 backdrop-blur-lg'
     switch (type) {
       case 'success':
-        return `${baseStyles} bg-green-50 border-green-200 text-green-800`
+        return `${baseStyles} bg-green-500/20 border-green-500/30 text-green-400`
       case 'error':
-        return `${baseStyles} bg-red-50 border-red-200 text-red-800`
+        return `${baseStyles} bg-red-500/20 border-red-500/30 text-red-400`
       case 'warning':
-        return `${baseStyles} bg-yellow-50 border-yellow-200 text-yellow-800`
+        return `${baseStyles} bg-yellow-500/20 border-yellow-500/30 text-yellow-400`
       case 'info':
-        return `${baseStyles} bg-blue-50 border-blue-200 text-blue-800`
+        return `${baseStyles} bg-blue-500/20 border-blue-500/30 text-blue-400`
       default:
-        return `${baseStyles} bg-gray-50 border-gray-200 text-gray-800`
+        return `${baseStyles} bg-white/10 border-white/20 text-white/90`
     }
   }
 
@@ -89,14 +89,14 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
                   {toast.title}
                 </Toast.Title>
                 {toast.description && (
-                  <Toast.Description className="text-sm mt-1 opacity-90">
+                  <Toast.Description className="text-sm mt-1 opacity-80">
                     {toast.description}
                   </Toast.Description>
                 )}
               </div>
               <Toast.Close asChild>
                 <button
-                  className="ml-3 p-1 hover:bg-black/10 rounded-full transition-colors"
+                  className="ml-3 p-1 hover:bg-white/10 rounded-md transition-colors duration-200"
                   aria-label="Close"
                 >
                   <X size={16} />

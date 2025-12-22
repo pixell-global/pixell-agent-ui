@@ -28,29 +28,29 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
 
   if (!rows || rows.length === 0) {
     return (
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 my-4">
-        <div className="text-gray-500 text-sm">No table data available</div>
+      <div className="bg-white/5 border border-white/10 rounded-lg p-4 my-4">
+        <div className="text-white/50 text-sm">No table data available</div>
       </div>
     );
   }
 
   const cellPadding = compact ? 'px-3 py-2' : 'px-6 py-4';
-  
+
   return (
     <div className={`overflow-x-auto my-4 ${className}`}>
       {caption && (
-        <div className="text-sm text-gray-600 mb-2 font-medium">{caption}</div>
+        <div className="text-sm text-white/70 mb-2 font-medium">{caption}</div>
       )}
-      <table className={`min-w-full divide-y divide-gray-200 ${
-        bordered ? 'border border-gray-200 rounded-lg' : ''
+      <table className={`min-w-full divide-y divide-white/10 ${
+        bordered ? 'border border-white/10 rounded-lg' : ''
       }`}>
         {headers && headers.length > 0 && (
-          <thead className="bg-gray-50">
+          <thead className="bg-white/5">
             <tr>
               {headers.map((header, index) => (
                 <th
                   key={index}
-                  className={`${cellPadding} text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
+                  className={`${cellPadding} text-left text-xs font-medium text-white/70 uppercase tracking-wider`}
                 >
                   {header}
                 </th>
@@ -58,18 +58,18 @@ export const TableRenderer: React.FC<TableRendererProps> = ({
             </tr>
           </thead>
         )}
-        <tbody className={`bg-white ${striped ? 'divide-y divide-gray-200' : ''}`}>
+        <tbody className={`bg-transparent ${striped ? 'divide-y divide-white/10' : ''}`}>
           {rows.map((row, rowIndex) => (
             <tr
               key={rowIndex}
-              className={`${hover ? 'hover:bg-gray-50' : ''} ${
-                striped && rowIndex % 2 === 1 ? 'bg-gray-25' : ''
-              }`}
+              className={`${hover ? 'hover:bg-white/5' : ''} ${
+                striped && rowIndex % 2 === 1 ? 'bg-white/[0.02]' : ''
+              } transition-colors`}
             >
               {row.map((cell, cellIndex) => (
                 <td
                   key={cellIndex}
-                  className={`${cellPadding} whitespace-nowrap text-sm text-gray-900`}
+                  className={`${cellPadding} whitespace-nowrap text-sm text-white/90`}
                 >
                   {cell !== null && cell !== undefined ? String(cell) : '—'}
                 </td>

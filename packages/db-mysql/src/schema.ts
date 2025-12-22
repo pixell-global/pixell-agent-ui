@@ -1,9 +1,10 @@
-import { mysqlTable, varchar, char, text, json, timestamp, mysqlEnum, index, primaryKey, bigint, int, unique, decimal, boolean } from 'drizzle-orm/mysql-core'
+import { mysqlTable, varchar, char, text, json, timestamp, mysqlEnum, index, primaryKey, bigint, int, unique, decimal, boolean, tinyint } from 'drizzle-orm/mysql-core'
 
 export const users = mysqlTable('users', {
   id: varchar('id', { length: 128 }).primaryKey(),
   email: varchar('email', { length: 320 }).notNull().unique(),
   displayName: varchar('display_name', { length: 120 }),
+  s3StoragePath: varchar('s3_storage_path', { length: 512 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
   isDeleted: int('is_deleted').default(0).notNull(),
@@ -203,10 +204,6 @@ export const billableActions = mysqlTable('billable_actions', {
   orgId: char('org_id', { length: 36 }).notNull(),
   userId: varchar('user_id', { length: 128 }).notNull(),
 
-  // Action classification
-  actionTier: mysqlEnum('action_tier', ['small', 'medium', 'large', 'xl']).notNull(),
-  creditsUsed: decimal('credits_used', { precision: 10, scale: 2 }).notNull(),
-
   // Action context
   agentId: varchar('agent_id', { length: 255 }),
   agentName: varchar('agent_name', { length: 255 }),
@@ -227,7 +224,6 @@ export const billableActions = mysqlTable('billable_actions', {
   idxOrgPeriod: index('idx_billable_org_period').on(t.orgId, t.billingPeriodStart, t.billingPeriodEnd),
   idxOrgCreated: index('idx_billable_org_created').on(t.orgId, t.createdAt),
   idxOrgUser: index('idx_billable_org_user').on(t.orgId, t.userId, t.createdAt),
-  idxTier: index('idx_billable_tier').on(t.actionTier),
   idxIdempotency: index('idx_billable_idempotency').on(t.idempotencyKey),
   idxUser: index('idx_billable_user').on(t.userId),
 }))
@@ -239,23 +235,11 @@ export const creditBalances = mysqlTable('credit_balances', {
   billingPeriodStart: timestamp('billing_period_start').notNull(),
   billingPeriodEnd: timestamp('billing_period_end').notNull(),
 
-  // Plan-included credits (monthly allocation)
-  includedSmall: int('included_small').default(0).notNull(),
-  includedMedium: int('included_medium').default(0).notNull(),
-  includedLarge: int('included_large').default(0).notNull(),
-  includedXl: int('included_xl').default(0).notNull(),
-
-  // Used credits this period
-  usedSmall: int('used_small').default(0).notNull(),
-  usedMedium: int('used_medium').default(0).notNull(),
-  usedLarge: int('used_large').default(0).notNull(),
-  usedXl: int('used_xl').default(0).notNull(),
-
-  // Purchased top-up credits
+  // Purchased top-up credits (deprecated - kept for backwards compatibility)
   topupCredits: decimal('topup_credits', { precision: 10, scale: 2 }).default('0').notNull(),
   topupCreditsUsed: decimal('topup_credits_used', { precision: 10, scale: 2 }).default('0').notNull(),
 
-  // Auto top-up settings
+  // Auto top-up settings (deprecated - kept for backwards compatibility)
   autoTopupEnabled: boolean('auto_topup_enabled').default(false),
   autoTopupThreshold: int('auto_topup_threshold').default(50).notNull(),
   autoTopupAmount: int('auto_topup_amount').default(500).notNull(),
@@ -848,4 +832,525 @@ export const waitlist = mysqlTable('waitlist', {
 
 export type Waitlist = typeof waitlist.$inferSelect
 export type NewWaitlist = typeof waitlist.$inferInsert
+
+// =============================================================================
+// MEMORY SYSTEM
+// =============================================================================
+//
+// Two-tier memory architecture for AI personalization:
+// - Session Context: Full conversation (handled via existing chat history)
+// - Persistent Memory: Distilled facts that persist across sessions
+//
+// Hierarchical storage:
+// - Global user memories (apply to all agents when agentId is null)
+// - Agent-specific memories (e.g., Reddit preferences for vivid-commenter)
+//
+// Memory extraction is performed via background jobs after conversations.
+// =============================================================================
+
+// Memory category enum
+export const memoryCategoryEnum = mysqlEnum('memory_category', [
+  'user_preference',     // Writing style, tone, format preferences
+  'project_context',     // Current project details, goals
+  'domain_knowledge',    // Industry-specific facts, expertise
+  'conversation_goal',   // Recurring task patterns
+  'entity',              // People, companies, products mentioned
+])
+
+// Memory source enum
+export const memorySourceEnum = mysqlEnum('memory_source', [
+  'auto_extracted',      // LLM extracted from conversation
+  'user_provided',       // Explicitly stated by user
+  'user_edited',         // User edited an auto-extracted memory
+])
+
+// Type for memory metadata JSON
+export type MemoryMetadata = {
+  originalText?: string          // The text that triggered extraction
+  extractionPrompt?: string      // Which prompt extracted this
+  relatedMemoryIds?: string[]    // Links to related memories
+  tags?: string[]                // Additional categorization
+  messageId?: string             // The specific message it came from
+}
+
+// Main memories table
+export const memories = mysqlTable('memories', {
+  id: char('id', { length: 36 }).primaryKey(),
+  orgId: char('org_id', { length: 36 }).notNull(),
+  userId: varchar('user_id', { length: 128 }).notNull(),
+
+  // Scope: null = global (applies to all agents), specific agentId = agent-specific
+  agentId: varchar('agent_id', { length: 255 }),
+
+  // Memory content
+  category: memoryCategoryEnum.notNull(),
+  key: varchar('key', { length: 255 }).notNull(),        // Short identifier (e.g., "writing_style")
+  value: text('value').notNull(),                         // The actual memory content
+  confidence: decimal('confidence', { precision: 3, scale: 2 }).default('1.00').notNull(), // 0.00-1.00
+
+  // Source tracking
+  source: memorySourceEnum.default('auto_extracted').notNull(),
+  sourceConversationId: char('source_conversation_id', { length: 36 }),
+
+  // Metadata
+  metadata: json('metadata').$type<MemoryMetadata>(),
+
+  // Usage tracking
+  usageCount: int('usage_count').default(0).notNull(),
+  lastUsedAt: timestamp('last_used_at'),
+
+  // Status
+  isActive: boolean('is_active').default(true).notNull(),
+
+  // Timestamps
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  orgUserIdx: index('idx_memories_org_user').on(t.orgId, t.userId),
+  orgUserAgentIdx: index('idx_memories_org_user_agent').on(t.orgId, t.userId, t.agentId),
+  categoryIdx: index('idx_memories_category').on(t.category),
+  keyIdx: index('idx_memories_key').on(t.key),
+  activeIdx: index('idx_memories_active').on(t.isActive),
+  uniqueMemory: unique('unique_memory').on(t.orgId, t.userId, t.agentId, t.key),
+}))
+
+// Memory extraction job status enum
+export const memoryExtractionStatusEnum = mysqlEnum('memory_extraction_status', [
+  'pending',
+  'processing',
+  'completed',
+  'failed',
+])
+
+// Memory extraction jobs table (background processing)
+export const memoryExtractionJobs = mysqlTable('memory_extraction_jobs', {
+  id: char('id', { length: 36 }).primaryKey(),
+  orgId: char('org_id', { length: 36 }).notNull(),
+  userId: varchar('user_id', { length: 128 }).notNull(),
+  conversationId: char('conversation_id', { length: 36 }).notNull(),
+
+  // Job status
+  status: memoryExtractionStatusEnum.default('pending').notNull(),
+
+  // Results
+  memoriesExtracted: int('memories_extracted').default(0).notNull(),
+  memoriesUpdated: int('memories_updated').default(0).notNull(),
+
+  // Error tracking
+  error: text('error'),
+  retryCount: int('retry_count').default(0).notNull(),
+
+  // Processing metadata
+  processedAt: timestamp('processed_at'),
+
+  // Timestamps
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  statusIdx: index('idx_extraction_jobs_status').on(t.status),
+  conversationIdx: index('idx_extraction_jobs_conversation').on(t.conversationId),
+  createdIdx: index('idx_extraction_jobs_created').on(t.createdAt),
+  orgUserIdx: index('idx_extraction_jobs_org_user').on(t.orgId, t.userId),
+}))
+
+// User memory settings table
+export const userMemorySettings = mysqlTable('user_memory_settings', {
+  userId: varchar('user_id', { length: 128 }).primaryKey(),
+
+  // Feature toggles
+  memoryEnabled: boolean('memory_enabled').default(true).notNull(),
+  autoExtractionEnabled: boolean('auto_extraction_enabled').default(true).notNull(),
+
+  // Privacy settings
+  incognitoMode: boolean('incognito_mode').default(false).notNull(), // Temporary disable
+
+  // Extraction preferences - which categories to extract
+  extractionCategories: json('extraction_categories').$type<string[]>(),
+
+  // Timestamps
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+})
+
+// Type exports for memory system
+export type Memory = typeof memories.$inferSelect
+export type NewMemory = typeof memories.$inferInsert
+
+export type MemoryExtractionJob = typeof memoryExtractionJobs.$inferSelect
+export type NewMemoryExtractionJob = typeof memoryExtractionJobs.$inferInsert
+
+export type UserMemorySettings = typeof userMemorySettings.$inferSelect
+export type NewUserMemorySettings = typeof userMemorySettings.$inferInsert
+
+// =============================================================================
+// SCHEDULED TASKS SYSTEM
+// =============================================================================
+//
+// Enables users to create scheduled/recurring agent tasks.
+// Agents can propose schedules via emit_schedule_proposal().
+// Scheduler runs in Orchestrator using node-cron.
+//
+// Tier limits:
+// - Free: 1 schedule
+// - Pro: 3 schedules
+// - Max: 10 schedules
+// =============================================================================
+
+// Schedule enum values (for reference)
+// Schedule type: 'cron' | 'interval' | 'one_time'
+// Schedule status: 'pending_approval' | 'active' | 'paused' | 'completed' | 'disabled' | 'failed' | 'expired'
+// Interval unit: 'minutes' | 'hours' | 'days' | 'weeks'
+// Execution status: 'pending' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'skipped' | 'retrying'
+
+// Type for retry configuration JSON
+export type ScheduleRetryConfig = {
+  maxRetries: number           // Max retry attempts (default: 3)
+  retryDelayMs: number         // Initial delay between retries (default: 60000)
+  backoffMultiplier: number    // Exponential backoff multiplier (default: 2)
+  maxRetryDelayMs: number      // Maximum delay cap (default: 3600000 = 1 hour)
+}
+
+// Type for notification settings JSON
+export type ScheduleNotificationSettings = {
+  onSuccess: boolean           // Notify on successful execution
+  onFailure: boolean           // Notify on failed execution
+  onPause: boolean             // Notify when paused (e.g., too many failures)
+  channels: ('in_app' | 'email')[]  // Notification channels
+}
+
+// Type for context snapshot JSON
+export type ScheduleContextSnapshot = {
+  files?: Array<{
+    id: string
+    name: string
+    path: string
+    mimeType?: string
+    size?: number
+  }>
+  variables?: Record<string, string>
+  createdAt: string
+}
+
+// Type for execution result outputs JSON
+export type ExecutionResultOutput = {
+  type: string    // e.g., 'file', 'text', 'chart'
+  path: string    // Storage path or reference
+  name: string    // Display name
+}
+
+// Main schedules table
+export const schedules = mysqlTable('schedules', {
+  id: char('id', { length: 36 }).primaryKey(),
+  orgId: char('org_id', { length: 36 }).notNull(),
+  userId: varchar('user_id', { length: 128 }).notNull(),
+
+  // Agent configuration
+  agentId: varchar('agent_id', { length: 255 }).notNull(),
+  agentName: varchar('agent_name', { length: 255 }),
+
+  // Schedule identification
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  prompt: text('prompt').notNull(),
+
+  // Schedule type and configuration
+  scheduleType: mysqlEnum('schedule_type', ['cron', 'interval', 'one_time']).notNull(),
+  cronExpression: varchar('cron_expression', { length: 100 }),
+  intervalValue: int('interval_value'),
+  intervalUnit: mysqlEnum('interval_unit', ['minutes', 'hours', 'days', 'weeks']),
+  oneTimeAt: timestamp('one_time_at'),
+  timezone: varchar('timezone', { length: 50 }).default('UTC').notNull(),
+
+  // Status tracking
+  status: mysqlEnum('status', ['pending_approval', 'active', 'paused', 'completed', 'disabled', 'failed', 'expired']).default('pending_approval').notNull(),
+
+  // Run tracking
+  nextRunAt: timestamp('next_run_at'),
+  lastRunAt: timestamp('last_run_at'),
+  runCount: int('run_count').default(0).notNull(),
+  successCount: int('success_count').default(0).notNull(),
+  failureCount: int('failure_count').default(0).notNull(),
+  consecutiveFailures: int('consecutive_failures').default(0).notNull(),
+
+  // Retry configuration
+  retryConfig: json('retry_config').$type<ScheduleRetryConfig>(),
+
+  // Notification settings
+  notificationSettings: json('notification_settings').$type<ScheduleNotificationSettings>(),
+
+  // Context snapshot for files
+  contextSnapshot: json('context_snapshot').$type<ScheduleContextSnapshot>(),
+
+  // Dedicated conversation thread for this schedule
+  threadId: char('thread_id', { length: 36 }),
+
+  // Proposal tracking
+  proposalId: char('proposal_id', { length: 36 }),
+  fromProposal: boolean('from_proposal').default(false).notNull(),
+
+  // Validity period
+  validFrom: timestamp('valid_from'),
+  validUntil: timestamp('valid_until'),
+
+  // Timestamps
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  pausedAt: timestamp('paused_at'),
+  deletedAt: timestamp('deleted_at'),
+}, (t) => ({
+  idxOrgStatus: index('idx_schedules_org_status').on(t.orgId, t.status),
+  idxOrgUser: index('idx_schedules_org_user').on(t.orgId, t.userId),
+  idxAgent: index('idx_schedules_agent').on(t.agentId),
+  idxNextRun: index('idx_schedules_next_run').on(t.nextRunAt),
+  idxStatus: index('idx_schedules_status').on(t.status),
+  idxThread: index('idx_schedules_thread').on(t.threadId),
+}))
+
+// Schedule executions table (individual run history)
+export const scheduleExecutions = mysqlTable('schedule_executions', {
+  id: char('id', { length: 36 }).primaryKey(),
+  scheduleId: char('schedule_id', { length: 36 }).notNull(),
+  orgId: char('org_id', { length: 36 }).notNull(),
+
+  // Execution tracking
+  executionNumber: int('execution_number').notNull(),
+  status: mysqlEnum('status', ['pending', 'running', 'succeeded', 'failed', 'cancelled', 'skipped', 'retrying']).default('pending').notNull(),
+
+  // Activity reference (creates an activity for each execution)
+  activityId: char('activity_id', { length: 36 }),
+
+  // Conversation thread (uses schedule's dedicated thread)
+  threadId: char('thread_id', { length: 36 }),
+
+  // Timing
+  scheduledAt: timestamp('scheduled_at').notNull(),
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
+  durationMs: int('duration_ms'),
+
+  // Retry tracking
+  retryAttempt: int('retry_attempt').default(0).notNull(),
+  maxRetries: int('max_retries').default(3).notNull(),
+  nextRetryAt: timestamp('next_retry_at'),
+
+  // Result storage
+  resultSummary: text('result_summary'),
+  resultOutputs: json('result_outputs').$type<ExecutionResultOutput[]>(),
+
+  // Error tracking
+  errorCode: varchar('error_code', { length: 50 }),
+  errorMessage: text('error_message'),
+  errorRetryable: boolean('error_retryable'),
+
+  // Timestamps
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  idxSchedule: index('idx_executions_schedule').on(t.scheduleId),
+  idxOrg: index('idx_executions_org').on(t.orgId),
+  idxStatus: index('idx_executions_status').on(t.status),
+  idxScheduledAt: index('idx_executions_scheduled_at').on(t.scheduledAt),
+  idxActivity: index('idx_executions_activity').on(t.activityId),
+  idxScheduleStatus: index('idx_executions_schedule_status').on(t.scheduleId, t.status),
+}))
+
+// Type exports for scheduled tasks
+export type Schedule = typeof schedules.$inferSelect
+export type NewSchedule = typeof schedules.$inferInsert
+
+export type ScheduleExecution = typeof scheduleExecutions.$inferSelect
+export type NewScheduleExecution = typeof scheduleExecutions.$inferInsert
+
+// =============================================================================
+// FEATURE QUOTAS SYSTEM
+// =============================================================================
+//
+// Feature-based usage quotas for tracking and enforcing limits on:
+// - Research tasks (monthly usage)
+// - Ideation sessions (monthly usage)
+// - Auto-posting actions (monthly usage)
+// - Active monitors (concurrent count, not reset monthly)
+//
+// Tier limits:
+// | Plan    | Research | Ideation | Auto-posting | Monitors |
+// |---------|----------|----------|--------------|----------|
+// | Free    | 2        | 10       | N/A          | N/A      |
+// | Starter | 10       | 30       | N/A          | N/A      |
+// | Pro     | 60       | 300      | 30           | 3        |
+// | Max     | 300      | 3000     | 300          | 20       |
+//
+// N/A = Feature not available (blocked)
+// =============================================================================
+
+// Feature type enum for usage events
+export const featureTypeEnum = mysqlEnum('feature_type', [
+  'research',
+  'ideation',
+  'auto_posting',
+  'monitors',
+])
+
+// Feature usage action enum (column name 'action' mapped via schema)
+export const featureUsageActionValues = ['increment', 'decrement'] as const
+
+// Feature quotas table (per-org quota tracking)
+export const featureQuotas = mysqlTable('feature_quotas', {
+  orgId: char('org_id', { length: 36 }).primaryKey(),
+
+  // Current billing period (synced from subscriptions)
+  billingPeriodStart: timestamp('billing_period_start').notNull(),
+  billingPeriodEnd: timestamp('billing_period_end').notNull(),
+
+  // Monthly usage quotas - limits (set based on tier)
+  researchLimit: int('research_limit').default(0).notNull(),
+  ideationLimit: int('ideation_limit').default(0).notNull(),
+  autoPostingLimit: int('auto_posting_limit').default(0).notNull(),
+  monitorsLimit: int('monitors_limit').default(0).notNull(),
+
+  // Monthly usage counters (reset each billing cycle)
+  researchUsed: int('research_used').default(0).notNull(),
+  ideationUsed: int('ideation_used').default(0).notNull(),
+  autoPostingUsed: int('auto_posting_used').default(0).notNull(),
+
+  // Active count (NOT reset - represents current concurrent usage)
+  monitorsActive: int('monitors_active').default(0).notNull(),
+
+  // Feature availability flags (false = N/A/blocked for this tier)
+  researchAvailable: boolean('research_available').default(false).notNull(),
+  ideationAvailable: boolean('ideation_available').default(false).notNull(),
+  autoPostingAvailable: boolean('auto_posting_available').default(false).notNull(),
+  monitorsAvailable: boolean('monitors_available').default(false).notNull(),
+
+  // Audit
+  lastResetAt: timestamp('last_reset_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+})
+
+// Feature usage events table (audit trail)
+export const featureUsageEvents = mysqlTable('feature_usage_events', {
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+  orgId: char('org_id', { length: 36 }).notNull(),
+  userId: varchar('user_id', { length: 128 }).notNull(),
+
+  // Feature info
+  featureType: featureTypeEnum.notNull(),
+  action: mysqlEnum('action', featureUsageActionValues).notNull(), // decrement only for monitors
+
+  // Context
+  resourceId: varchar('resource_id', { length: 255 }), // e.g., monitor ID, research task ID
+  agentId: varchar('agent_id', { length: 255 }),
+  metadata: json('metadata'),
+
+  // Billing period at time of event
+  billingPeriodStart: timestamp('billing_period_start').notNull(),
+  billingPeriodEnd: timestamp('billing_period_end').notNull(),
+
+  // Snapshot of usage at time of event
+  usageAtEvent: int('usage_at_event').notNull(),
+  limitAtEvent: int('limit_at_event').notNull(),
+
+  // Timestamps
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  idxOrgFeature: index('idx_feature_usage_org_feature').on(t.orgId, t.featureType, t.createdAt),
+  idxOrgPeriod: index('idx_feature_usage_org_period').on(t.orgId, t.billingPeriodStart),
+  idxUser: index('idx_feature_usage_user').on(t.userId),
+  idxResource: index('idx_feature_usage_resource').on(t.resourceId),
+}))
+
+// Type exports for feature quotas
+export type FeatureQuota = typeof featureQuotas.$inferSelect
+export type NewFeatureQuota = typeof featureQuotas.$inferInsert
+
+export type FeatureUsageEvent = typeof featureUsageEvents.$inferSelect
+export type NewFeatureUsageEvent = typeof featureUsageEvents.$inferInsert
+
+// =============================================================================
+// BILLING EVENTS AUDIT TABLES
+// =============================================================================
+
+// Detection source enum
+export const detectionSourceEnum = mysqlEnum('detection_source', [
+  'sdk',
+  'file_output',
+  'scheduled_post',
+  'monitor_event',
+  'detected',
+])
+
+// Audit status enum
+export const auditStatusEnum = mysqlEnum('audit_status', [
+  'pending',
+  'approved',
+  'flagged',
+  'refunded',
+  'skipped',
+])
+
+// Billing events table (for LLM audit)
+export const billingEvents = mysqlTable('billing_events', {
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+
+  // Organization and user context
+  orgId: char('org_id', { length: 36 }).notNull(),
+  userId: varchar('user_id', { length: 128 }).notNull(),
+
+  // Workflow context
+  workflowId: varchar('workflow_id', { length: 128 }),
+  sessionId: varchar('session_id', { length: 128 }),
+  agentId: varchar('agent_id', { length: 255 }),
+
+  // Billing claim details
+  claimedType: featureTypeEnum.notNull(),
+  detectionSource: detectionSourceEnum.notNull(),
+  detectionConfidence: decimal('detection_confidence', { precision: 3, scale: 2 }).default('1.00').notNull(),
+
+  // Content for audit
+  userPrompt: text('user_prompt'),
+  agentResponseSummary: text('agent_response_summary'),
+  outputArtifacts: json('output_artifacts'),
+
+  // Audit status and results
+  auditStatus: auditStatusEnum.default('pending').notNull(),
+  auditResult: json('audit_result'),
+  auditedAt: timestamp('audited_at'),
+  auditedBy: varchar('audited_by', { length: 128 }),
+
+  // Quota impact
+  quotaIncremented: boolean('quota_incremented').default(false).notNull(),
+  quotaIncrementAt: timestamp('quota_increment_at'),
+
+  // Timestamps
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  idxAuditStatus: index('idx_billing_events_audit_status').on(t.auditStatus, t.createdAt),
+  idxOrgCreated: index('idx_billing_events_org_created').on(t.orgId, t.createdAt),
+  idxWorkflow: index('idx_billing_events_workflow').on(t.workflowId),
+  idxSource: index('idx_billing_events_source').on(t.detectionSource, t.claimedType),
+}))
+
+// Audit queue status enum
+export const auditQueueStatusEnum = mysqlEnum('status', ['pending', 'processing', 'completed', 'failed'])
+
+// Billing audit queue table
+export const billingAuditQueue = mysqlTable('billing_audit_queue', {
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+  billingEventId: bigint('billing_event_id', { mode: 'number', unsigned: true }).notNull(),
+  priority: tinyint('priority').default(5).notNull(),
+  attempts: tinyint('attempts').default(0).notNull(),
+  maxAttempts: tinyint('max_attempts').default(3).notNull(),
+  lastAttemptAt: timestamp('last_attempt_at'),
+  errorMessage: text('error_message'),
+  status: auditQueueStatusEnum.default('pending').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  idxPending: index('idx_audit_queue_pending').on(t.status, t.priority, t.createdAt),
+}))
+
+// Type exports for billing events
+export type BillingEvent = typeof billingEvents.$inferSelect
+export type NewBillingEvent = typeof billingEvents.$inferInsert
+
+export type BillingAuditQueueItem = typeof billingAuditQueue.$inferSelect
+export type NewBillingAuditQueueItem = typeof billingAuditQueue.$inferInsert
 

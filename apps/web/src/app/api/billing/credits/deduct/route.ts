@@ -1,14 +1,20 @@
 /**
  * POST /api/billing/credits/deduct
  *
- * Deduct credits for a completed action
+ * Increment usage for a completed action
  * Requires service token authentication (orchestrator only)
+ *
+ * @deprecated This endpoint uses the old tier-based API format.
+ * New integrations should use /api/billing/quotas/increment instead.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireServiceToken } from '@/lib/auth/service-token'
-import { deductCredits } from '@/lib/billing/credit-manager'
-import { ACTION_CREDIT_COSTS } from '@/lib/billing/stripe-config'
+import { incrementUsage } from '@/lib/billing/quota-manager'
+import type { FeatureType } from '@/lib/billing/quota-config'
+
+// Valid feature types for the new billing system
+const VALID_FEATURE_TYPES: FeatureType[] = ['research', 'ideation', 'auto_posting', 'monitors']
 
 export async function POST(request: NextRequest) {
   // Authenticate with service token
@@ -17,38 +23,45 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { orgId, userId, actionTier, metadata } = body
+    const { orgId, userId, featureType, actionTier, metadata } = body
+
+    // Support both new (featureType) and legacy (actionTier) parameter names
+    const feature = featureType || actionTier
 
     // Validate required fields
-    if (!orgId || !userId || !actionTier) {
+    if (!orgId || !userId || !feature) {
       return NextResponse.json(
         {
           error: 'Missing required fields',
-          message: 'orgId, userId, and actionTier are required',
+          message: 'orgId, userId, and featureType are required',
         },
         { status: 400 }
       )
     }
 
-    // Validate action tier
-    if (!(actionTier in ACTION_CREDIT_COSTS)) {
+    // Validate feature type
+    if (!VALID_FEATURE_TYPES.includes(feature as FeatureType)) {
       return NextResponse.json(
         {
-          error: 'Invalid action tier',
-          message: 'actionTier must be one of: small, medium, large, xl',
+          error: 'Invalid feature type',
+          message: `featureType must be one of: ${VALID_FEATURE_TYPES.join(', ')}`,
         },
         { status: 400 }
       )
     }
 
-    // Deduct credits
-    const result = await deductCredits(orgId, userId, actionTier, metadata || {})
+    // Increment usage using new quota system
+    const result = await incrementUsage(orgId, userId, feature as FeatureType, {
+      agentId: metadata?.agentId,
+      resourceId: metadata?.resourceId,
+      extra: metadata,
+    })
 
     if (!result.success) {
       return NextResponse.json(
         {
-          error: 'Credit deduction failed',
-          message: result.error || 'Insufficient credits',
+          error: 'Usage increment failed',
+          message: result.error || 'Quota limit reached',
         },
         { status: 402 } // Payment Required
       )
@@ -56,17 +69,17 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      billableActionId: result.billableActionId,
-      balanceAfter: result.balanceAfter,
+      usageEventId: result.usageEventId,
+      newUsage: result.newUsage,
     })
   } catch (error) {
-    console.error('[Credits Deduct] Error:', error)
+    console.error('[Usage Increment] Error:', error)
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
 
     return NextResponse.json(
       {
-        error: 'Credit deduction failed',
+        error: 'Usage increment failed',
         message: errorMessage,
       },
       { status: 500 }

@@ -1,11 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from './AuthProvider';
-import { Shield } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/components/ui/toast-provider';
 import { Eye, EyeOff } from 'lucide-react';
@@ -92,111 +90,123 @@ export const SignUp: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-pixell-black py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
+        {/* Logo and Header */}
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-xl bg-blue-600">
-            <Shield className="h-6 w-6 text-white" />
-          </div>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">Create your account</h2>
-          <p className="mt-2 text-sm text-gray-600">Get started with Pixell Agent Framework</p>
+          <img
+            src="/assets/TypeLogo_Pixell_white.svg"
+            alt="Pixell"
+            className="mx-auto h-10"
+          />
+          <h1 className="mt-8 text-3xl font-bold text-white font-poppins">
+            Create your account
+          </h1>
+          <p className="mt-2 text-sm text-white/60">
+            Get started with Pixell Agent Framework
+          </p>
         </div>
 
-        <Card className="shadow-lg">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-semibold text-center">Welcome</CardTitle>
-            <CardDescription className="text-center">Enter your name, email, and password to sign up.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Full name</Label>
+        {/* Sign Up Card */}
+        <div className="glass-card p-8 space-y-6">
+          <div className="text-center space-y-1">
+            <h2 className="text-xl font-semibold text-white font-poppins">Welcome</h2>
+            <p className="text-sm text-white/50">Enter your details to create an account</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-white/70">Full name</Label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="John Doe"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className="w-full bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-pixell-yellow/50 focus:ring-pixell-yellow/20"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-white/70">Email address</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onBlur={handleEmailBlur}
+                required
+                className="w-full bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-pixell-yellow/50 focus:ring-pixell-yellow/20"
+              />
+              {emailCheck === 'duplicate' && (
+                <p className="text-xs text-red-400">This email is already registered. Try signing in.</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-white/70">Password</Label>
+              <div className="relative">
                 <Input
-                  id="name"
-                  type="text"
-                  placeholder="Full name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Create a password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full"
+                  className="w-full pr-10 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-pixell-yellow/50 focus:ring-pixell-yellow/20"
                 />
+                <button
+                  type="button"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  className="absolute inset-y-0 right-0 px-3 flex items-center text-white/40 hover:text-white/70 transition-colors"
+                  onClick={() => setShowPassword((v) => !v)}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email address</Label>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword" className="text-white/70">Confirm password</Label>
+              <div className="relative">
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="Email address"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onBlur={handleEmailBlur}
+                  id="confirmPassword"
+                  type={showConfirm ? 'text' : 'password'}
+                  placeholder="Confirm your password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  className="w-full"
+                  className="w-full pr-10 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-pixell-yellow/50 focus:ring-pixell-yellow/20"
                 />
-                {emailCheck === 'duplicate' && (
-                  <div className="text-xs text-red-600">This email is already registered. Try signing in.</div>
-                )}
+                <button
+                  type="button"
+                  aria-label={showConfirm ? 'Hide confirm password' : 'Show confirm password'}
+                  className="absolute inset-y-0 right-0 px-3 flex items-center text-white/40 hover:text-white/70 transition-colors"
+                  onClick={() => setShowConfirm((v) => !v)}
+                >
+                  {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
+              <p className="text-[11px] text-white/40 text-right">Use 8+ chars with upper, lower and a number</p>
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="w-full pr-10"
-                  />
-                  <button
-                    type="button"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700"
-                    onClick={() => setShowPassword((v) => !v)}
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
+            <Button
+              type="submit"
+              className="w-full bg-pixell-yellow text-pixell-black hover:bg-pixell-yellow/90 font-medium"
+              disabled={status === 'loading'}
+            >
+              {status === 'loading' ? 'Creating account...' : 'Sign up'}
+            </Button>
+          </form>
+        </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm password</Label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirm ? 'text' : 'password'}
-                    placeholder="Confirm password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                    className="w-full pr-10"
-                  />
-                  <button
-                    type="button"
-                    aria-label={showConfirm ? 'Hide confirm password' : 'Show confirm password'}
-                    className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700"
-                    onClick={() => setShowConfirm((v) => !v)}
-                  >
-                    {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-                <div className="text-[11px] text-gray-500 text-right">Use 8+ chars with upper, lower and a number</div>
-              </div>
-
-              <Button type="submit" className="w-full" disabled={status === 'loading'}>
-                {status === 'loading' ? 'Creating account...' : 'Sign up'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
+        {/* Sign In Link */}
         <div className="text-center">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-white/50">
             Already have an account?{' '}
-            <Link href="/signin" className="font-medium text-blue-600 hover:text-blue-500">
+            <Link href="/signin" className="font-medium text-pixell-yellow hover:text-pixell-yellow/80 transition-colors">
               Sign in here
             </Link>
           </p>

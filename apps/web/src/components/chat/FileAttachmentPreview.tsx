@@ -39,38 +39,38 @@ export function FileAttachmentPreview({
 
   const getFileIcon = (attachment: FileAttachment) => {
     if (isImage(attachment.type)) {
-      return <Image className="h-4 w-4 text-blue-500" />
+      return <Image className="h-4 w-4 text-blue-400" />
     }
-    return <File className="h-4 w-4 text-gray-500" />
+    return <File className="h-4 w-4 text-white/50" />
   }
 
   const getStatusColor = (status: FileAttachment['uploadStatus']) => {
     switch (status) {
       case 'pending':
-        return 'text-gray-500'
+        return 'text-white/50'
       case 'uploading':
-        return 'text-blue-500'
+        return 'text-blue-400'
       case 'completed':
-        return 'text-green-500'
+        return 'text-green-400'
       case 'error':
-        return 'text-red-500'
+        return 'text-red-400'
       default:
-        return 'text-gray-500'
+        return 'text-white/50'
     }
   }
 
   const getStatusIcon = (attachment: FileAttachment) => {
     switch (attachment.uploadStatus) {
       case 'pending':
-        return <Eye className="h-4 w-4 text-gray-500" />
+        return <Eye className="h-4 w-4 text-white/50" />
       case 'uploading':
-        return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+        return <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />
       case 'completed':
-        return <Download className="h-4 w-4 text-green-500" />
+        return <Download className="h-4 w-4 text-green-400" />
       case 'error':
-        return <AlertCircle className="h-4 w-4 text-red-500" />
+        return <AlertCircle className="h-4 w-4 text-red-400" />
       default:
-        return <Eye className="h-4 w-4 text-gray-500" />
+        return <Eye className="h-4 w-4 text-white/50" />
     }
   }
 
@@ -78,21 +78,21 @@ export function FileAttachmentPreview({
     <>
       <div className={cn("space-y-2", className)}>
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-700">
+          <span className="text-sm font-medium text-white/70">
             Attachments ({attachments.length})
           </span>
         </div>
-        
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {attachments.map((attachment) => (
             <div
               key={attachment.id}
-              className="relative border border-gray-200 rounded-lg p-3 bg-white hover:bg-gray-50 transition-colors"
+              className="relative border border-white/10 rounded-lg p-3 bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/20 transition-all duration-200"
             >
               {/* Remove button */}
               <button
                 onClick={() => onRemove(attachment.id)}
-                className="absolute top-2 right-2 p-1 rounded-full hover:bg-gray-200 text-gray-400 hover:text-gray-600"
+                className="absolute top-2 right-2 p-1 rounded-full hover:bg-white/10 text-white/40 hover:text-white/80 transition-colors duration-200"
                 aria-label={`Remove ${attachment.name}`}
               >
                 <X className="h-3 w-3" />
@@ -104,7 +104,7 @@ export function FileAttachmentPreview({
                   {isImage(attachment.type) && attachment.preview ? (
                     <button
                       onClick={() => setEnlargedImage(attachment.preview!)}
-                      className="block w-12 h-12 rounded border border-gray-200 overflow-hidden hover:border-blue-300 transition-colors"
+                      className="block w-12 h-12 rounded border border-white/10 overflow-hidden hover:border-blue-500/30 transition-colors duration-200"
                     >
                       <img
                         src={attachment.preview}
@@ -113,7 +113,7 @@ export function FileAttachmentPreview({
                       />
                     </button>
                   ) : (
-                    <div className="w-12 h-12 rounded border border-gray-200 flex items-center justify-center bg-gray-50">
+                    <div className="w-12 h-12 rounded border border-white/10 flex items-center justify-center bg-white/[0.04]">
                       {getFileIcon(attachment)}
                     </div>
                   )}
@@ -121,19 +121,19 @@ export function FileAttachmentPreview({
 
                 {/* File info */}
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm text-gray-900 truncate">
+                  <div className="font-medium text-sm text-white/90 truncate">
                     {attachment.name}
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-white/50">
                     {formatFileSize(attachment.size)}
                   </div>
-                  
+
                   {/* Status */}
                   <div className={cn("flex items-center gap-1 mt-1 text-xs", getStatusColor(attachment.uploadStatus))}>
                     {getStatusIcon(attachment)}
                     <span className="capitalize">{attachment.uploadStatus}</span>
                     {attachment.error && (
-                      <span className="text-red-500">- {attachment.error}</span>
+                      <span className="text-red-400">- {attachment.error}</span>
                     )}
                   </div>
 
@@ -141,7 +141,7 @@ export function FileAttachmentPreview({
                   {attachment.uploadStatus === 'uploading' && attachment.uploadProgress !== undefined && (
                     <div className="mt-2">
                       <Progress value={attachment.uploadProgress} className="h-1" />
-                      <div className="text-xs text-gray-500 mt-1">
+                      <div className="text-xs text-white/50 mt-1">
                         {Math.round(attachment.uploadProgress)}% uploaded
                       </div>
                     </div>

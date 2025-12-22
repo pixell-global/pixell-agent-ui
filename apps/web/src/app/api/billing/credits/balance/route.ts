@@ -1,13 +1,16 @@
 /**
  * GET /api/billing/credits/balance?orgId=...
  *
- * Get credit balance for an organization
+ * Get quota status for an organization
  * Requires service token authentication (orchestrator only)
+ *
+ * @deprecated This endpoint uses the old credit-based API format.
+ * New integrations should use /api/billing/quotas/status instead.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireServiceToken } from '@/lib/auth/service-token'
-import { getCreditBalance, getCreditUsagePercentage } from '@/lib/billing/credit-manager'
+import { getQuotaStatus } from '@/lib/billing/quota-manager'
 
 export async function GET(request: NextRequest) {
   // Authenticate with service token
@@ -28,45 +31,35 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get credit balance
-    const balance = await getCreditBalance(orgId)
+    // Get quota status (new system)
+    const quotaStatus = await getQuotaStatus(orgId)
 
-    if (!balance) {
+    if (!quotaStatus) {
       return NextResponse.json(
         {
           error: 'Not found',
-          message: 'No credit balance found for this organization',
+          message: 'No quota record found for this organization',
         },
         { status: 404 }
       )
     }
 
-    // Get usage percentage
-    const usagePercentage = await getCreditUsagePercentage(orgId)
-
-    // Calculate remaining credits
-    const remaining = {
-      small: balance.includedSmall - balance.usedSmall,
-      medium: balance.includedMedium - balance.usedMedium,
-      large: balance.includedLarge - balance.usedLarge,
-      xl: balance.includedXl - balance.usedXl,
-      topup: parseFloat(balance.topupCredits) - parseFloat(balance.topupCreditsUsed),
-    }
-
+    // Return in a format compatible with quota-based billing
     return NextResponse.json({
       success: true,
-      balance,
-      remaining,
-      usagePercentage,
+      tier: quotaStatus.tier,
+      billingPeriodStart: quotaStatus.billingPeriodStart,
+      billingPeriodEnd: quotaStatus.billingPeriodEnd,
+      quotas: quotaStatus.features,
     })
   } catch (error) {
-    console.error('[Credits Balance] Error:', error)
+    console.error('[Quota Status] Error:', error)
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
 
     return NextResponse.json(
       {
-        error: 'Failed to retrieve credit balance',
+        error: 'Failed to retrieve quota status',
         message: errorMessage,
       },
       { status: 500 }

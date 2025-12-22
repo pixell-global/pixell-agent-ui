@@ -93,70 +93,68 @@ export function FileMentionAutocomplete({
 
   const getFileIcon = (node: FileNode) => {
     if (node.type === 'folder') {
-      return <Folder className="h-4 w-4 text-blue-500" />
+      return <Folder className="h-4 w-4 text-blue-400" />
     }
-    
+
     // Different colors based on file type and support status
     const supported = isFileSupported(node.name)
     const ext = node.name.split('.').pop()?.toLowerCase()
-    
-    let colorClass = 'text-gray-500'
+
+    let colorClass = 'text-white/40'
     if (supported) {
       switch (ext) {
         case 'js':
         case 'jsx':
         case 'ts':
         case 'tsx':
-          colorClass = 'text-yellow-500'
+          colorClass = 'text-yellow-400'
           break
         case 'json':
-          colorClass = 'text-green-500'
+          colorClass = 'text-green-400'
           break
         case 'md':
-          colorClass = 'text-blue-500'
+          colorClass = 'text-blue-400'
           break
         case 'py':
-          colorClass = 'text-green-600'
+          colorClass = 'text-green-500'
           break
         case 'xlsx':
         case 'xls':
-          colorClass = 'text-green-700'
+          colorClass = 'text-green-500'
           break
         case 'pdf':
-          colorClass = 'text-red-500'
+          colorClass = 'text-red-400'
           break
         case 'png':
         case 'jpg':
         case 'jpeg':
         case 'gif':
-          colorClass = 'text-purple-500'
+          colorClass = 'text-purple-400'
           break
         default:
-          colorClass = supported ? 'text-green-500' : 'text-gray-400'
+          colorClass = supported ? 'text-green-400' : 'text-white/30'
       }
     }
-    
+
     return <File className={`h-4 w-4 ${colorClass}`} />
   }
 
   return (
     <div
       ref={listRef}
-      className="fixed z-[9999] bg-white border border-gray-200 rounded-lg shadow-xl max-h-64 overflow-y-auto min-w-72"
+      className="fixed z-[9999] bg-pixell-black border border-white/10 rounded-xl shadow-2xl max-h-64 overflow-y-auto min-w-72 backdrop-blur-sm"
       style={{
         top: position.top,
         left: position.left,
-        backgroundColor: 'white',
-        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
       }}
     >
-      <div className="p-2 border-b border-gray-100 bg-gray-50">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
+      <div className="p-2 border-b border-white/10 bg-white/[0.02]">
+        <div className="flex items-center gap-2 text-sm text-white/60">
           <Search className="h-4 w-4" />
           <span>Mention files</span>
         </div>
       </div>
-      
+
       <div className="py-1">
         {filteredFiles.map((file, index) => {
           const supported = isFileSupported(file.name)
@@ -164,8 +162,8 @@ export function FileMentionAutocomplete({
             <button
               key={file.id}
               className={cn(
-                "flex items-center w-full px-3 py-2 text-left hover:bg-gray-50 text-sm transition-colors",
-                index === selectedIndex && "bg-blue-50 border-r-2 border-blue-500",
+                "flex items-center w-full px-3 py-2 text-left hover:bg-white/5 text-sm transition-colors",
+                index === selectedIndex && "bg-blue-500/20 border-r-2 border-blue-400",
                 !supported && "opacity-60"
               )}
               onClick={() => onSelect(file)}
@@ -175,22 +173,22 @@ export function FileMentionAutocomplete({
                 {getFileIcon(file)}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <div className="font-medium text-gray-900 truncate">
+                    <div className="font-medium text-white/90 truncate">
                       {file.name}
                     </div>
                     {supported ? (
-                      <CheckCircle className="h-3 w-3 text-green-500 flex-shrink-0" />
+                      <CheckCircle className="h-3 w-3 text-green-400 flex-shrink-0" />
                     ) : (
-                      <AlertTriangle className="h-3 w-3 text-orange-500 flex-shrink-0" />
+                      <AlertTriangle className="h-3 w-3 text-orange-400 flex-shrink-0" />
                     )}
                   </div>
-                  <div className="text-xs text-gray-500 truncate">
+                  <div className="text-xs text-white/50 truncate">
                     {file.path}
                     {file.size && file.type === 'file' && (
                       <span className="ml-2">• {formatFileSize(file.size)}</span>
                     )}
                     {!supported && (
-                      <span className="ml-2 text-orange-600">• Unsupported type</span>
+                      <span className="ml-2 text-orange-400">• Unsupported type</span>
                     )}
                   </div>
                 </div>
@@ -199,9 +197,9 @@ export function FileMentionAutocomplete({
           )
         })}
       </div>
-      
+
       {filteredFiles.length === 0 && searchTerm && (
-        <div className="p-4 text-center text-gray-500 text-sm">
+        <div className="p-4 text-center text-white/50 text-sm">
           No files found matching &quot;{searchTerm}&quot;
         </div>
       )}

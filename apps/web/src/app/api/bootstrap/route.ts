@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifySessionCookie } from '@pixell/auth-firebase/server'
-import { getDb, users, organizations, organizationMembers } from '@pixell/db-mysql'
+import { getDb, users, organizations, organizationMembers, generateUserStoragePath } from '@pixell/db-mysql'
 import { randomUUID } from 'crypto'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { createSubscription } from '@/lib/billing/subscription-manager'
 
 export async function POST(request: NextRequest) {
@@ -33,6 +33,12 @@ export async function POST(request: NextRequest) {
 
     // Add membership as owner
     await db.insert(organizationMembers).values({ orgId, userId: uid, role: 'owner' })
+
+    // Allocate S3 storage path for user
+    const s3StoragePath = generateUserStoragePath(orgId, uid)
+    await db.update(users)
+      .set({ s3StoragePath })
+      .where(eq(users.id, uid))
 
     // Create free tier subscription with credit balance
     await createSubscription({

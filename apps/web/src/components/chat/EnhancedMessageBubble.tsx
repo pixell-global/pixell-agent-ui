@@ -6,7 +6,10 @@ import { ChatMessage } from '@/types'
 import { HybridStreamingRenderer } from '@pixell/renderer'
 import { ThinkingIndicator } from './ThinkingIndicator'
 import { FileAttachmentPreview } from './FileAttachmentPreview'
+import { MemoryUsedSection } from './MemoryUsedSection'
+import { FileOutputCard } from './FileOutputCard'
 import { useChatStore } from '@/stores/chat-store'
+import { useTabStore } from '@/stores/tab-store'
 
 interface EnhancedMessageBubbleProps {
   message: ChatMessage
@@ -14,19 +17,30 @@ interface EnhancedMessageBubbleProps {
   className?: string
 }
 
-export function EnhancedMessageBubble({ 
-  message, 
+export function EnhancedMessageBubble({
+  message,
   isStreaming = false,
-  className = '' 
+  className = ''
 }: EnhancedMessageBubbleProps) {
   const [copied, setCopied] = React.useState(false)
-  
-  // Don't render empty messages at all
-  if (!message.content.trim()) {
+  const openViewerTab = useTabStore(state => state.openViewerTab)
+
+  // Don't render empty messages at all, unless they have thinking steps or file outputs (for streaming progress)
+  const hasThinkingSteps = message.thinkingSteps && message.thinkingSteps.length > 0
+  const hasOutputs = message.outputs && message.outputs.length > 0
+  if (!message.content.trim() && !hasThinkingSteps && !hasOutputs && !isStreaming) {
     return null;
   }
-  
+
   // const settings = useChatStore(state => state.settings) // Unused for now
+
+  // Handle opening file in viewer tab
+  const handleOpenFile = (path: string) => {
+    const fileName = path.split('/').pop() || 'file'
+    if (openViewerTab) {
+      openViewerTab({ path, title: fileName })
+    }
+  }
 
   const copyToClipboard = async () => {
     try {
@@ -68,11 +82,11 @@ export function EnhancedMessageBubble({
   const isAlert = message.messageType === 'alert'
 
   return (
-    <div className={`group w-full text-gray-800 ${isUser ? 'bg-gray-50' : 'bg-white'} ${className}`}>
+    <div className={`group w-full text-white/90 ${isUser ? 'bg-white/[0.02]' : 'bg-transparent'} ${className}`}>
       <div className="flex gap-4 mx-auto p-4">
         {/* Avatar */}
-        <div className={`flex-shrink-0 w-8 h-8 rounded-sm flex items-center justify-center ${
-          isUser ? 'bg-green-500' : isAlert ? 'bg-red-500' : 'bg-blue-500'
+        <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
+          isUser ? 'bg-pixell-yellow/20 border border-pixell-yellow/30' : isAlert ? 'bg-red-500/20 border border-red-500/30' : 'bg-blue-500/20 border border-blue-500/30'
         }`}>
           {getMessageIcon()}
         </div>
@@ -83,11 +97,11 @@ export function EnhancedMessageBubble({
           {!isUser && (
             <button
               onClick={copyToClipboard}
-              className="absolute top-0 right-0 p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
+              className="absolute top-0 right-0 p-1.5 rounded-md text-white/40 hover:text-white/80 hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
               title="Copy message"
             >
               {copied ? (
-                <Check size={16} className="text-green-500" />
+                <Check size={16} className="text-green-400" />
               ) : (
                 <Copy size={16} />
               )}
@@ -95,15 +109,15 @@ export function EnhancedMessageBubble({
           )}
 
           {/* Message Header - Only show for system messages or when there are attachments */}
-          {(message.messageType && message.messageType !== 'text') || 
-           (message.attachments && message.attachments.length > 0) || 
+          {(message.messageType && message.messageType !== 'text') ||
+           (message.attachments && message.attachments.length > 0) ||
            (message.fileReferences && message.fileReferences.length > 0) ? (
-            <div className="flex items-center gap-2 text-sm text-gray-600">
+            <div className="flex items-center gap-2 text-sm text-white/60">
               {getMessageTypeIcon()}
               {message.messageType === 'alert' && <span>System Alert</span>}
               {message.messageType === 'file_context' && <span>File Context</span>}
               {message.messageType === 'code' && <span>Code</span>}
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-white/40">
                 {new Date(message.createdAt).toLocaleTimeString()}
               </span>
             </div>
@@ -131,33 +145,14 @@ export function EnhancedMessageBubble({
 
           {/* File Context Display */}
           {message.fileReferences && message.fileReferences.length > 0 && (
-            <div className="mb-3 text-xs text-blue-600 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded">
+            <div className="mb-3 text-xs text-blue-400 flex items-center gap-1 bg-blue-500/20 border border-blue-500/30 px-2 py-1 rounded-lg">
               <Paperclip size={12} />
               {message.fileReferences.length} file(s) referenced
             </div>
           )}
 
           {/* Message Content with Enhanced Renderer */}
-          <div className="max-w-none overflow-x-auto message-content-scroll" style={{
-            scrollbarWidth: 'thin',
-            scrollbarColor: '#CBD5E1 #F1F5F9'
-          }}>
-            <style>{`
-              .message-content-scroll::-webkit-scrollbar {
-                height: 6px;
-              }
-              .message-content-scroll::-webkit-scrollbar-track {
-                background: #f1f5f9;
-                border-radius: 3px;
-              }
-              .message-content-scroll::-webkit-scrollbar-thumb {
-                background: #cbd5e1;
-                border-radius: 3px;
-              }
-              .message-content-scroll::-webkit-scrollbar-thumb:hover {
-                background: #94a3b8;
-              }
-            `}</style>
+          <div className="max-w-none overflow-x-auto custom-scrollbar">
             <HybridStreamingRenderer
               content={message.content}
               isStreaming={isStreaming}
@@ -166,11 +161,24 @@ export function EnhancedMessageBubble({
             />
           </div>
 
+          {/* File Outputs (agent-generated reports, exports, etc.) */}
+          {!isUser && message.outputs && message.outputs.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {message.outputs.map((output, index) => (
+                <FileOutputCard
+                  key={`${output.path}-${index}`}
+                  output={output}
+                  onOpen={handleOpenFile}
+                />
+              ))}
+            </div>
+          )}
+
           {/* Message Metadata */}
           {message.metadata && (
-            <div className="mt-2 text-xs text-gray-500 flex items-center gap-2">
+            <div className="mt-2 text-xs text-white/40 flex items-center gap-2">
               {message.taskId && (
-                <span className="bg-gray-100 px-2 py-1 rounded-full">
+                <span className="bg-white/10 border border-white/10 px-2 py-1 rounded-full">
                   Task: {message.taskId.slice(0, 8)}
                 </span>
               )}
@@ -180,6 +188,11 @@ export function EnhancedMessageBubble({
                 </span>
               )}
             </div>
+          )}
+
+          {/* Memory Used Section - Only for assistant messages */}
+          {!isUser && message.memoriesUsed && message.memoriesUsed.length > 0 && (
+            <MemoryUsedSection memoriesUsed={message.memoriesUsed} />
           )}
         </div>
       </div>

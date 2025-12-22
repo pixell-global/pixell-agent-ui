@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { StorageManager, LocalAdapter } from '../../../lib/storage'
+import { getUserScopedStorage } from '@/lib/user-storage'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,14 +9,29 @@ export async function GET(request: NextRequest) {
     const path = searchParams.get('path') || '/'
     const action = searchParams.get('action') || 'list'
 
-    // Initialize storage manager with local adapter for demo
-    const storage = new StorageManager()
-    await storage.initialize({
-      adapter: new LocalAdapter(),
-      config: {
-        rootPath: process.cwd() + '/workspace-files'
+    // Get user-scoped storage (authenticated only)
+    const userContext = await getUserScopedStorage(request)
+
+    // For unauthenticated users, return appropriate responses
+    if (!userContext) {
+      switch (action) {
+        case 'list':
+          return NextResponse.json({ files: [] })
+        case 'status':
+          return NextResponse.json({
+            status: {
+              provider: 'none',
+              configured: false,
+              healthy: false,
+              message: 'Please sign in to access file storage'
+            }
+          })
+        default:
+          return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
       }
-    })
+    }
+
+    const storage = userContext.storage
 
     switch (action) {
       case 'list':
@@ -70,14 +85,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
-    // Initialize storage manager
-    const storage = new StorageManager()
-    await storage.initialize({
-      adapter: new LocalAdapter(),
-      config: {
-        rootPath: process.cwd() + '/workspace-files'
-      }
-    })
+    // Get user-scoped storage (authenticated only)
+    const userContext = await getUserScopedStorage(request)
+
+    if (!userContext) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    const storage = userContext.storage
 
     switch (action) {
       case 'upload':
@@ -123,16 +138,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'File path required' }, { status: 400 })
     }
 
-    // Initialize storage manager
-    const storage = new StorageManager()
-    await storage.initialize({
-      adapter: new LocalAdapter(),
-      config: {
-        rootPath: process.cwd() + '/workspace-files'
-      }
-    })
-    
-    await storage.deleteFile(path)
+    // Get user-scoped storage (authenticated only)
+    const userContext = await getUserScopedStorage(request)
+
+    if (!userContext) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    await userContext.storage.deleteFile(path)
 
     return NextResponse.json({ success: true })
 

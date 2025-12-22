@@ -61,21 +61,21 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
         return (
           <ResponsiveContainer width="100%" height={height}>
             <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis 
-                dataKey={spec.encoding?.x?.field} 
-                tick={{ fontSize: 12 }}
-                axisLine={{ stroke: '#6b7280' }}
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+              <XAxis
+                dataKey={spec.encoding?.x?.field}
+                tick={{ fontSize: 12, fill: 'rgba(255,255,255,0.7)' }}
+                axisLine={{ stroke: 'rgba(255,255,255,0.3)' }}
               />
-              <YAxis 
-                tick={{ fontSize: 12 }}
-                axisLine={{ stroke: '#6b7280' }}
+              <YAxis
+                tick={{ fontSize: 12, fill: 'rgba(255,255,255,0.7)' }}
+                axisLine={{ stroke: 'rgba(255,255,255,0.3)' }}
               />
-              <Tooltip />
-              <Legend />
-              <Bar 
-                dataKey={spec.encoding?.y?.field} 
-                fill={spec.encoding?.color?.value || '#3b82f6'} 
+              <Tooltip contentStyle={{ backgroundColor: '#272323', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
+              <Legend wrapperStyle={{ color: 'rgba(255,255,255,0.9)' }} />
+              <Bar
+                dataKey={spec.encoding?.y?.field}
+                fill={spec.encoding?.color?.value || '#DCFB24'}
               />
             </BarChart>
           </ResponsiveContainer>
@@ -85,24 +85,24 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
         return (
           <ResponsiveContainer width="100%" height={height}>
             <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis 
-                dataKey={spec.encoding?.x?.field} 
-                tick={{ fontSize: 12 }}
-                axisLine={{ stroke: '#6b7280' }}
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+              <XAxis
+                dataKey={spec.encoding?.x?.field}
+                tick={{ fontSize: 12, fill: 'rgba(255,255,255,0.7)' }}
+                axisLine={{ stroke: 'rgba(255,255,255,0.3)' }}
               />
-              <YAxis 
-                tick={{ fontSize: 12 }}
-                axisLine={{ stroke: '#6b7280' }}
+              <YAxis
+                tick={{ fontSize: 12, fill: 'rgba(255,255,255,0.7)' }}
+                axisLine={{ stroke: 'rgba(255,255,255,0.3)' }}
               />
-              <Tooltip />
-              <Legend />
-              <Line 
-                type="monotone" 
-                dataKey={spec.encoding?.y?.field} 
-                stroke={spec.encoding?.color?.value || '#3b82f6'}
+              <Tooltip contentStyle={{ backgroundColor: '#272323', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
+              <Legend wrapperStyle={{ color: 'rgba(255,255,255,0.9)' }} />
+              <Line
+                type="monotone"
+                dataKey={spec.encoding?.y?.field}
+                stroke={spec.encoding?.color?.value || '#DCFB24'}
                 strokeWidth={2}
-                dot={{ r: 4 }}
+                dot={{ r: 4, fill: '#DCFB24' }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -113,22 +113,22 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
         return (
           <ResponsiveContainer width="100%" height={height}>
             <ScatterChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis 
-                dataKey={spec.encoding?.x?.field} 
-                tick={{ fontSize: 12 }}
-                axisLine={{ stroke: '#6b7280' }}
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+              <XAxis
+                dataKey={spec.encoding?.x?.field}
+                tick={{ fontSize: 12, fill: 'rgba(255,255,255,0.7)' }}
+                axisLine={{ stroke: 'rgba(255,255,255,0.3)' }}
               />
-              <YAxis 
+              <YAxis
                 dataKey={spec.encoding?.y?.field}
-                tick={{ fontSize: 12 }}
-                axisLine={{ stroke: '#6b7280' }}
+                tick={{ fontSize: 12, fill: 'rgba(255,255,255,0.7)' }}
+                axisLine={{ stroke: 'rgba(255,255,255,0.3)' }}
               />
-              <Tooltip />
-              <Legend />
-              <Scatter 
-                dataKey={spec.encoding?.y?.field} 
-                fill={spec.encoding?.color?.value || '#3b82f6'} 
+              <Tooltip contentStyle={{ backgroundColor: '#272323', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
+              <Legend wrapperStyle={{ color: 'rgba(255,255,255,0.9)' }} />
+              <Scatter
+                dataKey={spec.encoding?.y?.field}
+                fill={spec.encoding?.color?.value || '#DCFB24'}
               />
             </ScatterChart>
           </ResponsiveContainer>
@@ -150,15 +150,15 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip />
-              <Legend />
+              <Tooltip contentStyle={{ backgroundColor: '#272323', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
+              <Legend wrapperStyle={{ color: 'rgba(255,255,255,0.9)' }} />
             </PieChart>
           </ResponsiveContainer>
         );
 
       default:
         return (
-          <div className="flex items-center justify-center h-32 text-gray-500">
+          <div className="flex items-center justify-center h-32 text-white/50">
             Unsupported chart type: {type}
           </div>
         );
@@ -167,9 +167,9 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({
 
   return (
     <div className={`my-4 ${className}`}>
-      <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+      <div className="bg-white/5 border border-white/10 rounded-lg p-4">
         {chartConfig.title && (
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
+          <h3 className="text-lg font-semibold text-white/90 mb-4 text-center">
             {chartConfig.title}
           </h3>
         )}

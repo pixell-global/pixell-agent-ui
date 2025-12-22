@@ -6,7 +6,7 @@ function Skeleton({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("animate-pulse rounded-md bg-muted", className)}
+      className={cn("animate-pulse rounded-md bg-white/10", className)}
       {...props}
     />
   )
@@ -15,19 +15,19 @@ function Skeleton({
 // Pre-built skeleton components for common UI patterns
 export function SkeletonSelect({ className }: { className?: string }) {
   return (
-    <div className={cn("w-56 h-10 rounded-md border bg-muted animate-pulse", className)} />
+    <div className={cn("w-56 h-10 rounded-md border border-white/10 bg-white/5 animate-pulse", className)} />
   )
 }
 
 export function SkeletonButton({ className }: { className?: string }) {
   return (
-    <div className={cn("h-10 w-20 rounded-md bg-muted animate-pulse", className)} />
+    <div className={cn("h-10 w-20 rounded-md bg-white/10 animate-pulse", className)} />
   )
 }
 
 export function SkeletonCard({ className }: { className?: string }) {
   return (
-    <div className={cn("rounded-lg border bg-card p-6", className)}>
+    <div className={cn("rounded-xl border border-white/10 bg-white/[0.02] p-6", className)}>
       <div className="space-y-2">
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-4 w-1/2" />
@@ -74,12 +74,12 @@ export function SkeletonText({ lines = 1, className }: { lines?: number; classNa
   return (
     <div className={cn("space-y-2", className)}>
       {Array.from({ length: lines }).map((_, i) => (
-        <Skeleton 
-          key={i} 
+        <Skeleton
+          key={i}
           className={cn(
-            "h-4", 
+            "h-4",
             i === lines - 1 ? "w-3/4" : "w-full"
-          )} 
+          )}
         />
       ))}
     </div>

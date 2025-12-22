@@ -13,6 +13,7 @@ const MarkdownWrapper: RendererComponent = ({ block, isStreaming }) => {
     <MarkdownRenderer
       content={block.payload.content}
       isStreaming={isStreaming && !block.complete}
+      enableMath={false}
     />
   );
 };
@@ -43,25 +44,27 @@ const TableWrapper: RendererComponent = ({ block, isStreaming }) => {
 };
 
 const MathWrapper: RendererComponent = ({ block, isStreaming }) => {
-  const content = block.payload.displayMode 
+  const content = block.payload.displayMode
     ? `$$${block.payload.content}$$`
     : `$${block.payload.content}$`;
-  
+
   return (
     <MarkdownRenderer
       content={content}
       isStreaming={isStreaming && !block.complete}
+      enableMath={true}
     />
   );
 };
 
 const TextWrapper: RendererComponent = ({ block, isStreaming }) => {
   const content = typeof block.payload === 'string' ? block.payload : block.payload.content;
-  
+
   return (
     <MarkdownRenderer
       content={content}
       isStreaming={isStreaming && !block.complete}
+      enableMath={false}
     />
   );
 };

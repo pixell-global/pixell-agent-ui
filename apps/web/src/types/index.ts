@@ -13,6 +13,14 @@ export interface FileNode {
   uploadProgress?: number
 }
 
+export interface MemoryReference {
+  id: string
+  key: string
+  value: string
+  category: 'user_preference' | 'project_context' | 'domain_knowledge' | 'conversation_goal' | 'entity'
+  agentId?: string | null
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
@@ -25,6 +33,8 @@ export interface ChatMessage {
   fileReferences?: FileReference[]
   attachments?: FileAttachment[]
   mentions?: FileMention[]
+  memoriesUsed?: MemoryReference[]
+  outputs?: FileOutput[] // Agent-generated files (reports, exports, etc.)
   metadata?: Record<string, any>
   createdAt: string
   updatedAt?: string
@@ -37,6 +47,16 @@ export interface ThinkingStep {
   timestamp: string
   importance: 'low' | 'medium' | 'high'
   score?: number // Optional numerical score (e.g., evaluation score)
+  step?: string // Step type identifier (e.g., 'planning_start', 'search_progress')
+  metadata?: {
+    query?: string
+    subreddit?: string
+    subreddits?: string[]
+    keyword?: string
+    progress?: number
+    total?: number
+    [key: string]: unknown
+  }
 }
 
 export interface FileReference {
@@ -78,8 +98,22 @@ export interface FileMention {
   lastModified?: string    // File last modified timestamp
 }
 
+// File output from agent (generated reports, data exports, etc.)
+export interface FileOutput {
+  type: 'report' | 'data' | 'export' | 'artifact'
+  path: string
+  name: string
+  format: 'html' | 'csv' | 'json' | 'txt' | 'pdf' | 'xlsx'
+  size?: number
+  summary?: string
+  createdAt?: string
+}
+
 export interface StreamingResponse {
-  type: 'thinking' | 'content' | 'complete' | 'error'
+  type: 'thinking' | 'content' | 'complete' | 'error' | 'clarification_needed' | 'search_plan' | 'progress' | 'file_created'
+  step?: string // For progress events: step type identifier
+  message?: string // For progress events: status message
+  metadata?: Record<string, unknown> // For progress events: additional data
   delta?: {
     content?: string
     role?: string
@@ -93,6 +127,24 @@ export interface StreamingResponse {
   }
   error?: string
   accumulated?: string
+  clarification?: {
+    question: string
+    options?: Array<{ id: string; label: string; description?: string }>
+    allowCustom?: boolean
+    context?: string
+  }
+  plan?: {
+    id: string
+    title: string
+    description?: string
+    steps?: Array<{ id: string; title: string; description?: string }>
+  }
+  // File created event data
+  path?: string
+  name?: string
+  format?: string
+  size?: number
+  summary?: string
 }
 
 export interface ChatUISettings {
@@ -164,4 +216,27 @@ export interface ChatSession {
   updatedAt: string
   participants: string[]
   tags: string[]
+}
+
+// Activity Output types for task-generated files
+export type ActivityOutputType = 'csv' | 'excel' | 'pdf' | 'json' | 'text' | 'image' | 'other'
+
+export interface ActivityOutput {
+  id: string
+  activityId: string
+  name: string
+  type: ActivityOutputType
+  size: number
+  sizeFormatted: string
+  mimeType?: string
+  storagePath: string
+  storageProvider?: 'supabase' | 'local' | 's3'
+  downloadUrl?: string
+  previewUrl?: string
+  createdAt: string
+  metadata?: {
+    rowCount?: number      // For CSV/Excel
+    pageCount?: number     // For PDF
+    dimensions?: string    // For images
+  }
 } 

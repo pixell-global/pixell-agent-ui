@@ -14,7 +14,7 @@ import { EnhancedTableWrapper } from './EnhancedTableWrapper';
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   content,
   isStreaming = false,
-  enableMath = true,
+  enableMath = false,
   enableCodeHighlight = true,
   securityLevel = 'safe',
   className = ''
@@ -70,8 +70,8 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       
       // Inline code with copy capability
       return (
-        <code 
-          className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm font-mono cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" 
+        <code
+          className="bg-white/10 px-1.5 py-0.5 rounded text-sm font-mono cursor-pointer hover:bg-white/20 transition-colors text-pixell-yellow/90"
           onClick={() => navigator.clipboard?.writeText(String(children))}
           title="Click to copy"
           {...props}
@@ -153,107 +153,139 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         return <div className="my-2" {...props}>{children}</div>;
       }
 
-      // Normal paragraph
+      // Normal paragraph - using high contrast white for dark theme
       return (
-        <p className="text-gray-700 leading-relaxed my-2" {...props}>
+        <p className="text-white/90 leading-relaxed my-2" {...props}>
           {children}
         </p>
       );
     },
     
-    // Enhanced table styling with scroll and CSV download
+    // Enhanced table styling with scroll and CSV download - dark theme
     table: ({ children, ...props }: any) => (
       <EnhancedTableWrapper className="my-4">
-        <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg" {...props}>
+        <table className="min-w-full divide-y divide-white/10 border border-white/10 rounded-lg" {...props}>
           {children}
         </table>
       </EnhancedTableWrapper>
     ),
-    
+
     thead: ({ children, ...props }: any) => (
-      <thead className="bg-gray-50" {...props}>
+      <thead className="bg-white/5" {...props}>
         {children}
       </thead>
     ),
-    
+
     th: ({ children, ...props }: any) => (
-      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" {...props}>
+      <th className="px-6 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider" {...props}>
         {children}
       </th>
     ),
-    
+
     tbody: ({ children, ...props }: any) => (
-      <tbody className="bg-white divide-y divide-gray-200" {...props}>
+      <tbody className="bg-transparent divide-y divide-white/10" {...props}>
         {children}
       </tbody>
     ),
-    
+
     tr: ({ children, ...props }: any) => (
-      <tr className="hover:bg-gray-50" {...props}>
+      <tr className="hover:bg-white/5 transition-colors" {...props}>
         {children}
       </tr>
     ),
-    
+
     td: ({ children, ...props }: any) => (
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" {...props}>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-white/90" {...props}>
         {children}
       </td>
     ),
 
 
     
-    // Enhanced list styling
+    // Enhanced list styling - dark theme with accent markers
     ul: ({ children, ...props }: any) => (
-      <ul className="list-disc list-inside space-y-1 my-2" {...props}>
+      <ul className="list-disc list-inside space-y-1.5 my-3 text-white/90 marker:text-pixell-yellow/60" {...props}>
         {children}
       </ul>
     ),
-    
+
     ol: ({ children, ...props }: any) => (
-      <ol className="list-decimal list-inside space-y-1 my-2" {...props}>
+      <ol className="list-decimal list-inside space-y-1.5 my-3 text-white/90 marker:text-pixell-yellow/60" {...props}>
         {children}
       </ol>
     ),
-    
+
     li: ({ children, ...props }: any) => (
-      <li className="text-gray-700" {...props}>
+      <li className="text-white/90 leading-relaxed" {...props}>
         {children}
       </li>
     ),
-    
-    // Enhanced quote styling
+
+    // Enhanced quote styling - dark theme with accent
     blockquote: ({ children, ...props }: any) => (
-      <blockquote className="border-l-4 border-blue-500 pl-4 my-4 italic text-gray-600 bg-blue-50 py-2" {...props}>
+      <blockquote className="border-l-4 border-pixell-yellow/60 pl-4 my-4 italic text-white/70 bg-white/5 py-2 rounded-r-lg" {...props}>
         {children}
       </blockquote>
     ),
-    
-    // Enhanced heading styles
+
+    // Enhanced heading styles - dark theme
     h1: ({ children, ...props }: any) => (
-      <h1 className="text-2xl font-bold text-gray-900 mt-6 mb-4 border-b border-gray-200 pb-2" {...props}>
+      <h1 className="text-2xl font-bold text-white mt-6 mb-4 border-b border-white/10 pb-2" {...props}>
         {children}
       </h1>
     ),
-    
+
     h2: ({ children, ...props }: any) => (
-      <h2 className="text-xl font-semibold text-gray-900 mt-5 mb-3" {...props}>
+      <h2 className="text-xl font-semibold text-white/95 mt-5 mb-3" {...props}>
         {children}
       </h2>
     ),
-    
+
     h3: ({ children, ...props }: any) => (
-      <h3 className="text-lg font-medium text-gray-900 mt-4 mb-2" {...props}>
+      <h3 className="text-lg font-medium text-white/90 mt-4 mb-2" {...props}>
         {children}
       </h3>
+    ),
+
+    // Link styling - PRIMARY FIX for raw URL display
+    a: ({ href, children, ...props }: any) => (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-400 hover:text-blue-300 underline underline-offset-2 decoration-blue-400/50 hover:decoration-blue-300 transition-colors"
+        {...props}
+      >
+        {children}
+      </a>
+    ),
+
+    // Strong/bold text styling
+    strong: ({ children, ...props }: any) => (
+      <strong className="font-semibold text-white" {...props}>
+        {children}
+      </strong>
+    ),
+
+    // Emphasized/italic text styling
+    em: ({ children, ...props }: any) => (
+      <em className="italic text-white/90" {...props}>
+        {children}
+      </em>
+    ),
+
+    // Horizontal rule styling
+    hr: ({ ...props }: any) => (
+      <hr className="border-white/10 my-6" {...props} />
     )
   }), []);
 
   if (!content && !isStreaming) {
-    return <div className={`text-gray-400 italic ${className}`}>No content</div>;
+    return <div className={`text-white/40 italic ${className}`}>No content</div>;
   }
 
   return (
-    <div className={`prose prose-sm max-w-none dark:prose-invert ${className}`}>
+    <div className={`prose prose-sm max-w-none prose-invert ${className}`}>
       <ReactMarkdown
         remarkPlugins={remarkPlugins}
         rehypePlugins={rehypePlugins}
@@ -261,9 +293,9 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       >
         {memoizedContent}
       </ReactMarkdown>
-      
+
       {isStreaming && (
-        <span className="inline-block w-2 h-4 ml-1 bg-blue-500 animate-pulse" />
+        <span className="inline-block w-2 h-4 ml-1 bg-pixell-yellow animate-pulse rounded-sm" />
       )}
     </div>
   );

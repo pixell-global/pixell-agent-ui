@@ -5,31 +5,22 @@ import { CollapsedNavigator } from '@/components/navigator/collapsed-navigator'
 import { CollapsedActivityPane } from '@/components/activity/collapsed-activity-pane'
 import { WorkspaceTabs } from '@/components/workspace/WorkspaceTabs'
 import { WorkspaceContainer } from '@/components/workspace/WorkspaceContainer'
-import { ActivityPane, ActivityPaneRef } from '@/components/activity/activity-pane'
+import { ActivityPane } from '@/components/activity/activity-pane'
 import { useWebSocket } from '@/lib/websocket-manager'
 import { useWorkspaceStore } from '@/stores/workspace-store'
-import { designTokens } from '@/lib/design-tokens'
 import { cn } from '@/lib/utils'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
-import { Button } from '@/components/ui/button'
-import { PanelLeft, Activity } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
-import dynamic from 'next/dynamic'
+import { useEffect, useState } from 'react'
 import { UserMenu } from '@/components/auth/UserMenu'
 
 export function AgentWorkspaceLayout() {
   const {
     leftPanelCollapsed,
     rightPanelCollapsed,
-    toggleLeftPanelCollapsed,
-    toggleRightPanelCollapsed
   } = useUIStore()
 
   const { connect } = useWebSocket()
-  const { isConnected } = useWorkspaceStore()
 
-  // ActivityPane의 ref 생성
-  const activityPaneRef = useRef<ActivityPaneRef>(null as any)
   const [mounted, setMounted] = useState(false)
 
   // Connect to WebSocket on mount
@@ -46,34 +37,13 @@ export function AgentWorkspaceLayout() {
       <header className="h-14 border-b bg-card px-4 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
           <img
-            src="/@Logo_Pixell_Linkedin.png?v=1"
-            alt="Pixell Agent Framework"
-            className="h-10 w-auto"
+            src="/assets/TypeLogo_Pixell_white.svg"
+            alt="Pixell"
+            className="h-7 w-auto"
           />
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleLeftPanelCollapsed}
-            className={cn("h-8 w-8 p-0", !leftPanelCollapsed && "bg-accent")}
-            title="Toggle Navigator Panel"
-          >
-            <PanelLeft className="h-4 w-4" />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleRightPanelCollapsed}
-            className={cn("h-8 w-8 p-0", !rightPanelCollapsed && "bg-accent")}
-            title="Toggle Activity Panel"
-          >
-            <Activity className="h-4 w-4" />
-          </Button>
-
-          <div className="w-px h-6 bg-border mx-2" />
           <UserMenu />
         </div>
       </header>
@@ -102,7 +72,7 @@ export function AgentWorkspaceLayout() {
           >
             <WorkspaceTabs />
             <div className="flex-1 overflow-hidden">
-              <WorkspaceContainer activityPaneRef={activityPaneRef} />
+              <WorkspaceContainer />
             </div>
           </Panel>
 
@@ -120,7 +90,7 @@ export function AgentWorkspaceLayout() {
               <CollapsedActivityPane />
             ) : (
               <div className="h-full overflow-y-auto">
-                <ActivityPane ref={activityPaneRef} />
+                <ActivityPane />
               </div>
             )}
           </Panel>
