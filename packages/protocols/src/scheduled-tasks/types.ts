@@ -145,6 +145,76 @@ export const ContextSnapshotSchema = z.object({
 export type ContextSnapshot = z.infer<typeof ContextSnapshotSchema>
 
 // =============================================================================
+// EXECUTION PLAN
+// =============================================================================
+
+/**
+ * Task type for the execution plan
+ */
+export const ExecutionTaskTypeSchema = z.enum([
+  'research',    // Reddit research task
+  'ideation',    // Idea generation task
+  'monitoring',  // Ongoing monitoring task
+  'custom',      // Agent-specific custom task
+])
+export type ExecutionTaskType = z.infer<typeof ExecutionTaskTypeSchema>
+
+/**
+ * Parameters for the execution plan (varies by task type)
+ */
+export const ExecutionPlanParametersSchema = z.object({
+  // Research-specific
+  subreddits: z.array(z.string()).optional(),
+  keywords: z.array(z.string()).optional(),
+  timeRange: z.enum(['day', 'week', 'month', 'year', 'all']).optional(),
+  minUpvotes: z.number().int().optional(),
+
+  // Generic parameters
+  query: z.string().optional(),
+  filters: z.record(z.any()).optional(),
+  outputFormat: z.string().optional(),
+
+  // Agent-specific config
+  agentConfig: z.record(z.any()).optional(),
+})
+export type ExecutionPlanParameters = z.infer<typeof ExecutionPlanParametersSchema>
+
+/**
+ * Expected output from a scheduled execution
+ */
+export const ExecutionPlanOutputSchema = z.object({
+  type: z.string(),           // 'html', 'csv', 'json', 'summary'
+  name: z.string(),           // "Weekly Report"
+  description: z.string().optional(), // "Summary of top discussions"
+})
+export type ExecutionPlanOutput = z.infer<typeof ExecutionPlanOutputSchema>
+
+/**
+ * Execution plan stores concrete parameters for scheduled task execution.
+ * Created during plan mode so scheduled runs are consistent and predictable.
+ */
+export const ExecutionPlanSchema = z.object({
+  // What type of task
+  taskType: ExecutionTaskTypeSchema,
+
+  // Version for backwards compatibility
+  version: z.number().int().default(1),
+
+  // Concrete parameters (no auto-discovery needed during execution)
+  parameters: ExecutionPlanParametersSchema,
+
+  // What the user will receive
+  expectedOutputs: z.array(ExecutionPlanOutputSchema).optional(),
+
+  // Was this created through plan mode?
+  createdFromPlanMode: z.boolean(),
+
+  // Preserved user answers from plan mode (for audit/debugging)
+  planModeAnswers: z.record(z.any()).optional(),
+})
+export type ExecutionPlan = z.infer<typeof ExecutionPlanSchema>
+
+// =============================================================================
 // INTERVAL SPECIFICATION
 // =============================================================================
 
@@ -206,6 +276,9 @@ export const ScheduleSchema = z.object({
   notificationSettings: NotificationSettingsSchema.optional(),
   contextSnapshot: ContextSnapshotSchema.optional(),
 
+  // Execution plan (concrete parameters for scheduled execution)
+  executionPlan: ExecutionPlanSchema.optional(),
+
   // Limits
   maxExecutions: z.number().int().positive().optional(), // Stop after N executions
   maxConsecutiveFailures: z.number().int().default(3),   // Pause after N consecutive failures
@@ -242,6 +315,10 @@ export const ScheduleProposalSchema = z.object({
   agentId: z.string(),
   agentUrl: z.string().url().optional(),
 
+  // Agent info for display
+  agentName: z.string().optional(),           // "Reddit Agent"
+  agentDescription: z.string().optional(),    // "Reddit community discovery and content analysis"
+
   // Proposed schedule details
   name: z.string().min(1).max(255),
   description: z.string().max(1000).optional(),
@@ -267,6 +344,15 @@ export const ScheduleProposalSchema = z.object({
 
   // Agent's reasoning for the schedule
   rationale: z.string().optional(),
+
+  // What the agent will do when this schedule runs (user-friendly explanation)
+  taskExplanation: z.string().optional(), // "I will search r/SkincareAddiction and r/acne for discussions about acne treatments..."
+
+  // What outputs the user will receive
+  expectedOutputs: z.array(ExecutionPlanOutputSchema).optional(),
+
+  // Concrete execution parameters (from plan mode)
+  executionPlan: ExecutionPlanSchema.optional(),
 
   // Human-readable preview of when it will run
   nextRunsPreview: z.array(z.string().datetime()).max(5).optional(),
@@ -391,6 +477,12 @@ export function createScheduleProposal(
     agentUrl?: string
     message?: string
     nextRunsPreview?: string[]
+    // New fields
+    agentName?: string
+    agentDescription?: string
+    taskExplanation?: string
+    expectedOutputs?: ExecutionPlanOutput[]
+    executionPlan?: ExecutionPlan
   }
 ): ScheduleProposal {
   return {
@@ -398,6 +490,8 @@ export function createScheduleProposal(
     proposalId: crypto.randomUUID(),
     agentId,
     agentUrl: params.agentUrl,
+    agentName: params.agentName,
+    agentDescription: params.agentDescription,
     name: params.name,
     description: params.description,
     prompt: params.prompt,
@@ -408,6 +502,9 @@ export function createScheduleProposal(
     oneTimeAt: params.oneTimeAt,
     timezone: params.timezone ?? 'UTC',
     rationale: params.rationale,
+    taskExplanation: params.taskExplanation,
+    expectedOutputs: params.expectedOutputs,
+    executionPlan: params.executionPlan,
     message: params.message,
     nextRunsPreview: params.nextRunsPreview,
     timeoutMs: 300000,

@@ -32,47 +32,23 @@ export interface AgentCapabilityInfo {
  * These are hardcoded in frontend by agent ID
  */
 export const AGENT_PROMPTS: Record<string, AgentPrompt[]> = {
-  'paf-core': [
+  'tiktok-agent': [
     {
-      id: 'paf-1',
-      icon: FileText,
-      title: 'Analyze Project Structure',
-      description: 'Get insights about your project organization and architecture',
-      promptText: 'Help me analyze the structure of this project and suggest improvements',
-    },
-    {
-      id: 'paf-2',
-      icon: Code,
-      title: 'Code Review',
-      description: 'Review code for best practices and potential issues',
-      promptText: 'Review my code for improvements and potential issues',
-    },
-    {
-      id: 'paf-3',
-      icon: MessageSquare,
-      title: 'Documentation Help',
-      description: 'Generate or improve project documentation',
-      promptText: 'Help me create documentation for this project',
-    },
-  ],
-
-  'tik-agent': [
-    {
-      id: 'tik-1',
+      id: 'tiktok-1',
       icon: Search,
       title: 'Find Influencers',
       description: 'Discover TikTok creators in your niche',
       promptText: 'Find TikTok influencers in the fitness and wellness niche',
     },
     {
-      id: 'tik-2',
+      id: 'tiktok-2',
       icon: Hash,
       title: 'Hashtag Analysis',
       description: 'Analyze trending hashtags and their performance',
       promptText: 'Analyze trending hashtags for beauty and skincare content',
     },
     {
-      id: 'tik-3',
+      id: 'tiktok-3',
       icon: TrendingUp,
       title: 'Content Trends',
       description: 'Discover what content is performing well',
@@ -168,11 +144,7 @@ export function getPromptsForAgent(agentId: string | undefined): AgentPrompt[] {
  * Agent capability descriptions for tooltips
  */
 export const AGENT_CAPABILITIES: Record<string, AgentCapabilityInfo[]> = {
-  'paf-core': [
-    { name: 'streaming', description: 'Real-time response streaming' },
-    { name: 'thinking', description: 'Shows reasoning process' },
-  ],
-  'tik-agent': [
+  'tiktok-agent': [
     { name: 'clarification', description: 'Asks clarifying questions' },
     { name: 'search_plan', description: 'Creates search strategies' },
     { name: 'streaming', description: 'Real-time response streaming' },

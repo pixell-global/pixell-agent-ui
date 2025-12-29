@@ -11,6 +11,14 @@ import { CodeBlock } from './CodeBlock';
 import { BlockRenderer } from './BlockRenderer';
 import { EnhancedTableWrapper } from './EnhancedTableWrapper';
 
+// Wrap @filename patterns with styled spans for highlighting
+const highlightFileMentions = (text: string): string => {
+  // Match @filename patterns (alphanumeric, dots, dashes, underscores)
+  // Don't match inside code blocks or URLs
+  const fileMentionPattern = /(?<![\w\/])@([\w\-\.]+\.\w+)(?![\w])/g;
+  return text.replace(fileMentionPattern, '<span class="file-mention">@$1</span>');
+};
+
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   content,
   isStreaming = false,
@@ -21,16 +29,19 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 }) => {
   // ChatGPT-style content processing with memoization for performance
   const processedContent = useMemo(() => {
+    // First, highlight file mentions (before sanitization)
+    let processed = highlightFileMentions(content);
+
     // Check if content looks like HTML (contains HTML tags)
     const htmlTagRegex = /<[^>]*>/;
-    const isHtmlContent = htmlTagRegex.test(content);
-    
+    const isHtmlContent = htmlTagRegex.test(processed);
+
     if (isHtmlContent) {
       // Only sanitize if it's HTML content
-      return sanitizeContent(content, securityLevel);
+      return sanitizeContent(processed, securityLevel);
     } else {
       // For markdown content, pass through without sanitization
-      return content;
+      return processed;
     }
   }, [content, securityLevel]);
 

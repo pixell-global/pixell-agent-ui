@@ -512,9 +512,47 @@ export const useChatStore = create<ChatState>()(
               case 'file_created':
                 // Agent created a file (report, export, etc.)
                 console.log('📁 Received file_created event:', chunk)
-                const fileMessageIndex = state.messages.findIndex(m => m.id === state.streamingMessageId)
+                console.log('📊 Current state:', {
+                  streamingMessageId: state.streamingMessageId,
+                  totalMessages: state.messages.length,
+                  assistantMessages: state.messages.filter(m => m.role === 'assistant').length
+                })
+
+                // Strategy 1: Try to find message by streamingMessageId
+                let fileMessageIndex = state.messages.findIndex(m => m.id === state.streamingMessageId)
+                console.log(`🔍 Strategy 1 result: fileMessageIndex=${fileMessageIndex}`)
+
+                // Strategy 2: If streamingMessageId is null, find the most recent assistant message
+                if (fileMessageIndex === -1) {
+                  console.log('⚠️ streamingMessageId is null or message not found, finding most recent assistant message')
+                  console.log('📋 All assistant messages:', state.messages
+                    .filter(m => m.role === 'assistant')
+                    .map((m, idx) => ({ index: state.messages.indexOf(m), id: m.id, content: m.content?.substring(0, 50) }))
+                  )
+                  // Find last assistant message (search backwards)
+                  for (let i = state.messages.length - 1; i >= 0; i--) {
+                    if (state.messages[i].role === 'assistant') {
+                      fileMessageIndex = i
+                      console.log(`✅ Strategy 2: Attaching file to most recent assistant message at index ${i}:`, {
+                        id: state.messages[i].id,
+                        content: state.messages[i].content?.substring(0, 50),
+                        hasOutputs: state.messages[i].outputs?.length || 0
+                      })
+                      break
+                    }
+                  }
+                }
+
                 if (fileMessageIndex !== -1) {
                   const message = state.messages[fileMessageIndex]
+
+                  // Check if this file was already added (deduplicate by path)
+                  const alreadyExists = message.outputs?.some(output => output.path === chunk.path)
+                  if (alreadyExists) {
+                    console.log('⚠️ File output already exists, skipping duplicate:', chunk.name)
+                    break
+                  }
+
                   const fileOutput = {
                     type: 'report' as const,
                     path: chunk.path || '',
@@ -524,11 +562,24 @@ export const useChatStore = create<ChatState>()(
                     summary: chunk.summary,
                     createdAt: new Date().toISOString(),
                   }
+
                   state.messages[fileMessageIndex] = {
                     ...message,
                     outputs: [...(message.outputs || []), fileOutput],
                   }
-                  console.log('📁 Added file output to message:', fileOutput)
+
+                  console.log('✅✅✅ File output ATTACHED:', {
+                    fileName: fileOutput.name,
+                    messageId: message.id,
+                    messageIndex: fileMessageIndex,
+                    messageContent: message.content?.substring(0, 80),
+                    outputsCount: (message.outputs?.length || 0) + 1,
+                    fileOutput: fileOutput
+                  })
+                  console.log('🔍 Updated message outputs:', state.messages[fileMessageIndex].outputs)
+                } else {
+                  console.error('❌❌❌ CRITICAL: No assistant message found to attach file output!')
+                  console.error('Current messages:', state.messages.map(m => ({ id: m.id, role: m.role, content: m.content?.substring(0, 30) })))
                 }
                 break
             }

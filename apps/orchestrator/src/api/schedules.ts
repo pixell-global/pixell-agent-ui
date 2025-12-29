@@ -263,6 +263,8 @@ export async function createFromProposalHandler(req: Request, res: Response) {
       retryConfig: scheduleData.retryConfig,
       notificationSettings: scheduleData.notificationSettings,
       contextSnapshot: scheduleData.contextSnapshot,
+      // Include execution plan from plan mode (for consistent scheduled runs)
+      executionPlan: scheduleData.executionPlan,
     })
 
     res.status(201).json({
@@ -510,7 +512,11 @@ export async function resumeScheduleHandler(req: Request, res: Response) {
 
 /**
  * Manually trigger a schedule run
- * POST /api/schedules/:id/run
+ * POST /api/schedules/:id/run?async=true
+ *
+ * Query params:
+ * - async: If true, returns immediately without waiting for execution to complete.
+ *          The execution status can be polled via GET /api/schedules/:id/executions/:executionId
  */
 export async function runScheduleHandler(req: Request, res: Response) {
   try {
@@ -520,6 +526,7 @@ export async function runScheduleHandler(req: Request, res: Response) {
     }
 
     const { id } = req.params
+    const asyncMode = req.query.async === 'true'
     const schedule = await schedulesRepo.getById(id, userId)
 
     if (!schedule) {
@@ -536,12 +543,15 @@ export async function runScheduleHandler(req: Request, res: Response) {
 
     // Trigger execution via scheduler service
     const schedulerService = SchedulerService.getInstance()
-    const execution = await schedulerService.triggerManualRun(schedule)
+    const execution = await schedulerService.triggerManualRun(schedule, { async: asyncMode })
 
     res.json({
       ok: true,
       execution,
-      message: 'Schedule execution triggered',
+      message: asyncMode
+        ? 'Schedule execution started (async). Poll GET /api/schedules/:id/executions/:executionId for status.'
+        : 'Schedule execution triggered',
+      async: asyncMode,
     })
   } catch (error) {
     console.error('Run schedule error:', error)

@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { AuthUser } from './types';
 
-type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'unauthenticated' | 'error';
+export type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'unauthenticated' | 'error';
 
-interface AuthContextType {
+export interface AuthContextType {
   user: AuthUser | null;
   status: AuthStatus;
   signIn: (email: string, password: string) => Promise<void>;

@@ -150,10 +150,94 @@ export class SchedulerService {
 
   /**
    * Trigger a manual run of a schedule
+   * @param schedule The schedule to run
+   * @param options.async If true, returns immediately without waiting for execution to complete
    */
-  async triggerManualRun(schedule: Schedule): Promise<ScheduleExecution> {
-    console.log(`⏰ Manual trigger for schedule: ${schedule.name}`)
+  async triggerManualRun(
+    schedule: Schedule,
+    options: { async?: boolean } = {}
+  ): Promise<ScheduleExecution> {
+    console.log(`⏰ Manual trigger for schedule: ${schedule.name} (async: ${options.async ?? false})`)
+
+    if (options.async) {
+      // Start execution in background and return immediately
+      return this.executeScheduleAsync(schedule)
+    }
+
     return this.executeSchedule(schedule)
+  }
+
+  /**
+   * Execute a schedule asynchronously (returns immediately, runs in background)
+   */
+  private async executeScheduleAsync(schedule: Schedule): Promise<ScheduleExecution> {
+    console.log(`⏰ Starting async execution for: ${schedule.name}`)
+
+    // Get the latest execution number
+    const latestExecution = await this.repo.getLatestExecution(schedule.id)
+    const executionNumber = (latestExecution?.executionNumber || 0) + 1
+
+    // Create execution record
+    const execution = await this.repo.createExecution(
+      schedule.id,
+      schedule.orgId,
+      new Date(),
+      executionNumber
+    )
+
+    // Create activity ID for tracking
+    const activityId = randomUUID()
+
+    // Start execution
+    await this.repo.startExecution(execution.id, activityId)
+
+    // Run in background (don't await)
+    this.runExecutionHandler(schedule, execution, activityId).catch((error) => {
+      console.error(`⏰ Background execution error for ${schedule.id}:`, error)
+    })
+
+    // Return execution record immediately (status will be 'running')
+    const runningExecution = await this.repo.getExecutionById(execution.id)
+    return runningExecution!
+  }
+
+  /**
+   * Run the execution handler (used by async execution)
+   */
+  private async runExecutionHandler(
+    schedule: Schedule,
+    execution: ScheduleExecution,
+    activityId: string
+  ): Promise<void> {
+    try {
+      if (this.executionHandler) {
+        const result = await this.executionHandler({
+          schedule,
+          execution,
+          activityId,
+        })
+
+        if (result.success) {
+          await this.handleExecutionSuccess(schedule, execution, result.summary)
+        } else {
+          await this.handleExecutionFailure(schedule, execution, {
+            code: 'EXECUTION_FAILED',
+            message: result.error || 'Unknown error',
+            retryable: true,
+          })
+        }
+      } else {
+        console.log(`⏰ No execution handler set, marking as succeeded`)
+        await this.handleExecutionSuccess(schedule, execution, 'No handler configured')
+      }
+    } catch (error: any) {
+      console.error(`⏰ Execution error for ${schedule.id}:`, error)
+      await this.handleExecutionFailure(schedule, execution, {
+        code: 'EXECUTION_ERROR',
+        message: error.message || 'Execution failed with exception',
+        retryable: this.isRetryableError(error),
+      })
+    }
   }
 
   /**

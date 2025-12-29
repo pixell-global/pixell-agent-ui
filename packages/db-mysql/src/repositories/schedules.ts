@@ -11,6 +11,7 @@ import {
   ScheduleRetryConfig,
   ScheduleNotificationSettings,
   ScheduleContextSnapshot,
+  ScheduleExecutionPlan,
   ExecutionResultOutput,
 } from '../schema'
 import { BaseRepository } from './base'
@@ -61,6 +62,7 @@ export interface CreateScheduleInput {
   retryConfig?: ScheduleRetryConfig
   notificationSettings?: ScheduleNotificationSettings
   contextSnapshot?: ScheduleContextSnapshot
+  executionPlan?: ScheduleExecutionPlan
   proposalId?: string
   fromProposal?: boolean
   validFrom?: Date
@@ -121,6 +123,7 @@ export class SchedulesRepo extends BaseRepository {
       retryConfig: input.retryConfig || null,
       notificationSettings: input.notificationSettings || null,
       contextSnapshot: input.contextSnapshot || null,
+      executionPlan: input.executionPlan || null,
       threadId,
       proposalId: input.proposalId || null,
       fromProposal: input.fromProposal || false,

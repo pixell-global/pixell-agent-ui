@@ -145,20 +145,41 @@ export function EnhancedMessageBubble({
 
           {/* File Context Display */}
           {message.fileReferences && message.fileReferences.length > 0 && (
-            <div className="mb-3 text-xs text-blue-400 flex items-center gap-1 bg-blue-500/20 border border-blue-500/30 px-2 py-1 rounded-lg">
-              <Paperclip size={12} />
-              {message.fileReferences.length} file(s) referenced
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {message.fileReferences.map((file, index) => (
+                <span
+                  key={file.id || index}
+                  className="inline-flex items-center gap-1 text-xs bg-blue-500/20 border border-blue-500/30 px-2 py-1 rounded-md"
+                >
+                  <Paperclip size={10} className="text-blue-400" />
+                  <span className="text-blue-400 font-medium font-mono">@{file.name}</span>
+                </span>
+              ))}
             </div>
           )}
 
-          {/* Message Content with Enhanced Renderer */}
+          {/* Message Content */}
           <div className="max-w-none overflow-x-auto custom-scrollbar">
-            <HybridStreamingRenderer
-              content={message.content}
-              isStreaming={isStreaming}
-              messageId={message.id}
-              className=""
-            />
+            {isUser ? (
+              // Direct rendering for user messages with @ mention highlighting
+              <div className="text-white/90 whitespace-pre-wrap break-words">
+                {message.content.split(/(@[\w\-\.]+\.\w+)/g).map((part, i) =>
+                  /^@[\w\-\.]+\.\w+$/.test(part) ? (
+                    <span key={i} className="file-mention">{part}</span>
+                  ) : (
+                    <span key={i}>{part}</span>
+                  )
+                )}
+              </div>
+            ) : (
+              // Use renderer for assistant messages (needs markdown, code blocks, etc.)
+              <HybridStreamingRenderer
+                content={message.content}
+                isStreaming={isStreaming}
+                messageId={message.id}
+                className=""
+              />
+            )}
           </div>
 
           {/* File Outputs (agent-generated reports, exports, etc.) */}

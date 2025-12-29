@@ -147,48 +147,59 @@ export function AgentSelector({
           </div>
         )}
 
-        {agents.map((agent) => (
-          <DropdownMenuItem
-            key={agent.id}
-            onClick={() => onSelectAgent(agent)}
-            className="group flex items-start gap-3 py-2 cursor-pointer"
-          >
-            <div className="flex-shrink-0 mt-0.5">
-              {selectedAgent?.id === agent.id ? (
-                <Check size={16} className="text-green-400" />
-              ) : (
-                <Bot size={16} className="text-white/40" />
-              )}
-            </div>
+        {agents.map((agent) => {
+          const isComingSoon = (agent as any).comingSoon === true
+          const isDisabled = isComingSoon
 
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-sm truncate text-white/90">
-                  {agent.name}
-                </span>
-                {isUserDefault(agent.id) && (
-                  <Star size={12} className="text-yellow-400 fill-yellow-400" />
+          return (
+            <DropdownMenuItem
+              key={agent.id}
+              onClick={() => !isDisabled && onSelectAgent(agent)}
+              disabled={isDisabled}
+              className={`group flex items-start gap-3 py-2 ${isDisabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+            >
+              <div className="flex-shrink-0 mt-0.5">
+                {selectedAgent?.id === agent.id ? (
+                  <Check size={16} className="text-green-400" />
+                ) : (
+                  <Bot size={16} className={isDisabled ? "text-white/20" : "text-white/40"} />
                 )}
               </div>
 
-              {agent.description && (
-                <p className="text-xs text-white/50 mt-0.5 line-clamp-2">
-                  {agent.description}
-                </p>
-              )}
-            </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className={`font-medium text-sm truncate ${isDisabled ? 'text-white/40' : 'text-white/90'}`}>
+                    {agent.name}
+                  </span>
+                  {isComingSoon && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                      Coming soon
+                    </span>
+                  )}
+                  {isUserDefault(agent.id) && !isDisabled && (
+                    <Star size={12} className="text-yellow-400 fill-yellow-400" />
+                  )}
+                </div>
 
-            {!isUserDefault(agent.id) && (
-              <button
-                onClick={(e) => handleSetDefault(e, agent.id)}
-                className="flex-shrink-0 p-1 hover:bg-white/10 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                title="Set as default"
-              >
-                <Star size={12} className="text-white/40 hover:text-yellow-400" />
-              </button>
-            )}
-          </DropdownMenuItem>
-        ))}
+                {agent.description && (
+                  <p className={`text-xs mt-0.5 line-clamp-2 ${isDisabled ? 'text-white/30' : 'text-white/50'}`}>
+                    {agent.description}
+                  </p>
+                )}
+              </div>
+
+              {!isUserDefault(agent.id) && !isDisabled && (
+                <button
+                  onClick={(e) => handleSetDefault(e, agent.id)}
+                  className="flex-shrink-0 p-1 hover:bg-white/10 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Set as default"
+                >
+                  <Star size={12} className="text-white/40 hover:text-yellow-400" />
+                </button>
+              )}
+            </DropdownMenuItem>
+          )
+        })}
 
         {!defaultAgentId && (
           <>

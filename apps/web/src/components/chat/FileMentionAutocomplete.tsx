@@ -64,6 +64,7 @@ export function FileMentionAutocomplete({
           break
         case 'Enter':
           e.preventDefault()
+          e.stopImmediatePropagation()  // Prevent other handlers from firing
           if (filteredFiles[selectedIndex]) {
             onSelect(filteredFiles[selectedIndex])
           }

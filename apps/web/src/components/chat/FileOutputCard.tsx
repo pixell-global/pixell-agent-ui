@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { FileText, FileCode, Table, File, Download, ExternalLink, Loader2 } from 'lucide-react'
+import { FileText, FileCode, Table, File, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import type { FileOutput } from '@/types'
@@ -55,7 +55,10 @@ export function FileOutputCard({
     }
   }
 
-  const handleDownload = async () => {
+  const handleDownload = async (e: React.MouseEvent) => {
+    // Stop propagation so clicking download doesn't trigger the card's onClick
+    e.stopPropagation()
+
     if (onDownload) {
       onDownload(output.path)
     } else {
@@ -84,7 +87,10 @@ export function FileOutputCard({
   }
 
   return (
-    <Card className={`bg-white/5 border-white/10 ${className}`}>
+    <Card
+      className={`bg-white/5 border-white/10 cursor-pointer transition-all hover:bg-white/10 hover:border-white/20 ${className}`}
+      onClick={handleOpen}
+    >
       <CardContent className="p-3">
         <div className="flex items-center gap-3">
           {/* File icon */}
@@ -124,22 +130,6 @@ export function FileOutputCard({
 
           {/* Actions */}
           <div className="flex items-center gap-1">
-            {onOpen && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleOpen}
-                disabled={isLoading}
-                className="h-8 px-2 text-white/60 hover:text-white hover:bg-white/10"
-                title="Open in viewer"
-              >
-                {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <ExternalLink className="w-4 h-4" />
-                )}
-              </Button>
-            )}
             <Button
               variant="ghost"
               size="sm"

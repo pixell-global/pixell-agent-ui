@@ -2,8 +2,9 @@
 
 import { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/toast-provider'
 import { Check, Zap, Rocket, Crown, Gift } from 'lucide-react'
 import { SUBSCRIPTION_PLANS, type SubscriptionTier } from '@/lib/billing/stripe-config'
@@ -103,102 +104,115 @@ function BillingContent() {
   const tiers: SubscriptionTier[] = ['free', 'starter', 'pro', 'max']
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50 relative">
+    <div className="min-h-screen p-6">
       {/* Loading Overlay */}
       {loading && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-8 shadow-2xl text-center max-w-md">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-lime-600 mx-auto mb-4"></div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
+          <div className="bg-surface rounded-lg p-8 shadow-2xl text-center max-w-md border border-white/10">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-pixell-yellow mx-auto mb-4"></div>
+            <h3 className="text-xl font-bold text-white mb-2">
               {selectedTier === 'free' ? 'Setting up your free account...' : 'Redirecting to checkout...'}
             </h3>
-            <p className="text-gray-600">
+            <p className="text-white/60">
               {selectedTier === 'free' ? 'Creating your subscription and workspace' : 'Please wait while we prepare your payment'}
             </p>
           </div>
         </div>
       )}
 
-      <div className="w-full max-w-7xl">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Choose your plan</h1>
-          <p className="text-gray-600">Select the perfect plan for your needs</p>
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="text-center">
+          <h1 className="text-3xl font-bold font-poppins text-white">Choose your plan</h1>
+          <p className="text-white/60 mt-2">Select the perfect plan for your needs</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {tiers.map((tier) => {
-            const plan = SUBSCRIPTION_PLANS[tier]
-            const features = getPlanFeatures(tier)
-            const isRecommended = tier === 'pro'
+        {/* Available Plans */}
+        <Card className="glass-card">
+          <CardHeader>
+            <CardTitle className="text-white">Available Plans</CardTitle>
+            <CardDescription className="text-white/50">Compare features and choose the right plan for you</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {tiers.map((tier) => {
+                const plan = SUBSCRIPTION_PLANS[tier]
+                const features = getPlanFeatures(tier)
+                const isRecommended = tier === 'pro'
 
-            return (
-              <Card
-                key={tier}
-                className={`relative shadow-lg transition-all duration-200 hover:shadow-xl flex flex-col h-full ${
-                  isRecommended ? 'border-2 border-lime-500' : ''
-                }`}
-              >
-                {isRecommended && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-lime-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-                      RECOMMENDED
-                    </span>
-                  </div>
-                )}
-
-                <CardHeader className="text-center pb-4 flex-shrink-0">
-                  <div className="flex justify-center mb-4">
-                    <div className={`p-3 rounded-full ${
-                      tier === 'max' ? 'bg-yellow-100 text-yellow-600' :
-                      tier === 'pro' ? 'bg-lime-100 text-lime-600' :
-                      tier === 'starter' ? 'bg-blue-100 text-blue-600' :
-                      'bg-gray-100 text-gray-600'
-                    }`}>
-                      {planIcons[tier]}
-                    </div>
-                  </div>
-                  <CardTitle className="text-2xl font-bold text-gray-900">{plan.name}</CardTitle>
-                  <div className="mt-2">
-                    <div className="flex items-baseline justify-center">
-                      {plan.price === 0 ? (
-                        <span className="text-4xl font-bold text-gray-900">Free</span>
-                      ) : (
-                        <>
-                          <span className="text-4xl font-bold text-gray-900">${plan.price}</span>
-                          <span className="text-gray-600 ml-1">/month</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-gray-600 mt-2 text-sm">{planDescriptions[tier]}</p>
-                </CardHeader>
-
-                <CardContent className="flex flex-col flex-grow">
-                  <ul className="space-y-2 flex-grow">
-                    {features.map((feature, index) => (
-                      <li key={index} className="flex items-start">
-                        <Check className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                        <span className="text-gray-700 text-sm">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <Button
-                    onClick={() => startCheckout(tier)}
-                    disabled={loading}
-                    className={`w-full mt-6 ${
-                      tier === 'max' ? 'bg-yellow-600 hover:bg-yellow-700' :
-                      tier === 'pro' ? 'bg-lime-600 hover:bg-lime-700' :
-                      'bg-gray-900 hover:bg-gray-800'
-                    } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                return (
+                  <div
+                    key={tier}
+                    className={`rounded-xl p-4 transition-all border ${
+                      isRecommended
+                        ? 'border-2 border-pixell-yellow bg-pixell-yellow/5'
+                        : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/20'
+                    }`}
                   >
-                    {loading && selectedTier === tier ? 'Processing…' : `Choose ${plan.name}`}
-                  </Button>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+                    {isRecommended && (
+                      <div className="mb-3 -mt-2">
+                        <Badge className="bg-pixell-yellow text-pixell-black font-medium text-xs">
+                          RECOMMENDED
+                        </Badge>
+                      </div>
+                    )}
+
+                    <div className="space-y-3">
+                      <div className="flex justify-center mb-4">
+                        <div className={`p-3 rounded-full ${
+                          tier === 'max' ? 'bg-yellow-100/10 text-yellow-400' :
+                          tier === 'pro' ? 'bg-pixell-yellow/10 text-pixell-yellow' :
+                          tier === 'starter' ? 'bg-blue-100/10 text-blue-400' :
+                          'bg-gray-100/10 text-gray-400'
+                        }`}>
+                          {planIcons[tier]}
+                        </div>
+                      </div>
+
+                      <div className="text-center">
+                        <div className="font-semibold text-lg text-white">{plan.name}</div>
+                        <div className="text-2xl font-bold mt-1 text-white">
+                          {plan.price === 0 ? 'Free' : `$${plan.price}`}
+                          {plan.price > 0 && <span className="text-sm text-white/50">/mo</span>}
+                        </div>
+                        <p className="text-white/50 mt-2 text-sm">{planDescriptions[tier]}</p>
+                      </div>
+
+                      <div className="text-xs space-y-1 py-4 border-y border-white/10">
+                        <div className="font-medium text-white/70">Monthly Quotas:</div>
+                        <div className="text-white/50">{plan.quotas.research} Research</div>
+                        <div className="text-white/50">{plan.quotas.ideation} Ideation</div>
+                        <div className="text-white/50">{plan.quotas.autoPosting} Auto-posts</div>
+                        <div className="text-white/50">{plan.quotas.monitors} Monitors</div>
+                      </div>
+
+                      <ul className="space-y-2">
+                        {features.slice(4).map((feature, index) => (
+                          <li key={index} className="flex items-start text-xs">
+                            <Check className="w-3 h-3 text-pixell-yellow mr-1.5 mt-0.5 flex-shrink-0" />
+                            <span className="text-white/70">{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      <Button
+                        onClick={() => startCheckout(tier)}
+                        disabled={loading}
+                        className={`w-full ${
+                          tier === 'max' ? 'bg-yellow-600 hover:bg-yellow-700' :
+                          tier === 'pro' ? 'btn-lime' :
+                          'bg-white/10 hover:bg-white/20 text-white border border-white/20'
+                        } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        {loading && selectedTier === tier ? 'Processing…' : `Choose ${plan.name}`}
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
@@ -206,7 +220,7 @@ function BillingContent() {
 
 export default function BillingPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="text-white font-inter">Loading...</div></div>}>
       <BillingContent />
     </Suspense>
   )

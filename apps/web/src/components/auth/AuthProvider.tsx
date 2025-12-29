@@ -69,6 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (auth) { // Check if auth is initialized
       await auth.signOut();
       await fetch('/api/auth/session', { method: 'DELETE' });
+      router.push('/signin');
     }
   };
 

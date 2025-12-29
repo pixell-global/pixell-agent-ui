@@ -90,6 +90,8 @@ export async function POST(request: NextRequest) {
           agentUrl: body.selectedAgent?.url,
           planMode: body.planMode,
           history: body.history,
+          // Include file context for file transfer to agents
+          fileContext: body.fileContext,
           // Include conversationId for memory extraction
           conversationId: body.conversationId,
           selectedAgentId: body.selectedAgent?.id,

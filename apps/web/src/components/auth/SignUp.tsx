@@ -1,16 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from './AuthProvider';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/toast-provider';
 import { Eye, EyeOff } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 
 export const SignUp: React.FC = () => {
-  const { signUp, status } = useAuth();
+  const { signUp, status, user } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { addToast } = useToast();
@@ -18,7 +20,24 @@ export const SignUp: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailCheck, setEmailCheck] = useState<'idle' | 'checking' | 'duplicate' | 'ok'>('idle');
+
+  // Redirect to home if already signed in
+  useEffect(() => {
+    if (status === 'authenticated' && user) {
+      router.replace('/');
+    }
+  }, [status, user, router]);
+
+  // Show loading while checking auth status or redirecting
+  if (status === 'loading' || (status === 'authenticated' && user)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-pixell-black">
+        <div className="text-white/60">Loading...</div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +58,7 @@ export const SignUp: React.FC = () => {
       addToast({ type: 'error', title: 'Weak password', description: 'Use 8+ chars with upper, lower and a number.' });
       return;
     }
+    setIsSubmitting(true);
     try {
       await signUp(email, password, name.trim());
     } catch (err: any) {
@@ -73,6 +93,8 @@ export const SignUp: React.FC = () => {
       }
 
       addToast({ type: 'error', title, description });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -195,9 +217,9 @@ export const SignUp: React.FC = () => {
             <Button
               type="submit"
               className="w-full bg-pixell-yellow text-pixell-black hover:bg-pixell-yellow/90 font-medium"
-              disabled={status === 'loading'}
+              disabled={isSubmitting}
             >
-              {status === 'loading' ? 'Creating account...' : 'Sign up'}
+              {isSubmitting ? 'Creating account...' : 'Sign up'}
             </Button>
           </form>
         </div>
