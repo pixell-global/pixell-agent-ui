@@ -51,18 +51,111 @@ const INTERVAL_UNITS: { value: IntervalUnit; label: string }[] = [
   { value: 'weeks', label: 'Weeks' },
 ]
 
-// Timezone options (simplified list)
-const TIMEZONES = [
-  { value: 'UTC', label: 'UTC' },
-  { value: 'America/New_York', label: 'Eastern Time (US)' },
-  { value: 'America/Chicago', label: 'Central Time (US)' },
-  { value: 'America/Denver', label: 'Mountain Time (US)' },
-  { value: 'America/Los_Angeles', label: 'Pacific Time (US)' },
-  { value: 'Europe/London', label: 'London' },
-  { value: 'Europe/Paris', label: 'Paris' },
-  { value: 'Asia/Tokyo', label: 'Tokyo' },
+// Comprehensive timezone options - exported for use in ScheduleProposalCard
+export const TIMEZONES = [
+  // UTC
+  { value: 'UTC', label: 'UTC (Coordinated Universal Time)' },
+
+  // Americas - North America
+  { value: 'America/New_York', label: 'Eastern Time (US & Canada)' },
+  { value: 'America/Chicago', label: 'Central Time (US & Canada)' },
+  { value: 'America/Denver', label: 'Mountain Time (US & Canada)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (US & Canada)' },
+  { value: 'America/Anchorage', label: 'Alaska' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii' },
+  { value: 'America/Phoenix', label: 'Arizona (no DST)' },
+  { value: 'America/Toronto', label: 'Toronto' },
+  { value: 'America/Vancouver', label: 'Vancouver' },
+  { value: 'America/Edmonton', label: 'Edmonton' },
+  { value: 'America/Winnipeg', label: 'Winnipeg' },
+  { value: 'America/Halifax', label: 'Atlantic Time (Canada)' },
+  { value: 'America/St_Johns', label: 'Newfoundland' },
+
+  // Americas - Mexico & Central America
+  { value: 'America/Mexico_City', label: 'Mexico City' },
+  { value: 'America/Tijuana', label: 'Tijuana' },
+  { value: 'America/Guatemala', label: 'Guatemala' },
+  { value: 'America/Costa_Rica', label: 'Costa Rica' },
+  { value: 'America/Panama', label: 'Panama' },
+
+  // Americas - South America
+  { value: 'America/Bogota', label: 'Bogota' },
+  { value: 'America/Lima', label: 'Lima' },
+  { value: 'America/Santiago', label: 'Santiago' },
+  { value: 'America/Sao_Paulo', label: 'São Paulo' },
+  { value: 'America/Buenos_Aires', label: 'Buenos Aires' },
+  { value: 'America/Caracas', label: 'Caracas' },
+
+  // Europe
+  { value: 'Europe/London', label: 'London (GMT/BST)' },
+  { value: 'Europe/Dublin', label: 'Dublin' },
+  { value: 'Europe/Paris', label: 'Paris (CET)' },
+  { value: 'Europe/Berlin', label: 'Berlin' },
+  { value: 'Europe/Amsterdam', label: 'Amsterdam' },
+  { value: 'Europe/Brussels', label: 'Brussels' },
+  { value: 'Europe/Madrid', label: 'Madrid' },
+  { value: 'Europe/Rome', label: 'Rome' },
+  { value: 'Europe/Zurich', label: 'Zurich' },
+  { value: 'Europe/Vienna', label: 'Vienna' },
+  { value: 'Europe/Stockholm', label: 'Stockholm' },
+  { value: 'Europe/Oslo', label: 'Oslo' },
+  { value: 'Europe/Copenhagen', label: 'Copenhagen' },
+  { value: 'Europe/Helsinki', label: 'Helsinki' },
+  { value: 'Europe/Warsaw', label: 'Warsaw' },
+  { value: 'Europe/Prague', label: 'Prague' },
+  { value: 'Europe/Budapest', label: 'Budapest' },
+  { value: 'Europe/Athens', label: 'Athens' },
+  { value: 'Europe/Bucharest', label: 'Bucharest' },
+  { value: 'Europe/Kiev', label: 'Kyiv' },
+  { value: 'Europe/Moscow', label: 'Moscow' },
+  { value: 'Europe/Istanbul', label: 'Istanbul' },
+
+  // Middle East
+  { value: 'Asia/Dubai', label: 'Dubai' },
+  { value: 'Asia/Riyadh', label: 'Riyadh' },
+  { value: 'Asia/Jerusalem', label: 'Jerusalem' },
+  { value: 'Asia/Tehran', label: 'Tehran' },
+  { value: 'Asia/Kuwait', label: 'Kuwait' },
+  { value: 'Asia/Qatar', label: 'Doha' },
+
+  // Africa
+  { value: 'Africa/Cairo', label: 'Cairo' },
+  { value: 'Africa/Johannesburg', label: 'Johannesburg' },
+  { value: 'Africa/Lagos', label: 'Lagos' },
+  { value: 'Africa/Nairobi', label: 'Nairobi' },
+  { value: 'Africa/Casablanca', label: 'Casablanca' },
+
+  // Asia - South Asia
+  { value: 'Asia/Kolkata', label: 'India (IST)' },
+  { value: 'Asia/Karachi', label: 'Karachi' },
+  { value: 'Asia/Dhaka', label: 'Dhaka' },
+  { value: 'Asia/Colombo', label: 'Colombo' },
+  { value: 'Asia/Kathmandu', label: 'Kathmandu' },
+
+  // Asia - Southeast Asia
+  { value: 'Asia/Bangkok', label: 'Bangkok' },
   { value: 'Asia/Singapore', label: 'Singapore' },
+  { value: 'Asia/Jakarta', label: 'Jakarta' },
+  { value: 'Asia/Manila', label: 'Manila' },
+  { value: 'Asia/Ho_Chi_Minh', label: 'Ho Chi Minh City' },
+  { value: 'Asia/Kuala_Lumpur', label: 'Kuala Lumpur' },
+
+  // Asia - East Asia
+  { value: 'Asia/Hong_Kong', label: 'Hong Kong' },
+  { value: 'Asia/Shanghai', label: 'China (Beijing Time)' },
+  { value: 'Asia/Taipei', label: 'Taipei' },
+  { value: 'Asia/Seoul', label: 'Seoul' },
+  { value: 'Asia/Tokyo', label: 'Tokyo' },
+
+  // Oceania
+  { value: 'Australia/Perth', label: 'Perth' },
+  { value: 'Australia/Adelaide', label: 'Adelaide' },
+  { value: 'Australia/Brisbane', label: 'Brisbane' },
   { value: 'Australia/Sydney', label: 'Sydney' },
+  { value: 'Australia/Melbourne', label: 'Melbourne' },
+  { value: 'Pacific/Auckland', label: 'Auckland' },
+  { value: 'Pacific/Fiji', label: 'Fiji' },
+  { value: 'Pacific/Guam', label: 'Guam' },
 ]
 
 export function SchedulePicker({

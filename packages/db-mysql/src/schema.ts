@@ -1029,6 +1029,31 @@ export type ScheduleContextSnapshot = {
   createdAt: string
 }
 
+// Type for execution plan JSON (stores concrete parameters for scheduled execution)
+export type ScheduleExecutionPlan = {
+  taskType: 'research' | 'ideation' | 'monitoring' | 'custom'
+  version: number
+  parameters: {
+    // Research-specific
+    subreddits?: string[]
+    keywords?: string[]
+    timeRange?: 'day' | 'week' | 'month' | 'year' | 'all'
+    minUpvotes?: number
+    // Generic parameters
+    query?: string
+    filters?: Record<string, unknown>
+    outputFormat?: string
+    agentConfig?: Record<string, unknown>
+  }
+  expectedOutputs?: Array<{
+    type: string
+    name: string
+    description?: string
+  }>
+  createdFromPlanMode: boolean
+  planModeAnswers?: Record<string, unknown>
+}
+
 // Type for execution result outputs JSON
 export type ExecutionResultOutput = {
   type: string    // e.g., 'file', 'text', 'chart'
@@ -1078,6 +1103,9 @@ export const schedules = mysqlTable('schedules', {
 
   // Context snapshot for files
   contextSnapshot: json('context_snapshot').$type<ScheduleContextSnapshot>(),
+
+  // Execution plan (concrete parameters for scheduled execution from plan mode)
+  executionPlan: json('execution_plan').$type<ScheduleExecutionPlan>(),
 
   // Dedicated conversation thread for this schedule
   threadId: char('thread_id', { length: 36 }),

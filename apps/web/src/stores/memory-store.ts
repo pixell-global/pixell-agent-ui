@@ -135,7 +135,7 @@ const API_BASE = '/api/memories'
 async function apiCall<T>(
   endpoint: string,
   options?: RequestInit
-): Promise<{ ok: boolean; data?: T; error?: string }> {
+): Promise<{ ok: boolean; data?: T; error?: string; isAuthError?: boolean }> {
   try {
     const response = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
@@ -148,7 +148,9 @@ async function apiCall<T>(
     const json = await response.json()
 
     if (!response.ok || !json.ok) {
-      return { ok: false, error: json.error || 'Request failed' }
+      // Check if this is an authentication error (401)
+      const isAuthError = response.status === 401 || json.error === 'Authentication required'
+      return { ok: false, error: json.error || 'Request failed', isAuthError }
     }
 
     return { ok: true, data: json }
@@ -207,6 +209,11 @@ export const useMemoryStore = create<MemoryState>()(
                   state.memoriesLoading = false
                 })
               } else {
+                // Redirect to sign-in if not authenticated
+                if (result.isAuthError) {
+                  window.location.href = '/signin'
+                  return
+                }
                 console.error('Failed to fetch memories:', result.error)
                 set((state) => {
                   state.memoriesLoading = false
@@ -234,6 +241,11 @@ export const useMemoryStore = create<MemoryState>()(
                   state.settingsLoading = false
                 })
               } else {
+                // Redirect to sign-in if not authenticated
+                if (result.isAuthError) {
+                  window.location.href = '/signin'
+                  return
+                }
                 console.error('Failed to fetch settings:', result.error)
                 set((state) => {
                   state.settingsLoading = false

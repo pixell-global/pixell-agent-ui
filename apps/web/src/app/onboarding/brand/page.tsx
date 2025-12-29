@@ -45,14 +45,6 @@ function OnboardingBrandContent() {
       <div className="w-full max-w-md">
         <Card className="glass-card shadow-2xl">
           <CardHeader className="text-center pb-6">
-            <div className="mb-4">
-              <pre className="ascii-art">
-{`  ___  _  _  ___  ___  ___  _  _ 
- |_ _|| \| || __|| __|| __|| || |
-  | | | .\` || _| | _| | _| | __ |
- |___||_|\\_||___||___||___||_||_|`}
-              </pre>
-            </div>
             <CardTitle className="text-2xl font-poppins text-primary-text">Create your first brand</CardTitle>
           </CardHeader>
           <CardContent>

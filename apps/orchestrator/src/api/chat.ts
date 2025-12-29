@@ -688,6 +688,11 @@ export async function respondHandler(req: Request, res: Response) {
       // Plan approval response
       planId,
       approved,
+      // Schedule response
+      proposalId,
+      action,  // 'confirm' | 'edit' | 'cancel'
+      modifications,
+      cancelReason,
       // Common fields
       agentUrl,
       sessionId
@@ -697,16 +702,18 @@ export async function respondHandler(req: Request, res: Response) {
     const hasValidClarification = clarificationId && answers
     const hasValidSelection = selectionId && selectedIds
     const hasValidPlanApproval = planId && approved !== undefined
+    const hasValidScheduleResponse = proposalId && action
 
-    if (!hasValidClarification && !hasValidSelection && !hasValidPlanApproval) {
+    if (!hasValidClarification && !hasValidSelection && !hasValidPlanApproval && !hasValidScheduleResponse) {
       return res.status(400).json({
         ok: false,
-        error: 'Invalid response format. Must include clarificationId+answers, selectionId+selectedIds, or planId+approved'
+        error: 'Invalid response format. Must include clarificationId+answers, selectionId+selectedIds, planId+approved, or proposalId+action'
       })
     }
 
     // Determine response type for logging
-    const responseType = hasValidClarification ? 'clarification'
+    const responseType = hasValidScheduleResponse ? 'schedule'
+      : hasValidClarification ? 'clarification'
       : hasValidSelection ? 'selection'
       : 'plan_approval'
 
@@ -715,6 +722,7 @@ export async function respondHandler(req: Request, res: Response) {
       clarificationId: clarificationId || '(n/a)',
       selectionId: selectionId || '(n/a)',
       planId: planId || '(n/a)',
+      proposalId: proposalId || '(n/a)',
       sessionId: sessionId || '(missing)',
       agentUrl: agentUrl || 'paf-core-agent',
     })
@@ -747,7 +755,12 @@ export async function respondHandler(req: Request, res: Response) {
     }
 
     // Build the response payload for pixell-sdk
-    let responsePayload: Record<string, any> = { sessionId: session.sessionId }
+    // Include planMode from session to preserve state across clarification responses
+    let responsePayload: Record<string, any> = {
+      sessionId: session.sessionId,
+      plan_mode_enabled: session.planMode,  // Use snake_case to match agent's expectation
+      planMode: session.planMode  // Keep for backwards compatibility
+    }
 
     if (hasValidClarification) {
       // Transform answers from array [{questionId, value}] to dict {questionId: value}
@@ -766,6 +779,8 @@ export async function respondHandler(req: Request, res: Response) {
       responsePayload = { ...responsePayload, selectionId, selectedIds }
     } else if (hasValidPlanApproval) {
       responsePayload = { ...responsePayload, planId, approved }
+    } else if (hasValidScheduleResponse) {
+      responsePayload = { ...responsePayload, proposalId, action, modifications, cancelReason }
     }
 
     // Set up SSE streaming response
@@ -1066,6 +1081,9 @@ export async function a2aStreamHandler(req: Request, res: Response) {
       agentUrl,
       planMode = false,
       history = [],
+      // File attachments
+      files = [],
+      fileContext = [], // Legacy support
       // Memory system
       incognitoMode = false,
       selectedAgentId,
@@ -1166,11 +1184,43 @@ export async function a2aStreamHandler(req: Request, res: Response) {
       messageWithContext = `${memoryContextString}\n\n---\n\n${message}`
     }
 
+    // Process files for A2A message (similar to PAF handler)
+    // Use new files format if provided, otherwise fall back to legacy fileContext
+    let processedFiles = files
+    if (files.length === 0 && fileContext.length > 0) {
+      // Transform legacy fileContext to new files format for backward compatibility
+      processedFiles = fileContext.map((file: any) => ({
+        file_name: file.name || 'unknown',
+        content: file.content || '',
+        file_type: 'text/plain',
+        file_size: file.content?.length || 0,
+        file_path: file.path
+      }))
+    }
+
+    // Convert files to A2A FilePart format for pixell-sdk
+    const fileParts = processedFiles.map((file: any) => ({
+      file: {
+        name: file.file_name || file.name || 'unknown',
+        mimeType: file.file_type || file.mimeType || 'text/plain',
+        bytes: file.content // Already base64 for binary, UTF-8 for text
+      }
+    }))
+
+    // Build parts array: text message + file attachments
+    const messageParts: Array<{ text: string } | { file: { name: string; mimeType: string; bytes: string } }> = [
+      { text: messageWithContext }
+    ]
+    if (fileParts.length > 0) {
+      messageParts.push(...fileParts)
+    }
+
     console.log('📤 Sending A2A streaming message:', {
       agentUrl,
       message: message.substring(0, 100),
       planMode,
-      memoriesInjected: memoriesUsed.length
+      memoriesInjected: memoriesUsed.length,
+      filesCount: fileParts.length
     })
 
     // Set up SSE headers immediately for streaming
@@ -1200,7 +1250,7 @@ export async function a2aStreamHandler(req: Request, res: Response) {
     console.log('📋 Workflow created:', workflow.workflowId, 'for session:', sessionId)
 
     // Register session with SessionManager for plan mode state tracking
-    sessionManager.registerSession(sessionId, agentUrl)
+    sessionManager.registerSession(sessionId, agentUrl, planMode)
 
     // Send session_created event to frontend so it can track the session
     // Include workflowId for frontend workflow store correlation
@@ -1229,14 +1279,15 @@ export async function a2aStreamHandler(req: Request, res: Response) {
           message: {
             messageId,
             role: 'user',
-            parts: [{ text: messageWithContext }], // Use memory-injected message
+            parts: messageParts, // Text message + file attachments
             metadata: {
               plan_mode_enabled: planMode,
               memoriesUsed: memoriesUsed.length > 0 ? memoriesUsed : undefined
             }
           },
           metadata: {
-            planMode,
+            plan_mode_enabled: planMode,  // Use snake_case to match agent's expectation
+            planMode,  // Keep for backwards compatibility
             history,
             memoriesUsed: memoriesUsed.length > 0 ? memoriesUsed : undefined
           }
@@ -1344,6 +1395,13 @@ export async function a2aStreamHandler(req: Request, res: Response) {
 
                 // Handle file_created event from pixell-sdk
                 // Note: pixell-sdk sends file events via progress_callback as status updates with step='file_created'
+                console.log('🔍 [DEBUG] Checking file_created condition:', {
+                  eventType: event.type,
+                  eventStep: event.step,
+                  hasPath: !!event.path,
+                  hasName: !!event.name,
+                  eventKeys: Object.keys(event)
+                })
                 if (event.type === 'file_created' || event.type === 'file_saved' || event.step === 'file_created' || event.step === 'file_saved') {
                   const userId = req.headers['x-user-id'] as string
                   const orgId = req.headers['x-org-id'] as string
@@ -1456,6 +1514,36 @@ export async function a2aStreamHandler(req: Request, res: Response) {
                   const eventWorkflowId = event.workflowId || workflow.workflowId
                   await workflowStore.error(eventWorkflowId, event.message || 'Task failed')
                   res.write(`data: ${JSON.stringify({ type: 'error', workflowId: eventWorkflowId, error: event.message || 'Task failed' })}\n\n`)
+                  continue
+                }
+
+                // Handle schedule_proposal event from pixell-sdk
+                // pixell-sdk sends: {"state": "input-required", "type": "schedule_proposal", "proposalId": "...", ...}
+                if (event.type === 'schedule_proposal' && event.proposalId) {
+                  const eventWorkflowId = event.workflowId || workflow.workflowId
+                  const eventSessionId = event.sessionId || sessionId
+
+                  const sseData = {
+                    type: 'schedule_proposal',
+                    workflowId: eventWorkflowId,
+                    proposalId: event.proposalId,
+                    name: event.name,
+                    prompt: event.prompt,
+                    scheduleType: event.scheduleType,
+                    cron: event.cron,
+                    interval: event.interval,
+                    oneTimeAt: event.oneTimeAt,
+                    scheduleDisplay: event.scheduleDisplay,
+                    timezone: event.timezone || 'UTC',
+                    description: event.description,
+                    rationale: event.rationale,
+                    nextRunsPreview: event.nextRunsPreview,
+                    agentId: event.agentId || selectedAgentId,
+                    agentUrl,
+                    sessionId: eventSessionId
+                  }
+                  res.write(`data: ${JSON.stringify(sseData)}\n\n`)
+                  console.log('📅 [pixell-sdk] Sending schedule_proposal event:', event.proposalId, 'workflowId:', eventWorkflowId)
                   continue
                 }
               }

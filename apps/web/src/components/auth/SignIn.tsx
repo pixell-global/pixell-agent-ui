@@ -1,25 +1,45 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from './AuthProvider';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/toast-provider';
 import { Eye, EyeOff } from 'lucide-react';
 
 export const SignIn: React.FC = () => {
-  const { signIn, status } = useAuth();
+  const { signIn, status, user } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { addToast } = useToast();
+
+  // Redirect to home if already signed in
+  useEffect(() => {
+    if (status === 'authenticated' && user) {
+      router.replace('/');
+    }
+  }, [status, user, router]);
+
+  // Show loading while checking auth status or redirecting
+  if (status === 'loading' || (status === 'authenticated' && user)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-pixell-black">
+        <div className="text-white/60">Loading...</div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsSubmitting(true);
     try {
       await signIn(email, password);
     } catch (err: any) {
@@ -41,6 +61,8 @@ export const SignIn: React.FC = () => {
         setError(msg);
         addToast({ type: 'error', title: 'Sign-in failed', description: String(err?.message || msg) });
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -115,9 +137,9 @@ export const SignIn: React.FC = () => {
             <Button
               type="submit"
               className="w-full bg-pixell-yellow text-pixell-black hover:bg-pixell-yellow/90 font-medium"
-              disabled={status === 'loading'}
+              disabled={isSubmitting}
             >
-              {status === 'loading' ? 'Signing in...' : 'Sign in'}
+              {isSubmitting ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
         </div>

@@ -125,9 +125,27 @@
     @apply inline-flex items-center justify-center bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-lg p-2;
   }
 
+  /* File mention styling - light blue, bold, modern inline style */
+  .file-mention {
+    @apply text-blue-400 font-semibold;
+    background: rgba(59, 130, 246, 0.1);
+    padding: 0 4px;
+    border-radius: 4px;
+    font-family: var(--font-jetbrains-mono);
+  }
+
   /* Gradient divider */
   .gradient-divider {
     @apply h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent;
+  }
+
+  /* Hide scrollbar but allow scrolling */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
   }
 }
 

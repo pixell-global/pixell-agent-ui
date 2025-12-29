@@ -12,6 +12,7 @@ export interface AgentSession {
   createdAt: Date
   lastActivity: Date
   isActive: boolean
+  planMode?: boolean  // Track plan mode state across conversation
 }
 
 /**
@@ -52,7 +53,7 @@ export class SessionManager {
   /**
    * Register a new session when initial SSE connection is opened
    */
-  registerSession(sessionId: string, agentUrl: string): AgentSession {
+  registerSession(sessionId: string, agentUrl: string, planMode?: boolean): AgentSession {
     const existingSession = this.sessions.get(sessionId)
     if (existingSession) {
       console.log(`📋 Session already exists: ${sessionId}`)
@@ -67,6 +68,7 @@ export class SessionManager {
       createdAt: new Date(),
       lastActivity: new Date(),
       isActive: true,
+      planMode,  // Store plan mode state
     }
 
     this.sessions.set(sessionId, session)
@@ -105,7 +107,7 @@ export class SessionManager {
         'Accept': 'text/event-stream',
       },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(300000), // 5 minute timeout
+      signal: AbortSignal.timeout(180000), // 3 minute timeout
     })
 
     if (!response.ok) {

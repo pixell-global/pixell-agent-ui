@@ -937,11 +937,15 @@ server.listen(port, async () => {
                   schedule_id: schedule.id,
                   execution_id: execution.id,
                   activity_id: activityId,
+                  // Pass execution plan for consistent scheduled runs
+                  execution_plan: schedule.executionPlan,
                 }
               },
               metadata: {
                 scheduled_execution: true,
                 schedule_id: schedule.id,
+                // Pass execution plan for consistent scheduled runs
+                execution_plan: schedule.executionPlan,
               }
             }
           }),

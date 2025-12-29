@@ -159,3 +159,42 @@ export async function getUserStoragePath(userId: string): Promise<string | null>
 
   return result[0]?.s3StoragePath || null
 }
+
+/**
+ * Get a user by email address
+ *
+ * Looks up a user by their email and returns their user ID, org ID, and other details.
+ * Useful for E2E tests that need to authenticate as a specific real user.
+ */
+export async function getUserByEmail(email: string): Promise<TestUser | null> {
+  const db = await getDb()
+
+  const result = await db
+    .select({
+      userId: users.id,
+      email: users.email,
+      orgId: organizationMembers.orgId,
+    })
+    .from(users)
+    .innerJoin(organizationMembers, eq(users.id, organizationMembers.userId))
+    .where(eq(users.email, email))
+    .limit(1)
+
+  if (result.length === 0) {
+    return null
+  }
+
+  // Get org name
+  const orgResult = await db
+    .select({ name: organizations.name })
+    .from(organizations)
+    .where(eq(organizations.id, result[0].orgId))
+    .limit(1)
+
+  return {
+    userId: result[0].userId,
+    orgId: result[0].orgId,
+    email: result[0].email,
+    orgName: orgResult[0]?.name || 'Unknown',
+  }
+}

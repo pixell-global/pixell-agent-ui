@@ -220,15 +220,29 @@ export function ChatWorkspace({ className = '' }: ChatWorkspaceProps) {
       // Process file attachments - combine file references and attachments
       const allFileReferences: FileReference[] = [...fileReferences]
 
+      // Combine file context from navigator selections AND @ mentions
+      const fileContextFromRefs = allFileReferences.map(f => ({
+        path: f.path,
+        name: f.name,
+        content: f.content
+      }))
+
+      // Add file context from @ mentions (these have loaded content)
+      const fileContextFromMentions = mentions
+        .filter(m => m.loadingState === 'loaded' && m.content)
+        .map(m => ({
+          path: m.path,
+          name: m.name,
+          content: m.content
+        }))
+
+      const allFileContext = [...fileContextFromRefs, ...fileContextFromMentions]
+
       // Build request body - include selectedAgent for routing
       const requestBody = {
         message: content,
         history,
-        fileContext: allFileReferences.map(f => ({
-          path: f.path,
-          name: f.name,
-          content: f.content
-        })),
+        fileContext: allFileContext,
         settings: {
           showThinking: settings.showThinking !== 'never',
           enableMarkdown: settings.markdownEnabled,
@@ -495,6 +509,24 @@ export function ChatWorkspace({ className = '' }: ChatWorkspaceProps) {
               setStreamingMessage(null)
               setLoading(false)
               // NOTE: Stream stays open for schedule response
+            } else if (eventData.type === 'file_created') {
+              // Handle file created: agent-generated file output
+              console.log('🎯 [ChatWorkspace] FILE_CREATED event received!')
+              console.log('📁 File data:', {
+                name: eventData.name,
+                path: eventData.path,
+                format: eventData.format,
+                size: eventData.size,
+                summary: eventData.summary
+              })
+              handleStreamingChunk({
+                type: 'file_created',
+                path: eventData.path,
+                name: eventData.name,
+                format: eventData.format,
+                size: eventData.size,
+                summary: eventData.summary,
+              })
             }
           } catch (parseError) {
             console.warn('Failed to parse SSE data:', parseError, jsonData)
@@ -544,38 +576,77 @@ export function ChatWorkspace({ className = '' }: ChatWorkspaceProps) {
   // Handle schedule proposal responses (confirm/cancel)
   const handleScheduleResponse = async (response: ScheduleResponse) => {
     const { removePendingProposal, addSchedule } = useWorkspaceStore.getState()
+    const { activeSessionId, activeAgentUrl } = useChatStore.getState()
 
-    if (response.action === 'confirm') {
-      setLoading(true)
-      try {
-        // Create schedule via orchestrator API
+    setLoading(true)
+
+    try {
+      // Forward response to agent via respond endpoint (so agent knows user's decision)
+      if (activeSessionId) {
         const orchestratorUrl = process.env.NEXT_PUBLIC_ORCHESTRATOR_URL || 'http://localhost:3001'
-        const res = await fetch(`${orchestratorUrl}/api/schedules/from-proposal`, {
+        console.log('📅 Forwarding schedule response to agent:', { proposalId: response.proposalId, action: response.action })
+
+        const respondRes = await fetch(`${orchestratorUrl}/api/chat/respond`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             proposalId: response.proposalId,
-            // Include the full proposal data from pending proposals
-            ...Object.values(pendingScheduleProposals).find(p => p.proposalId === response.proposalId)
+            action: response.action,
+            modifications: response.modifications,
+            cancelReason: response.cancelReason,
+            sessionId: activeSessionId,
+            agentUrl: activeAgentUrl,
           })
         })
 
-        if (res.ok) {
-          const schedule = await res.json()
-          addSchedule(schedule)
-          console.log('✅ Schedule created:', schedule)
-        } else {
-          console.error('Failed to create schedule:', await res.text())
-        }
-      } catch (error) {
-        console.error('Error creating schedule:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
+        // Process streaming response from agent (consume but don't block)
+        if (respondRes.ok && respondRes.body) {
+          const reader = respondRes.body.getReader()
+          const decoder = new TextDecoder()
 
-    // Remove from pending regardless of action
-    removePendingProposal(response.proposalId)
+          // Read response stream in background
+          ;(async () => {
+            try {
+              while (true) {
+                const { done, value } = await reader.read()
+                if (done) break
+                const text = decoder.decode(value, { stream: true })
+                console.log('📅 Schedule response stream:', text)
+              }
+            } catch (e) {
+              console.error('Error reading schedule response stream:', e)
+            }
+          })()
+        }
+      }
+
+      // If confirmed, also create schedule in database
+      if (response.action === 'confirm') {
+        const proposal = Object.values(pendingScheduleProposals).find(p => p.proposalId === response.proposalId)
+        if (proposal) {
+          const orchestratorUrl = process.env.NEXT_PUBLIC_ORCHESTRATOR_URL || 'http://localhost:3001'
+          const scheduleRes = await fetch(`${orchestratorUrl}/api/schedules/from-proposal`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(proposal)
+          })
+
+          if (scheduleRes.ok) {
+            const schedule = await scheduleRes.json()
+            addSchedule(schedule)
+            console.log('✅ Schedule created:', schedule)
+          } else {
+            console.error('Failed to create schedule:', await scheduleRes.text())
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error handling schedule response:', error)
+    } finally {
+      // Remove from pending regardless of action
+      removePendingProposal(response.proposalId)
+      setLoading(false)
+    }
   }
 
   return (

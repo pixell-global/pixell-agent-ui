@@ -14,6 +14,8 @@ export interface AgentConfig {
   capabilities?: string[]
   // Billing feature type for quota tracking
   featureType?: FeatureType
+  // Coming soon flag (disables agent selection)
+  comingSoon?: boolean
   planMode?: {
     supported: boolean
     phases?: string[]

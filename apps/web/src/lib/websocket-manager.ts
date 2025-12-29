@@ -277,6 +277,25 @@ class SimpleWebSocketManager {
             description: `${message.data.name} is ready for download`,
           })
           console.log('📁 File created, triggering Navigator refresh:', message.data.name)
+
+          // CRITICAL FIX: Also add file output to chat message!
+          // The file_created event comes via WebSocket AFTER SSE stream closes,
+          // so we need to handle it here too
+          console.log('📁💬 Adding file output to chat via WebSocket:', message.data)
+
+          // Use dynamic import without await (handled asynchronously)
+          import('@/stores/chat-store').then(({ useChatStore }) => {
+            useChatStore.getState().handleStreamingChunk({
+              type: 'file_created',
+              path: message.data.path,
+              name: message.data.name,
+              format: message.data.format,
+              size: message.data.size,
+              summary: message.data.summary,
+            })
+          }).catch(err => {
+            console.error('Failed to add file output to chat:', err)
+          })
           break
 
         // =========================================================================

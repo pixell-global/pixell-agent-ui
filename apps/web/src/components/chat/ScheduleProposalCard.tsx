@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   Calendar,
   Clock,
@@ -10,11 +10,22 @@ import {
   Loader2,
   Bot,
   Repeat,
-  AlertCircle,
+  ChevronDown,
+  FileText,
+  Sparkles,
+  Globe,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { TIMEZONES } from '@/components/schedule/SchedulePicker'
 import type { ScheduleProposal, ScheduleResponse, ScheduleResponseAction } from '@pixell/protocols'
 
 interface ScheduleProposalCardProps {
@@ -25,6 +36,29 @@ interface ScheduleProposalCardProps {
   className?: string
 }
 
+/**
+ * Detect user's timezone from browser
+ */
+function detectUserTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone
+  } catch {
+    return 'UTC'
+  }
+}
+
+/**
+ * Find the best matching timezone from our list
+ */
+function findMatchingTimezone(detected: string): string {
+  // First try exact match
+  const exact = TIMEZONES.find(tz => tz.value === detected)
+  if (exact) return exact.value
+
+  // Fall back to UTC if no match
+  return detected
+}
+
 export function ScheduleProposalCard({
   proposal,
   onRespond,
@@ -32,7 +66,23 @@ export function ScheduleProposalCard({
   isSubmitting = false,
   className = '',
 }: ScheduleProposalCardProps) {
-  const [showDetails, setShowDetails] = useState(false)
+  // Auto-detect user's timezone on mount
+  const detectedTimezone = useMemo(() => {
+    const detected = detectUserTimezone()
+    return findMatchingTimezone(detected)
+  }, [])
+
+  // Use proposal timezone, falling back to detected timezone
+  const [selectedTimezone, setSelectedTimezone] = useState(
+    proposal.timezone || detectedTimezone
+  )
+
+  // Update if proposal changes
+  useEffect(() => {
+    if (proposal.timezone) {
+      setSelectedTimezone(proposal.timezone)
+    }
+  }, [proposal.timezone])
 
   const handleAction = (action: ScheduleResponseAction, cancelReason?: string) => {
     const response: ScheduleResponse = {
@@ -40,6 +90,10 @@ export function ScheduleProposalCard({
       proposalId: proposal.proposalId,
       action,
       cancelReason,
+      // Include selected timezone in modifications
+      modifications: {
+        timezone: selectedTimezone,
+      },
     }
     onRespond(response)
   }
@@ -80,6 +134,16 @@ export function ScheduleProposalCard({
     }
   }
 
+  // Get timezone label for display
+  const getTimezoneLabel = (value: string) => {
+    const tz = TIMEZONES.find(t => t.value === value)
+    return tz?.label || value
+  }
+
+  // Check if we have execution plan details
+  const hasExecutionPlan = proposal.executionPlan || proposal.taskExplanation
+  const hasExpectedOutputs = proposal.expectedOutputs && proposal.expectedOutputs.length > 0
+
   return (
     <Card
       className={`
@@ -111,151 +175,138 @@ export function ScheduleProposalCard({
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Agent info */}
-        <div className="flex items-center gap-2 text-sm">
-          <Bot size={14} className="text-white/40" />
-          <span className="text-white/60">Agent:</span>
-          <Badge variant="secondary" className="text-xs">
-            {proposal.agentId}
-          </Badge>
+        {/* Agent info - enhanced with name and description */}
+        <div className="flex items-start gap-3 p-3 bg-white/5 rounded-lg">
+          <div className="p-2 bg-purple-500/20 rounded-lg">
+            <Bot size={16} className="text-purple-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-white/90">
+                {proposal.agentName || proposal.agentId}
+              </span>
+            </div>
+            {proposal.agentDescription && (
+              <p className="text-xs text-white/50 mt-1 line-clamp-2">
+                {proposal.agentDescription}
+              </p>
+            )}
+          </div>
         </div>
 
-        {/* Schedule display */}
-        <div className="flex items-center gap-2 bg-purple-500/10 p-3 rounded-lg">
-          {getScheduleTypeIcon()}
-          <span className="text-sm font-medium text-white/90">
-            {proposal.scheduleDisplay}
-          </span>
-          {proposal.timezone && proposal.timezone !== 'UTC' && (
-            <span className="text-xs text-white/50 ml-auto">
-              ({proposal.timezone})
+        {/* Schedule display with inline timezone selector */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 bg-purple-500/10 p-3 rounded-lg">
+            {getScheduleTypeIcon()}
+            <span className="text-sm font-medium text-white/90">
+              {proposal.scheduleDisplay}
             </span>
-          )}
+          </div>
+
+          {/* Inline timezone selector */}
+          <div className="flex items-center gap-2">
+            <Globe size={14} className="text-white/40" />
+            <Select value={selectedTimezone} onValueChange={setSelectedTimezone}>
+              <SelectTrigger className="flex-1 h-8 text-xs bg-white/5 border-white/10 hover:border-white/20">
+                <SelectValue placeholder="Select timezone">
+                  {getTimezoneLabel(selectedTimezone)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                {TIMEZONES.map((tz) => (
+                  <SelectItem key={tz.value} value={tz.value} className="text-xs">
+                    {tz.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        {/* Prompt preview */}
-        <div className="space-y-1">
-          <span className="text-xs text-white/50 uppercase tracking-wide">
-            Task
-          </span>
-          <p className="text-sm text-white/80 bg-white/5 p-3 rounded-lg line-clamp-3">
-            {proposal.prompt}
-          </p>
-        </div>
+        {/* What will happen - from taskExplanation or executionPlan */}
+        {hasExecutionPlan && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Sparkles size={14} className="text-purple-400" />
+              <span className="text-xs text-white/50 uppercase tracking-wide">
+                What will happen
+              </span>
+            </div>
+            <div className="text-sm text-white/80 bg-white/5 p-3 rounded-lg">
+              {proposal.taskExplanation ? (
+                <p>{proposal.taskExplanation}</p>
+              ) : proposal.executionPlan ? (
+                <div className="space-y-2">
+                  {proposal.executionPlan.parameters?.subreddits && (
+                    <p>
+                      <span className="text-white/50">Subreddits: </span>
+                      {proposal.executionPlan.parameters.subreddits.map((s: string) => `r/${s}`).join(', ')}
+                    </p>
+                  )}
+                  {proposal.executionPlan.parameters?.keywords && (
+                    <p>
+                      <span className="text-white/50">Keywords: </span>
+                      {proposal.executionPlan.parameters.keywords.join(', ')}
+                    </p>
+                  )}
+                  {proposal.executionPlan.parameters?.timeRange && (
+                    <p>
+                      <span className="text-white/50">Time range: </span>
+                      Past {proposal.executionPlan.parameters.timeRange}
+                    </p>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        )}
 
-        {/* Rationale (if provided) */}
-        {proposal.rationale && (
+        {/* What you will receive - from expectedOutputs */}
+        {hasExpectedOutputs && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <FileText size={14} className="text-green-400" />
+              <span className="text-xs text-white/50 uppercase tracking-wide">
+                What you will receive
+              </span>
+            </div>
+            <div className="space-y-1">
+              {proposal.expectedOutputs!.map((output, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 text-sm text-white/70 bg-white/5 px-3 py-2 rounded"
+                >
+                  <Badge variant="outline" className="text-xs border-green-500/30 text-green-400">
+                    {output.type}
+                  </Badge>
+                  <span>{output.name}</span>
+                  {output.description && (
+                    <span className="text-white/40 text-xs ml-auto">
+                      {output.description}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Task prompt (collapsed by default if we have execution plan) */}
+        {!hasExecutionPlan && (
           <div className="space-y-1">
             <span className="text-xs text-white/50 uppercase tracking-wide">
-              Why this schedule?
+              Task
             </span>
-            <p className="text-sm text-white/70 italic">
-              "{proposal.rationale}"
+            <p className="text-sm text-white/80 bg-white/5 p-3 rounded-lg line-clamp-3">
+              {proposal.prompt}
             </p>
           </div>
         )}
 
-        {/* Toggle details */}
-        {(proposal.nextRunsPreview || proposal.description) && (
-          <button
-            type="button"
-            onClick={() => setShowDetails(!showDetails)}
-            className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
-          >
-            {showDetails ? 'Hide details' : 'Show details'}
-          </button>
-        )}
-
-        {/* Expanded details */}
-        {showDetails && (
-          <div className="space-y-3 pt-2 border-t border-white/10">
-            {/* Description */}
-            {proposal.description && (
-              <div className="space-y-1">
-                <span className="text-xs text-white/50 uppercase tracking-wide">
-                  Description
-                </span>
-                <p className="text-sm text-white/70">{proposal.description}</p>
-              </div>
-            )}
-
-            {/* Next runs preview */}
-            {proposal.nextRunsPreview && proposal.nextRunsPreview.length > 0 && (
-              <div className="space-y-2">
-                <span className="text-xs text-white/50 uppercase tracking-wide">
-                  Next runs
-                </span>
-                <div className="space-y-1">
-                  {proposal.nextRunsPreview.slice(0, 3).map((run, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-2 text-sm text-white/70"
-                    >
-                      <Clock size={12} className="text-white/40" />
-                      {new Date(run).toLocaleString()}
-                    </div>
-                  ))}
-                  {proposal.nextRunsPreview.length > 3 && (
-                    <p className="text-xs text-white/50">
-                      ...and {proposal.nextRunsPreview.length - 3} more
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Cron expression (for advanced users) */}
-            {proposal.cron && (
-              <div className="space-y-1">
-                <span className="text-xs text-white/50 uppercase tracking-wide">
-                  Cron expression
-                </span>
-                <code className="text-xs text-white/60 bg-white/10 px-2 py-1 rounded font-mono">
-                  {proposal.cron}
-                </code>
-              </div>
-            )}
-
-            {/* Interval details */}
-            {proposal.interval && (
-              <div className="space-y-1">
-                <span className="text-xs text-white/50 uppercase tracking-wide">
-                  Interval
-                </span>
-                <p className="text-sm text-white/70">
-                  Every {proposal.interval.value} {proposal.interval.unit}
-                </p>
-              </div>
-            )}
-
-            {/* Bounds */}
-            {(proposal.startAt || proposal.endAt) && (
-              <div className="space-y-1">
-                <span className="text-xs text-white/50 uppercase tracking-wide">
-                  Date bounds
-                </span>
-                <div className="text-sm text-white/70 space-y-0.5">
-                  {proposal.startAt && (
-                    <p>
-                      Starts: {new Date(proposal.startAt).toLocaleDateString()}
-                    </p>
-                  )}
-                  {proposal.endAt && (
-                    <p>
-                      Ends: {new Date(proposal.endAt).toLocaleDateString()}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Warning about tier limits - optional messaging */}
-        {proposal.message && (
-          <div className="flex items-start gap-2 text-xs text-white/50 bg-white/5 p-2 rounded">
-            <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
-            <span>{proposal.message}</span>
+        {/* Rationale (if provided) */}
+        {proposal.rationale && (
+          <div className="text-sm text-white/60 italic border-l-2 border-purple-500/30 pl-3">
+            {proposal.rationale}
           </div>
         )}
       </CardContent>

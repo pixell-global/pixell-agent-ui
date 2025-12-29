@@ -28,7 +28,20 @@ export function ChatInput({
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const overlayRef = useRef<HTMLDivElement>(null)
   const [message, setMessage] = useState('')
+
+  // Refs for mention selection - fixes cursor position and race condition bugs
+  const pendingCursorPosition = useRef<number | null>(null)
+  const justSelectedMention = useRef(false)
+
+  // Sync overlay scroll with textarea scroll
+  const handleTextareaScroll = () => {
+    if (textareaRef.current && overlayRef.current) {
+      overlayRef.current.scrollTop = textareaRef.current.scrollTop
+      overlayRef.current.scrollLeft = textareaRef.current.scrollLeft
+    }
+  }
   const [mentionAutocomplete, setMentionAutocomplete] = useState<{
     visible: boolean
     searchTerm: string
@@ -76,6 +89,19 @@ export function ChatInput({
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
+    }
+  }, [message])
+
+  // Set cursor position after mention selection (runs after React commits the new message to DOM)
+  useEffect(() => {
+    if (pendingCursorPosition.current !== null && textareaRef.current) {
+      textareaRef.current.setSelectionRange(
+        pendingCursorPosition.current,
+        pendingCursorPosition.current
+      )
+      textareaRef.current.focus()
+      pendingCursorPosition.current = null
+      justSelectedMention.current = false // Clear lock after message is committed
     }
   }, [message])
 
@@ -129,6 +155,12 @@ export function ChatInput({
     const value = e.target.value
     setMessage(value)
 
+    // Clear the mention selection lock when user types anything
+    // This ensures the lock doesn't persist and block future submissions
+    if (justSelectedMention.current) {
+      justSelectedMention.current = false
+    }
+
     // Check for @ mentions
     const cursorPosition = e.target.selectionStart
     const textUpToCursor = value.substring(0, cursorPosition)
@@ -171,17 +203,13 @@ export function ChatInput({
     const mentionText = `@${file.name}`
 
     const newMessage = beforeMention + mentionText + afterMention
+
+    // Store cursor position for the useEffect to use after React commits the new message
+    pendingCursorPosition.current = beforeMention.length + mentionText.length
+    // Set lock to prevent race condition with immediate Enter press
+    justSelectedMention.current = true
+
     setMessage(newMessage)
-
-    // Set cursor position after the mention
-    setTimeout(() => {
-      if (textareaRef.current) {
-        const newCursorPosition = beforeMention.length + mentionText.length
-        textareaRef.current.setSelectionRange(newCursorPosition, newCursorPosition)
-        textareaRef.current.focus()
-      }
-    }, 0)
-
     setMentionAutocomplete(prev => ({ ...prev, visible: false }))
   }
 
@@ -263,14 +291,16 @@ export function ChatInput({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!message.trim() || disabled || isLoading) return
+    // Capture message immediately to prevent race conditions during async operations
+    const messageToSend = message.trim()
+    if (!messageToSend || disabled || isLoading) return
 
     setProcessingMentions(true)
     setMentionErrors([])
 
     try {
-      // Process mentions and load file content
-      const mentionResult = await processMentions(message, fileTree)
+      // Process mentions and load file content (use captured message)
+      const mentionResult = await processMentions(messageToSend, fileTree)
 
       if (mentionResult.errors.length > 0) {
         setMentionErrors(mentionResult.errors)
@@ -280,7 +310,8 @@ export function ChatInput({
       // Upload attachments to .temp folder
       const uploadedAttachments = await uploadAttachmentsToTemp(pendingAttachments)
 
-      onSendMessage(message.trim(), selectedFiles, uploadedAttachments, mentionResult.mentions, planMode, selectedAgent)
+      // Use captured messageToSend to ensure correct value is sent
+      onSendMessage(messageToSend, selectedFiles, uploadedAttachments, mentionResult.mentions, planMode, selectedAgent)
       setMessage('')
       clearFileReferences()
       clearAttachments()
@@ -309,6 +340,12 @@ export function ChatInput({
     // Don't handle Enter during IME composition (Korean, Japanese, Chinese input)
     // This prevents sending partial messages while typing CJK characters
     if (e.nativeEvent.isComposing) {
+      return
+    }
+
+    // Don't handle Enter if we just selected a mention (prevents race condition)
+    // The lock is cleared in the useEffect after React commits the new message
+    if (e.key === 'Enter' && justSelectedMention.current) {
       return
     }
 
@@ -458,15 +495,33 @@ export function ChatInput({
           </button>
 
           <div className="flex-1 relative">
+            {/* Highlighting backdrop for @filename mentions */}
+            <div
+              ref={overlayRef}
+              className="absolute inset-0 pointer-events-none overflow-auto whitespace-pre-wrap break-words text-sm pl-3 pr-10 py-2 scrollbar-hide"
+              aria-hidden="true"
+              style={{ wordBreak: 'break-word', lineHeight: '1.5' }}
+            >
+              {message.split(/(@[\w\-\.]+\.\w+)/g).map((part, i) =>
+                /^@[\w\-\.]+\.\w+$/.test(part) ? (
+                  <span key={i} className="text-blue-400 bg-blue-500/20 rounded">{part}</span>
+                ) : (
+                  <span key={i} className="text-white/90">{part}</span>
+                )
+              )}
+              {!message && <span className="text-white/40">{placeholder}</span>}
+            </div>
             <Textarea
               ref={textareaRef}
               value={message}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder={placeholder}
+              onScroll={handleTextareaScroll}
+              placeholder=""
               disabled={disabled || isLoading}
-              className="min-h-[40px] max-h-32 resize-none pr-10 bg-transparent border-0 focus:ring-0 focus:border-0 text-sm"
+              className="min-h-[40px] max-h-32 resize-none pr-10 bg-transparent border-0 focus:ring-0 focus:border-0 text-sm relative text-transparent selection:bg-blue-500/30 whitespace-pre-wrap"
               rows={1}
+              style={{ caretColor: 'white', lineHeight: '1.5', wordBreak: 'break-word' }}
             />
 
             {/* File Attachment Button */}
